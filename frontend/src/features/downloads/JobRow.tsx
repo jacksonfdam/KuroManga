@@ -21,11 +21,14 @@ const LABEL: Record<string, string> = {
   done: 'Done',
 }
 
+// The bracket form is load-bearing: 12 isn't on Tailwind's opacity scale
+// (0, 5, 10, 15, ...), so a plain `/12` modifier compiles to no rule and the
+// badge renders with no fill at all.
 const TINT: Record<string, string> = {
-  secondary: 'bg-secondary/12 text-secondary',
-  tertiary: 'bg-tertiary/12 text-tertiary',
-  error: 'bg-error/12 text-error',
-  primary: 'bg-primary/12 text-primary',
+  secondary: 'bg-secondary/[0.12] text-secondary',
+  tertiary: 'bg-tertiary/[0.12] text-tertiary',
+  error: 'bg-error/[0.12] text-error',
+  primary: 'bg-primary/[0.12] text-primary',
 }
 
 function JobStateBadge({ state }: { state: string }) {
