@@ -63,9 +63,9 @@ export function ChapterTable({ chapters }: { chapters: SeriesChapter[] }) {
       <table className="w-full min-w-[480px] border-collapse">
         <thead>
           <tr className="border-b border-surface-container-highest/40 text-left font-mono text-label-sm text-outline">
-            <th className="px-space-md py-space-sm font-normal">Chapter</th>
-            <th className="px-space-md py-space-sm font-normal">State</th>
-            <th className="px-space-md py-space-sm font-normal">Local file</th>
+            <th scope="col" className="px-space-md py-space-sm font-normal">Chapter</th>
+            <th scope="col" className="px-space-md py-space-sm font-normal">State</th>
+            <th scope="col" className="px-space-md py-space-sm font-normal">Local file</th>
           </tr>
         </thead>
         <tbody>
