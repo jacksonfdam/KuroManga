@@ -179,7 +179,9 @@ async def test_series_rows_carry_status_and_progress(client):
     row = (await client.get("/api/series")).json()[0]
     assert row["status"] == "reading"
     assert row["progress"] == 164
-    assert row["score"] == 82
+    # AniList's averageScore is 0-100; the API normalises to the ten-point
+    # scale the interface renders, so 82 comes back as 8.2.
+    assert row["score"] == 8.2
     assert row["genres"] == ["Action"]
     assert row["format"] == "MANGA"
 

@@ -2,27 +2,32 @@
 
 AniList nests the media object under "media"; MyAnimeList nests it under
 "node". Genres come back as a flat string list from AniList and as a list of
-{"id", "name"} objects from MyAnimeList. Neither provider's list query
-currently asks for a score or format field, so both are commonly absent; the
-function must not raise when they are.
+{"id", "name"} objects from MyAnimeList. Either field can still be absent for
+older, already-synced rows recorded before the list queries requested them,
+so the function must not raise when they are.
+
+The two providers also score on different scales: AniList's averageScore is
+0-100, MyAnimeList's mean is already 0-10. Both are normalised to one decimal
+on a ten-point scale, so a score is comparable no matter which provider it
+came from.
 """
 
 from app.api.routes_series import _display_fields
 
 
-def test_anilist_shape_reads_the_flat_genre_list():
+def test_anilist_shape_converts_the_hundred_point_score():
     raw = {
         "status": "CURRENT",
         "progress": 12,
         "media": {"averageScore": 82, "genres": ["Action", "Drama"], "format": "MANGA"},
     }
-    assert _display_fields(raw) == {"score": 82.0, "genres": ["Action", "Drama"], "format": "MANGA"}
+    assert _display_fields(raw) == {"score": 8.2, "genres": ["Action", "Drama"], "format": "MANGA"}
 
 
-def test_mal_shape_reads_genre_objects_by_name():
+def test_mal_shape_leaves_the_ten_point_score_alone():
     raw = {
         "node": {
-            "mean": 7.5,
+            "mean": 7.53,
             "genres": [{"id": 1, "name": "Action"}, {"id": 8, "name": "Drama"}],
             "media_type": "manga",
         },
