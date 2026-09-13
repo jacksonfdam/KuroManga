@@ -235,6 +235,35 @@ async def test_a_dismissed_suggestion_is_never_searched_for_again(monkeypatch):
     assert source.searched == ["Kaijuu 8-gou"]
 
 
+async def test_a_seed_that_blows_up_leaves_the_earlier_seeds_committed(monkeypatch):
+    """900 seconds of lease do not cover a real list, so each seed has to stand alone."""
+    source = FakeSource()
+    monkeypatch.setattr(build, "all_sources", lambda: [source])
+    real_upsert = build.upsert_suggestion
+    seen: list[str] = []
+
+    async def upsert_then_fail_on_the_second(session, seed, meta, score, sources=None):
+        seen.append(seed.title)
+        if len(seen) == 2:
+            raise RuntimeError("anilist went away mid-run")
+        await real_upsert(session, seed, meta, score, sources)
+
+    monkeypatch.setattr(build, "upsert_suggestion", upsert_then_fail_on_the_second)
+    async with get_sessionmaker()() as session:
+        await insert_anime(session, "21", "3000", "Vinland Saga")
+        await insert_anime(session, "22", "4001", "Kaijuu 8-gou")
+        await session.commit()
+
+    with pytest.raises(RuntimeError):
+        await run_build(commit_at_end=False)
+
+    async with get_sessionmaker()() as fresh:
+        titles = [
+            row[0] for row in (await fresh.execute(text("select title from suggestion"))).all()
+        ]
+    assert titles == [seen[0]]
+
+
 async def test_a_manga_that_is_already_a_local_series_is_not_searched_for(monkeypatch):
     """The alias exclusion is what keeps Discovery off manga the library already has."""
     source = FakeSource()

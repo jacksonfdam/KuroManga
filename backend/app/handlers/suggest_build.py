@@ -17,6 +17,7 @@ from app.handlers.base import JobContext, register
 from app.handlers.list_sync import load_access_token
 from app.providers import get_source
 from app.providers.base import MangaMeta
+from app.queue import repo
 from app.sources import Candidate, all_sources
 from app.sources.mangadex import manga_id_from_candidate
 from app.text_utils import normalize
@@ -197,7 +198,7 @@ async def handle(ctx: JobContext) -> None:
         except Exception as exc:  # noqa: BLE001 - a card without metadata still beats no card
             await ctx.log(f"metadata fetch failed: {exc}", level="warning")
 
-    for seed in wanted:
+    for index, seed in enumerate(wanted, start=1):
         entry = meta.get(seed.media_id)
         score = rank_score(
             anime_status=seed.origin.status,
@@ -212,5 +213,15 @@ async def handle(ctx: JobContext) -> None:
             except Exception as exc:  # noqa: BLE001 - a dead site must not stop the build
                 await ctx.log(f"{source.site} search failed: {exc}", level="warning")
         await upsert_suggestion(ctx.session, seed, entry, score, source_summary(candidates))
+        # One search per source per seed outruns the 900-second lease on a real
+        # list, and an expired lease is handed back to the pool and leased again,
+        # so the job would end up running beside itself. Finish each seed for good
+        # and push the expiry forward before starting the next one.
+        await repo.renew_lease(ctx.session, ctx.job.id)
+        await ctx.session.commit()
+        if index % 10 == 0:
+            await ctx.log(
+                f"{index}/{len(wanted)} looked up", pct=40 + 60 * index / max(len(wanted), 1)
+            )
 
     await ctx.log(f"done: {len(wanted)} suggestions", pct=100)

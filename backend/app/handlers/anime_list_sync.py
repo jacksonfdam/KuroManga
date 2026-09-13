@@ -17,6 +17,10 @@ from app.handlers.base import JobContext, register
 from app.handlers.list_sync import load_access_token
 from app.providers import get_source
 from app.providers.base import AnimeEntryDTO
+from app.queue import repo
+
+# How many per-anime relation requests share one transaction and one lease renewal.
+RELATION_BATCH = 20
 
 
 async def upsert_anime(session: AsyncSession, dto: AnimeEntryDTO) -> None:
@@ -91,6 +95,7 @@ async def handle(ctx: JobContext) -> None:
 
     for dto in entries:
         await upsert_anime(ctx.session, dto)
+    await ctx.session.commit()
 
     if provider is Provider.MAL:
         pending = await needs_mal_relations(ctx.session)
@@ -99,7 +104,7 @@ async def handle(ctx: JobContext) -> None:
                 related = await source.fetch_related_manga(token, media_id)
             except Exception as exc:  # noqa: BLE001 - one dead title must not kill the sync
                 await ctx.log(f"relations for {media_id} failed: {exc}", level="warning")
-                continue
+                related = []
             if related:
                 await ctx.session.execute(
                     text(
@@ -116,8 +121,14 @@ async def handle(ctx: JobContext) -> None:
                         ),
                     },
                 )
-            if index % 20 == 0:
+            if index % RELATION_BATCH == 0:
                 await ctx.log(f"relations {index}/{len(pending)}")
+                # One request per anime: a list of any size outruns the 900-second
+                # lease, and an expired lease is handed back to the pool and leased
+                # again, so the job would run beside itself.
+                await repo.renew_lease(ctx.session, ctx.job.id)
+                await ctx.session.commit()
+        await ctx.session.commit()
 
     await ctx.enqueue(JobType.SUGGEST_BUILD, {}, dedupe_key="suggest_build")
     await ctx.log(f"done: {len(entries)} anime mirrored", pct=100)
