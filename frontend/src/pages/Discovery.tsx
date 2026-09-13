@@ -11,6 +11,10 @@ const STATUSES: { value: ListStatusValue; label: string }[] = [
   { value: 'dropped', label: 'Dropped' },
 ]
 
+// A suggestion is something the user has not started, so the default status
+// must not claim otherwise.
+const DEFAULT_STATUS: ListStatusValue = 'plan_to_read'
+
 const DOWNLOADS_BY_DEFAULT: ListStatusValue[] = ['reading', 'plan_to_read']
 
 function reasonOf(suggestion: Suggestion): string {
@@ -55,7 +59,7 @@ export function Discovery({ onChanged }: { onChanged: () => void }) {
   useJobEvents(load)
 
   const settingFor = (item: Suggestion) =>
-    choice[item.id] ?? { status: 'reading' as ListStatusValue, download: true }
+    choice[item.id] ?? { status: DEFAULT_STATUS, download: DOWNLOADS_BY_DEFAULT.includes(DEFAULT_STATUS) }
 
   const setStatus = (item: Suggestion, status: ListStatusValue) =>
     setChoice((current) => ({
