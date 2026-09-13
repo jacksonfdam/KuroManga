@@ -1,7 +1,7 @@
 import { Navigate, Route, Routes, useOutletContext } from 'react-router-dom'
 
+import { LibraryPage } from '../features/library/LibraryPage'
 import { Downloads } from '../pages/Downloads'
-import { Library } from '../pages/Library'
 import { Review } from '../pages/Review'
 import { Settings } from '../pages/Settings'
 import { AppShell } from './AppShell'
@@ -23,7 +23,7 @@ export function AppRoutes() {
     <Routes>
       <Route element={<AppShell />}>
         <Route index element={<Navigate to="/library" replace />} />
-        <Route path="library" element={<Library />} />
+        <Route path="library" element={<LibraryPage />} />
         <Route path="review" element={<ReviewRoute />} />
         <Route path="downloads" element={<Downloads />} />
         <Route path="settings" element={<Settings />} />
