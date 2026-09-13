@@ -58,6 +58,12 @@ async def test_a_live_token_is_returned_untouched():
 
 async def test_an_expiring_token_is_renewed_and_persisted(monkeypatch):
     class Stub:
+        uses_oauth = True
+
+        @classmethod
+        def static_credential(cls):
+            return None
+
         async def refresh(self, refresh_token: str):
             assert refresh_token == "old-refresh"
             return TokenSet(access_token="fresh", refresh_token="new-refresh", expires_in=3600)
@@ -83,6 +89,12 @@ async def test_an_expiring_token_is_renewed_and_persisted(monkeypatch):
 
 async def test_a_provider_that_cannot_refresh_keeps_using_its_token(monkeypatch):
     class Stub:
+        uses_oauth = True
+
+        @classmethod
+        def static_credential(cls):
+            return None
+
         async def refresh(self, refresh_token: str):
             return None
 
