@@ -44,16 +44,19 @@ sugestão mostra o anime de origem, até onde a adaptação foi e quanto mangá
 existe, para você decidir se vale a pena.
 
 Aprovar uma sugestão com o status escolhido cria a série local e grava esse
-status no MyAnimeList, no AniList e no MangaDex. Um botão por sugestão decide
-se o download começa agora ou fica para depois (o padrão já vem ajustado
-conforme o status escolhido); quando a fonte candidata é confiável o bastante,
-o mapeamento é feito direto e a série pula a tela Review. Dispensar uma
-sugestão é definitivo — ela não volta a aparecer numa atualização futura.
+status em cada lista que conhece aquele mangá — MyAnimeList e AniList conforme
+os ids que a sugestão carrega, e MangaDex quando o UUID foi encontrado. Um
+botão por sugestão decide se o download começa agora ou fica para depois (o
+padrão já vem ajustado conforme o status escolhido); quando a fonte candidata
+tem exatamente o mesmo título e pontuação alta o bastante, o mapeamento é feito
+direto e a série pula a tela Review. Quando não tem, a série espera no Review e
+o download que você pediu começa assim que a fonte for confirmada lá. Dispensar
+uma sugestão é definitivo — ela não volta a aparecer numa atualização futura.
 
 Uma série aprovada como Completa tem seus capítulos marcados como lidos no
-Komga assim que forem indexados. Fora isso, o progresso de leitura continua
-vindo só do cron `progress_push` existente, que só avança — Discovery nunca
-grava progresso, só o status inicial.
+Komga uma única vez, na indexação que segue a aprovação. Fora isso, o progresso
+de leitura continua vindo só do cron `progress_push` existente, que só avança —
+Discovery nunca grava progresso, só o status inicial.
 
 Para achar a fonte de cada sugestão, além do MangaDex o pipeline consulta o
 serviço `comick`, empacotado junto no `docker-compose.yml` e apontado por
