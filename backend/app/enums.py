@@ -38,3 +38,4 @@ class JobType(StrEnum):
     DOWNLOAD_BATCH = "download_batch"
     KOMGA_SCAN = "komga_scan"
     PROGRESS_PUSH = "progress_push"
+    PROGRESS_WRITE = "progress_write"
