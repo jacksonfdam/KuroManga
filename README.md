@@ -40,23 +40,37 @@ extra é feita apenas para os títulos que o AniList não resolveu.
 Todo mangá adaptado de um anime da sua lista vira uma sugestão na tela
 **Discovery** — a menos que ele já esteja em alguma das suas listas de mangá ou
 já exista como série local, casos em que sugeri-lo de novo seria só ruído. Cada
-sugestão mostra o anime de origem, até onde a adaptação foi e quanto mangá
-existe, para você decidir se vale a pena.
+sugestão mostra de qual anime veio, se esse anime acabou e com quantos
+episódios, quantos capítulos o mangá tem e em quais sites ele foi encontrado —
+o bastante para decidir se vale a pena.
 
-Aprovar uma sugestão com o status escolhido cria a série local e grava esse
-status em cada lista que conhece aquele mangá — MyAnimeList e AniList conforme
-os ids que a sugestão carrega, e MangaDex quando o UUID foi encontrado. Um
-botão por sugestão decide se o download começa agora ou fica para depois (o
+Aprovar uma sugestão com o status escolhido reaproveita a série local quando ela
+já existe — a que o `list_sync` criou sob outra grafia, por exemplo — e só cria
+uma nova quando não existe nenhuma. O status vai para cada lista que conhece
+aquele mangá, e só para essas: MyAnimeList e AniList conforme os ids que a
+sugestão carrega, e MangaDex quando o UUID foi encontrado. Se alguma escrita
+falhar, a tela mostra qual foi e quando, e a fila refaz só o que faltou. Um
+MangaDex sem as credenciais do `.env` não conta como falha: elas são opcionais,
+então esse destino simplesmente não existe nessa instalação e é registrado como
+pulado.
+
+Um botão por sugestão decide se o download começa agora ou fica para depois (o
 padrão já vem ajustado conforme o status escolhido); quando a fonte candidata
 tem exatamente o mesmo título e pontuação alta o bastante, o mapeamento é feito
 direto e a série pula a tela Review. Quando não tem, a série espera no Review e
-o download que você pediu começa assim que a fonte for confirmada lá. Dispensar
-uma sugestão é definitivo — ela não volta a aparecer numa atualização futura.
+o download que você pediu começa assim que a fonte for confirmada lá. *Baixar
+agora* só liga o acompanhamento, nunca desliga: aprovar com a caixa desmarcada
+uma série que você já seguia não a tira do cron de download. Dispensar uma
+sugestão é definitivo — ela não volta a aparecer numa atualização futura.
 
 Uma série aprovada como Completa tem seus capítulos marcados como lidos no
-Komga uma única vez, na indexação que segue a aprovação. Fora isso, o progresso
-de leitura continua vindo só do cron `progress_push` existente, que só avança —
-Discovery nunca grava progresso, só o status inicial.
+Komga uma única vez, na primeira indexação depois que os arquivos chegam. Como
+a indexação roda por lote de download, só os livros já indexados nessa primeira
+passagem são marcados; numa obra longa o resto fica por ler
+([#21](https://github.com/jacksonfdam/KuroManga/issues/21)). Fora isso, o
+progresso de leitura continua vindo só do cron `progress_push` existente, que
+só avança — Discovery grava status e preenche o que falta na entrada, nunca o
+capítulo lido.
 
 Para achar a fonte de cada sugestão, além do MangaDex o pipeline consulta o
 serviço `comick`, empacotado junto no `docker-compose.yml` e apontado por
@@ -146,7 +160,8 @@ As flags do binário `manga-downloader` foram conferidas contra o `--help` da ve
 cobertos por testes — se uma versão futura mudar as flags, a correção é local.
 
 O que ainda não foi exercido contra a rede: uma busca real no MangaDex, um
-download real, e a escrita de progresso no MyAnimeList e no AniList. Essas três
-bordas rodam de fixtures nos testes. O loop do Komga foi verificado contra uma
-instância real: claim, criação da biblioteca, varredura, casamento de série por
-pasta e de book por caminho, e leitura do progresso de leitura de volta.
+download real, a escrita de progresso e de status no MyAnimeList e no AniList, a
+escrita de status no MangaDex, e a busca via comick. Essas bordas rodam de
+fixtures nos testes. O loop do Komga foi verificado contra uma instância real:
+claim, criação da biblioteca, varredura, casamento de série por pasta e de book
+por caminho, e leitura do progresso de leitura de volta.
