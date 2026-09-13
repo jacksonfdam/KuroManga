@@ -14,6 +14,7 @@ from app.enums import JobType, Provider
 from app.handlers.base import JobContext, PermanentError, register
 from app.komga import KomgaBook, from_settings
 from app.providers import get_source
+from app.providers.tokens import access_token_for
 
 
 def highest_completed(books: list[KomgaBook], numbers: dict[str, Decimal]) -> Decimal | None:
@@ -39,8 +40,7 @@ async def entries_of(session: AsyncSession, series_id: int) -> list:
     result = await session.execute(
         text(
             """
-            select e.id, e.provider, e.provider_media_id, e.user_progress_chapter,
-                   t.access_token
+            select e.id, e.provider, e.provider_media_id, e.user_progress_chapter
               from list_entry e
               join provider_token t on t.provider = e.provider
              where e.series_id = :series_id
@@ -82,8 +82,9 @@ async def handle(ctx: JobContext) -> None:
         if read_chapter <= entry.user_progress_chapter:
             continue
         provider = Provider(entry.provider)
+        token = await access_token_for(ctx.session, provider)
         await get_source(provider).push_progress(
-            entry.access_token, entry.provider_media_id, read_chapter
+            token, entry.provider_media_id, read_chapter
         )
         await ctx.session.execute(
             text("update list_entry set user_progress_chapter = :n where id = :id"),

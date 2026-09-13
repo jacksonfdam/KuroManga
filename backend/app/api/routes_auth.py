@@ -5,7 +5,6 @@ callback still works if the api process restarts mid-flow.
 """
 
 import json
-from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -19,6 +18,7 @@ from app.config import get_settings
 from app.enums import Provider
 from app.providers import get_source
 from app.providers.oauth import generate_state, generate_verifier
+from app.providers.tokens import store_token
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -67,29 +67,13 @@ async def callback(
     tokens = await get_source(provider).exchange_code(
         code, redirect_uri(provider), parsed["verifier"]
     )
-    expires_at = (
-        datetime.now(UTC) + timedelta(seconds=tokens.expires_in) if tokens.expires_in else None
-    )
-    await session.execute(
-        text(
-            """
-            insert into provider_token (provider, access_token, refresh_token, expires_at,
-                                        account_name)
-            values (:provider, :access, :refresh, :expires_at, :account)
-            on conflict (provider) do update
-               set access_token = excluded.access_token,
-                   refresh_token = excluded.refresh_token,
-                   expires_at = excluded.expires_at,
-                   account_name = excluded.account_name
-            """
-        ),
-        {
-            "provider": str(provider),
-            "access": tokens.access_token,
-            "refresh": tokens.refresh_token,
-            "expires_at": expires_at,
-            "account": tokens.account_name,
-        },
+    await store_token(
+        session,
+        provider,
+        access_token=tokens.access_token,
+        refresh_token=tokens.refresh_token,
+        expires_in=tokens.expires_in,
+        account_name=tokens.account_name,
     )
     await session.execute(
         text("delete from setting where key = :key"), {"key": f"{STATE_PREFIX}{state}"}

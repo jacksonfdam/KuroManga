@@ -14,18 +14,15 @@ from app import settings_store
 from app.enums import JobType, Provider
 from app.handlers.base import JobContext, PermanentError, register
 from app.providers import ListEntryDTO, get_source
+from app.providers.tokens import NotConnected, access_token_for
 from app.text_utils import normalize, slugify
 
 
 async def load_access_token(session: AsyncSession, provider: Provider) -> str:
-    result = await session.execute(
-        text("select access_token from provider_token where provider = :provider"),
-        {"provider": str(provider)},
-    )
-    row = result.first()
-    if row is None:
-        raise PermanentError(f"{provider} is not connected; authorise it in Settings")
-    return row[0]
+    try:
+        return await access_token_for(session, provider)
+    except NotConnected as exc:
+        raise PermanentError(str(exc)) from exc
 
 
 async def find_series_by_alias(session: AsyncSession, aliases: list[str]) -> int | None:
