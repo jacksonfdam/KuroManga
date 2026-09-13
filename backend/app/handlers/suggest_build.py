@@ -75,10 +75,15 @@ def source_summary(candidates: list[Candidate]) -> dict[str, Any]:
         }
         for c in sorted(candidates, key=lambda c: c.score, reverse=True)
     ]
+    # The upsert merges this object shallowly, so a null here would overwrite what
+    # an earlier run found. One cycle with MangaDex rate-limited must not destroy
+    # the uuid the status write depends on: an absent key keeps the stored value.
+    result: dict[str, Any] = {"sources": summary}
     uuid = next(
         (manga_id_from_candidate(c) for c in candidates if manga_id_from_candidate(c)), None
     )
-    best = None
+    if uuid:
+        result["mangadex_uuid"] = uuid
     if summary:
         ranked = sorted(
             candidates,
@@ -86,12 +91,13 @@ def source_summary(candidates: list[Candidate]) -> dict[str, Any]:
             reverse=True,
         )
         winner = ranked[0]
-        best = {
+        result["best"] = {
             "site": winner.source_site,
             "url": winner.source_url,
             "score": float(winner.score),
+            "title": winner.title,
         }
-    return {"sources": summary, "mangadex_uuid": uuid, "best": best}
+    return result
 
 
 async def upsert_suggestion(

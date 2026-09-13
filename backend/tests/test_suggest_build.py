@@ -83,9 +83,23 @@ from app.handlers.suggest_build import source_summary
 from app.sources.base import Candidate
 
 
-def candidate(site, url, score, chapters=100):
-    return Candidate(source_site=site, source_url=url, title="Vinland Saga",
+def candidate(site, url, score, chapters=100, title="Vinland Saga"):
+    return Candidate(source_site=site, source_url=url, title=title,
                      chapter_count=chapters, score=score)
+
+
+async def test_a_rebuild_that_found_nothing_keeps_the_uuid_an_earlier_one_found(fixture):
+    """MangaDex rate-limiting for one cycle must not cost the status write its id."""
+    meta = parse_manga_meta(fixture("anilist_manga_meta.json"))["3000"]
+    found = source_summary([candidate("mangadex", "https://mangadex.org/title/uuid-1", 0.95)])
+    async with get_sessionmaker()() as session:
+        await upsert_suggestion(session, SEED, meta, 0.75, found)
+        await session.commit()
+        await upsert_suggestion(session, SEED, meta, 0.75, source_summary([]))
+        await session.commit()
+        stored = (await session.execute(text("select meta from suggestion"))).scalar_one()
+    assert stored["mangadex_uuid"] == "uuid-1"
+    assert stored["best"]["url"] == "https://mangadex.org/title/uuid-1"
 
 
 def test_the_summary_keeps_every_site_that_answered():
@@ -129,5 +143,5 @@ def test_the_mangadex_uuid_is_kept_even_when_another_site_is_preferred():
     assert summary["mangadex_uuid"] == "uuid-1"
 
 
-def test_no_candidates_means_no_best_and_no_uuid():
-    assert source_summary([]) == {"sources": [], "mangadex_uuid": None, "best": None}
+def test_no_candidates_writes_neither_key_rather_than_writing_nulls():
+    assert source_summary([]) == {"sources": []}
