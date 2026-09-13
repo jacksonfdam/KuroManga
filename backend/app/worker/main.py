@@ -144,11 +144,12 @@ async def main() -> None:
             loop.add_signal_handler(sig, stop.set)
 
     log.info(
-        "worker up: concurrency=%d sync='%s' discover='%s' progress='%s'",
+        "worker up: concurrency=%d sync='%s' discover='%s' progress='%s' anime='%s'",
         concurrency,
         cron_sync,
         cron_discover,
         cron_progress,
+        cron_anime,
     )
     await asyncio.gather(work_loop(concurrency, stop), reclaim_loop(stop))
     scheduler.shutdown(wait=False)
