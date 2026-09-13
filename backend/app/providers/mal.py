@@ -11,7 +11,7 @@ import httpx
 
 from app.config import get_settings
 from app.enums import ListStatus, Provider
-from app.providers.base import ListEntryDTO, ListSource, TokenSet
+from app.providers.base import AnimeEntryDTO, ListEntryDTO, ListSource, RelatedManga, TokenSet
 
 API_BASE = "https://api.myanimelist.net/v2"
 AUTHORIZE_URL = "https://myanimelist.net/v1/oauth2/authorize"
@@ -30,6 +30,20 @@ STATUS_MAP = {
     "on_hold": ListStatus.ON_HOLD,
     "dropped": ListStatus.DROPPED,
 }
+
+ANIME_LIST_FIELDS = "list_status,alternative_titles,num_episodes,main_picture,title"
+ANIME_DETAIL_FIELDS = "related_manga"
+
+ANIME_STATUS_MAP = {
+    "watching": ListStatus.READING,
+    "plan_to_watch": ListStatus.PLAN_TO_READ,
+    "completed": ListStatus.COMPLETED,
+    "on_hold": ListStatus.ON_HOLD,
+    "dropped": ListStatus.DROPPED,
+}
+
+# MyAnimeList names many relations; only the original work is the same story.
+WANTED_RELATIONS = {"source", "adaptation"}
 
 
 class MyAnimeListSource(ListSource):
@@ -62,6 +76,28 @@ class MyAnimeListSource(ListSource):
             url = (page.get("paging") or {}).get("next")
             params = None  # the next link already carries the query string
         return entries
+
+    async def fetch_anime_list(self, access_token: str) -> list[AnimeEntryDTO]:
+        entries: list[AnimeEntryDTO] = []
+        url: str | None = f"{API_BASE}/users/@me/animelist"
+        params: dict[str, Any] | None = {
+            "fields": ANIME_LIST_FIELDS,
+            "limit": PAGE_LIMIT,
+            "nsfw": "true",
+        }
+        while url:
+            page = await self._get(access_token, url, params)
+            entries.extend(parse_anime_page(page))
+            url = (page.get("paging") or {}).get("next")
+            params = None
+        return entries
+
+    async def fetch_related_manga(self, access_token: str, media_id: str) -> list[RelatedManga]:
+        """One request per anime, so this is only worth calling when AniList came up empty."""
+        detail = await self._get(
+            access_token, f"{API_BASE}/anime/{media_id}", {"fields": ANIME_DETAIL_FIELDS}
+        )
+        return parse_related_manga(detail)
 
     async def push_progress(self, access_token: str, media_id: str, chapter: int) -> None:
         headers = {"Authorization": f"Bearer {access_token}"}
@@ -162,3 +198,49 @@ def parse_page(page: dict[str, Any]) -> list[ListEntryDTO]:
             )
         )
     return entries
+
+
+def parse_anime_page(page: dict[str, Any]) -> list[AnimeEntryDTO]:
+    """Pure parser for one page of the anime list."""
+    entries: list[AnimeEntryDTO] = []
+    for item in page.get("data", []) or []:
+        node = item.get("node") or {}
+        status = item.get("list_status") or {}
+        alt = node.get("alternative_titles") or {}
+        synonyms = [s for s in (alt.get("synonyms") or []) if s]
+        if alt.get("ja"):
+            synonyms.append(alt["ja"])
+        entries.append(
+            AnimeEntryDTO(
+                provider=Provider.MAL,
+                media_id=str(node.get("id")),
+                status=ANIME_STATUS_MAP.get(status.get("status", ""), ListStatus.PLAN_TO_READ),
+                title_romaji=node.get("title"),
+                title_english=alt.get("en") or None,
+                synonyms=synonyms,
+                progress_episode=int(status.get("num_episodes_watched") or 0),
+                total_episodes=node.get("num_episodes") or None,
+                cover_url=(node.get("main_picture") or {}).get("large"),
+                related_manga=[],
+                raw=item,
+            )
+        )
+    return entries
+
+
+def parse_related_manga(detail: dict[str, Any]) -> list[RelatedManga]:
+    """Pure parser for the anime detail endpoint's related_manga field."""
+    related: list[RelatedManga] = []
+    for item in detail.get("related_manga", []) or []:
+        if item.get("relation_type") not in WANTED_RELATIONS:
+            continue
+        node = item.get("node") or {}
+        related.append(
+            RelatedManga(
+                provider=Provider.MAL,
+                media_id=str(node.get("id")),
+                relation=str(item.get("relation_type", "")).upper(),
+                title=node.get("title") or "",
+            )
+        )
+    return related

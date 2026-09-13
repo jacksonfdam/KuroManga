@@ -1,5 +1,6 @@
 from app.enums import ListStatus, Provider
 from app.providers.anilist import parse_anime_list
+from app.providers.mal import parse_anime_page, parse_related_manga
 
 
 def test_anilist_reads_episode_progress_not_chapter_progress(fixture):
@@ -32,3 +33,31 @@ def test_the_relation_keeps_the_title_it_will_be_deduplicated_by(fixture):
 def test_the_native_title_is_kept_as_a_synonym(fixture):
     first = parse_anime_list(fixture("anilist_anime_list.json"))[0]
     assert "ヴィンランド・サガ" in first.synonyms
+
+
+def test_mal_reads_watched_episodes_from_list_status(fixture):
+    entries = parse_anime_page(fixture("mal_anime_page.json"))
+    assert entries[0].progress_episode == 24
+    assert entries[1].progress_episode == 7
+    assert entries[1].total_episodes == 12
+
+
+def test_mal_watching_maps_onto_the_shared_reading_status(fixture):
+    entries = parse_anime_page(fixture("mal_anime_page.json"))
+    assert entries[0].status is ListStatus.COMPLETED
+    assert entries[1].status is ListStatus.READING
+
+
+def test_mal_keeps_english_and_synonym_spellings(fixture):
+    entry = parse_anime_page(fixture("mal_anime_page.json"))[0]
+    assert entry.title_english == "Vinland Saga"
+    assert "VS" in entry.synonyms
+    assert "ヴィンランド・サガ" in entry.synonyms
+
+
+def test_only_the_source_relation_becomes_a_manga_candidate(fixture):
+    """A side story is a different book, and suggesting it is suggesting the wrong one."""
+    related = parse_related_manga(fixture("mal_anime_detail.json"))
+    assert [r.media_id for r in related] == ["122763"]
+    assert related[0].provider is Provider.MAL
+    assert related[0].title == "Kaijuu 8-gou"
