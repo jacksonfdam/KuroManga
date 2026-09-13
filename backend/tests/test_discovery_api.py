@@ -157,6 +157,41 @@ async def test_a_confident_candidate_maps_the_source_without_review(client, sugg
     assert needs_review is False
 
 
+async def test_a_high_score_on_a_different_title_still_goes_to_review(client):
+    """0.786 separates "Dragon Ball" from "Dragon Ball Super": too close to guess on."""
+    near_miss = {
+        **META,
+        "best": {"site": "mangadex", "url": "https://mangadex.org/title/uuid-2", "score": 0.93,
+                 "title": "Vinland Saga: After"},
+    }
+    near_miss_id = await insert_suggestion(near_miss)
+    body = (
+        await client.post(
+            f"/api/suggestions/{near_miss_id}/add", json={"status": "reading", "download": False}
+        )
+    ).json()
+    assert body["needs_review"] is True
+
+    async with get_sessionmaker()() as session:
+        count = (await session.execute(text("select count(*) from source_mapping"))).scalar_one()
+    assert count == 0
+
+
+async def test_a_candidate_spelled_the_same_at_a_high_score_maps_directly(client):
+    same_title = {
+        **META,
+        "best": {"site": "mangadex", "url": "https://mangadex.org/title/uuid-1", "score": 0.90,
+                 "title": "vinland  saga"},
+    }
+    same_title_id = await insert_suggestion(same_title)
+    body = (
+        await client.post(
+            f"/api/suggestions/{same_title_id}/add", json={"status": "reading", "download": False}
+        )
+    ).json()
+    assert body["needs_review"] is False
+
+
 async def test_not_downloading_now_queues_no_discovery(client, suggestion_id):
     await client.post(
         f"/api/suggestions/{suggestion_id}/add", json={"status": "reading", "download": False}

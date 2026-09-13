@@ -31,6 +31,20 @@ Session = Annotated[AsyncSession, Depends(db_session)]
 CONFIDENT_SCORE = 0.80
 
 
+def confident(title: str, best: dict[str, Any]) -> bool:
+    """Only an exact title, scored high, is mapped without a human.
+
+    The score alone comes from one spelling, where match_search scores against
+    every one, so near misses sit right on the line: "Dragon Ball" against
+    "Dragon Ball Super" scores 0.786. A wrong automatic mapping downloads the
+    wrong manga for every future chapter, so the doubtful half goes to Review.
+    """
+    if float(best.get("score") or 0) < CONFIDENT_SCORE:
+        return False
+    candidate_title = normalize(best.get("title") or "")
+    return bool(candidate_title) and candidate_title == normalize(title)
+
+
 class AddIn(BaseModel):
     status: ListStatus
     download: bool = False
@@ -168,7 +182,7 @@ async def add_suggestion(suggestion_id: int, body: AddIn, session: Session) -> d
     # path where the user can see what was rejected before a source is mapped.
     best = (row.meta or {}).get("best") or {}
     needs_review = True
-    if best.get("url") and float(best.get("score") or 0) >= CONFIDENT_SCORE:
+    if best.get("url") and confident(row.title, best):
         try:
             site = source_for_url(best["url"]).site
         except ValueError:
