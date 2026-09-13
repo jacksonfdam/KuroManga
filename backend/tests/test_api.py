@@ -13,6 +13,7 @@ from sqlalchemy import text
 
 from app.api.main import app
 from app.db import get_sessionmaker
+from app.sources import mangadex_auth
 
 pytestmark = pytest.mark.asyncio
 
@@ -35,7 +36,12 @@ async def client():
 @pytest.fixture(autouse=True)
 async def clean():
     async with get_sessionmaker()() as session:
-        await session.execute(text("truncate job, job_event, series, list_entry restart identity cascade"))
+        await session.execute(
+            text(
+                "truncate job, job_event, series, list_entry, provider_token "
+                "restart identity cascade"
+            )
+        )
         await session.commit()
     yield
 
@@ -110,3 +116,38 @@ async def test_integration_health_reports_unauthenticated_without_tokens(client)
     states = {item["name"]: item["state"] for item in body["integrations"]}
     assert states["mal"] == "unauthenticated"
     assert states["anilist"] == "unauthenticated"
+
+
+async def test_integration_health_reports_mangadex_ok_when_credentials_are_configured(
+    client, monkeypatch
+):
+    # MangaDex never writes to provider_token; it authenticates from env-var
+    # credentials, cached on the module-level TokenCache in mangadex_auth.
+    settings = mangadex_auth.get_settings()
+    monkeypatch.setattr(settings, "mangadex_client_id", "client-id")
+    monkeypatch.setattr(settings, "mangadex_client_secret", "client-secret")
+    monkeypatch.setattr(settings, "mangadex_username", "reader")
+    monkeypatch.setattr(settings, "mangadex_password", "hunter2")
+
+    body = (await client.get("/api/health/integrations")).json()
+    states = {item["name"]: item["state"] for item in body["integrations"]}
+    assert states["mangadex"] == "ok"
+
+
+async def test_integration_health_reports_unauthenticated_for_an_unrefreshable_expired_token(
+    client,
+):
+    async with get_sessionmaker()() as session:
+        await session.execute(
+            text(
+                """
+                insert into provider_token (provider, access_token, refresh_token, expires_at)
+                values ('mal', 'stale-token', null, now() - interval '1 day')
+                """
+            )
+        )
+        await session.commit()
+
+    body = (await client.get("/api/health/integrations")).json()
+    states = {item["name"]: item["state"] for item in body["integrations"]}
+    assert states["mal"] == "unauthenticated"

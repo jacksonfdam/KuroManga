@@ -15,15 +15,29 @@ from app import settings_store
 from app.api.deps import db_session
 from app.enums import Provider
 from app.komga import from_settings
+from app.providers.tokens import is_expiring
+from app.sources.mangadex_auth import tokens as mangadex_tokens
 
 router = APIRouter(prefix="/api/health", tags=["health"])
 
 Session = Annotated[AsyncSession, Depends(db_session)]
 
 
-async def _token_providers(session: AsyncSession) -> set[str]:
-    result = await session.execute(text("select provider from provider_token"))
-    return {row.provider for row in result.all()}
+async def _token_health(session: AsyncSession) -> dict[str, bool]:
+    """Whether each stored provider token is still usable.
+
+    A token that isn't close to expiring is fine. One that is expiring but has a
+    refresh token is also fine, since access_token_for renews it on next use.
+    Only an expiring token with no refresh path is actually broken, and existence
+    alone would report that row "ok" right up until a sync fails on it.
+    """
+    result = await session.execute(
+        text("select provider, refresh_token, expires_at from provider_token")
+    )
+    return {
+        row.provider: not is_expiring(row.expires_at) or bool(row.refresh_token)
+        for row in result.all()
+    }
 
 
 def _entry(name: str, state: str, detail: str | None = None) -> dict[str, Any]:
@@ -32,17 +46,16 @@ def _entry(name: str, state: str, detail: str | None = None) -> dict[str, Any]:
 
 @router.get("/integrations")
 async def integrations(session: Session) -> dict[str, Any]:
-    authenticated = await _token_providers(session)
+    token_ok = await _token_health(session)
     items = [
-        _entry(
-            provider.value,
-            "ok" if provider.value in authenticated else "unauthenticated",
-        )
+        _entry(provider.value, "ok" if token_ok.get(provider.value) else "unauthenticated")
         for provider in (Provider.MAL, Provider.ANILIST)
     ]
 
+    # MangaDex never stores a provider_token row: it authenticates from env-var
+    # credentials cached on this module-level client instead.
     items.append(
-        _entry("mangadex", "ok" if "mangadex" in authenticated else "unauthenticated")
+        _entry("mangadex", "ok" if mangadex_tokens.configured else "unauthenticated")
     )
 
     komga = from_settings()
