@@ -40,6 +40,7 @@ export function LibraryPage() {
             </span>
             <input
               name="library-filter"
+              aria-label="Filter by title"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Filter by title..."

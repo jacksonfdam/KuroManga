@@ -47,11 +47,15 @@ export function useLibrary() {
     }
   }, [])
 
-  const visible = series.filter((row) => {
-    const matchesStatus = status === 'all' || row.status === status
-    const matchesQuery = !query || row.title.toLowerCase().includes(query.toLowerCase())
-    return matchesStatus && matchesQuery
-  })
+  const visible = useMemo(
+    () =>
+      series.filter((row) => {
+        const matchesStatus = status === 'all' || row.status === status
+        const matchesQuery = !query || row.title.toLowerCase().includes(query.toLowerCase())
+        return matchesStatus && matchesQuery
+      }),
+    [series, status, query],
+  )
 
   // Independent of the active status tab: a series still belongs here the
   // instant it drops out of "reading" from a click, not only while filtered in.
