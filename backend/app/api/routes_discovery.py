@@ -28,7 +28,7 @@ from app.handlers.list_sync import (
 )
 from app.handlers.suggest_build import upsert_suggestion
 from app.providers import get_source
-from app.providers.base import ListEntryDTO, MangaMeta
+from app.providers.base import ListEntryDTO, MangaMeta, QueryUnsupported
 from app.providers.tokens import NotConnected, access_token_for
 from app.queue import repo
 from app.sources import source_for_url
@@ -326,8 +326,8 @@ async def refresh(session: Session) -> dict[str, Any]:
 # search is a question about the anime, not about either provider's row, and
 # only the collapsed shape can answer it. It is a thousand narrow rows.
 ANIME_ROWS = """
-select id, provider, provider_media_id, title_romaji, title_english, cover_url,
-       total_episodes, progress_episode, status, manga_dismissed_at
+select id, provider, provider_media_id, title_romaji, title_english, synonyms,
+       cover_url, total_episodes, progress_episode, status, manga_dismissed_at
   from anime_entry
  where status <> 'dropped'
  order by id
@@ -466,14 +466,18 @@ async def known_states(
 
 
 def error_code(exc: Exception) -> str:
-    """Which of the three things went wrong, as a word the screen can branch on.
+    """Which of the four things went wrong, as a word the screen can branch on.
 
-    The three ask for different things from the user - authorise the provider,
-    wait a minute, try later - and `detail` is an English sentence from whichever
-    library raised, which no screen should ever have to pattern-match.
+    The four ask for different things from the user - authorise the provider,
+    wait a minute, try later, and nothing at all - and `detail` is an English
+    sentence from whichever library raised, which no screen should ever have to
+    pattern-match. `query_unsupported` earns its own word because it is the one
+    outcome a retry cannot change, and the screen was telling the user to retry.
     """
     if isinstance(exc, NotConnected):
         return "not_connected"
+    if isinstance(exc, QueryUnsupported):
+        return "query_unsupported"
     if isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code == 429:
         return "rate_limited"
     return "provider_error"
@@ -500,6 +504,7 @@ async def _load_anime(session: AsyncSession, anime_id: int) -> UnmatchedAnime:
 async def list_unmatched(
     session: Session,
     hidden: Annotated[bool, Query()] = False,
+    q: Annotated[str, Query()] = "",
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> dict[str, Any]:
@@ -508,6 +513,11 @@ async def list_unmatched(
     `hidden=true` answers with what the user hid instead, and nothing else: it is
     the only way back to a row that one click took off a five hundred row list,
     so it has to show every hidden anime, settled since or not.
+
+    `q` filters by title before the page is cut, so `total` counts what matched
+    rather than what exists. Filtering a page in the browser would only ever
+    search the twenty-five rows already loaded, which is not what a search box
+    promises.
     """
     collapsed = await collapsed_anime(session)
     if hidden:
@@ -524,6 +534,7 @@ async def list_unmatched(
             if not anime.hidden
             and not any((str(m.provider), m.media_id) in settled for m in anime.members)
         ]
+    items = [anime for anime in items if anime.matches(q)]
     # Alphabetical, because five hundred rows paged by offset are only navigable
     # if the same anime is always on the same page.
     items.sort(key=lambda a: normalize(a.title_english or a.title_romaji or ""))
@@ -542,11 +553,16 @@ async def search_unmatched(anime_id: int, session: Session) -> dict[str, Any]:
 
     found: list[tuple[Provider, MangaMeta]] = []
     errors: list[dict[str, str]] = []
+    queries: dict[str, str] = {}
     searchable = [provider for provider in Provider if get_source(provider).can_search]
     for provider in searchable:
+        source = get_source(provider)
         try:
+            # Asked before the token is: a query the provider cannot accept is
+            # settled here, without a request and without a renewal spent on one.
+            query = source.search_query(anime.search_titles)
             token = await access_token_for(session, provider)
-            results = await get_source(provider).search_manga(token, anime.search_title)
+            results = await source.search_manga(token, query)
         except Exception as exc:  # noqa: BLE001 - one provider down is half an answer
             # Reported rather than swallowed: half a result set that looks whole
             # is how a user concludes a manga does not exist.
@@ -554,6 +570,10 @@ async def search_unmatched(anime_id: int, session: Session) -> dict[str, Any]:
                 {"provider": str(provider), "code": error_code(exc), "detail": str(exc)[:300]}
             )
             continue
+        # Recorded per provider rather than assumed to be the anime's own title:
+        # MyAnimeList sometimes answers a name the anime is also known by, or a
+        # trimmed prefix, and the one `query` below is the AniList one.
+        queries[str(provider)] = query
         found.extend((provider, meta) for meta in results if meta.title)
 
     # Nothing about the search is stored, but access_token_for renews an expiring
@@ -566,6 +586,7 @@ async def search_unmatched(anime_id: int, session: Session) -> dict[str, Any]:
     return {
         "anime": anime_payload(anime),
         "query": anime.search_title,
+        "queries": queries,
         "candidates": [candidate_payload(c, known) for c in candidates],
         "errors": errors,
     }

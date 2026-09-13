@@ -1,23 +1,9 @@
 import { useEffect, useState } from 'react'
 
 import { api, ListStatusValue, Suggestion, SuggestionSource } from '../api'
+import { DEFAULT_STATUS, STATUSES, downloadsByDefault } from '../listStatus'
 import { useJobEvents } from '../useEvents'
-
-const STATUSES: { value: ListStatusValue; label: string }[] = [
-  { value: 'reading', label: 'Reading' },
-  { value: 'plan_to_read', label: 'Plan to read' },
-  { value: 'completed', label: 'Completed' },
-  { value: 'on_hold', label: 'On hold' },
-  { value: 'dropped', label: 'Dropped' },
-]
-
-// A suggestion is something the user has not started, so the default status
-// must not claim otherwise.
-const DEFAULT_STATUS: ListStatusValue = 'plan_to_read'
-
-// Only what is being read now downloads unasked. Planning to read something is
-// not asking for its whole backlog on disk tonight.
-const DOWNLOADS_BY_DEFAULT: ListStatusValue[] = ['reading']
+import { Unmatched } from './Unmatched'
 
 function reasonOf(suggestion: Suggestion): string {
   const { origin_title, origin_status, total_episodes } = suggestion.reason
@@ -51,7 +37,14 @@ function whenOf(at?: string): string {
   return Number.isNaN(stamp.getTime()) ? '' : ` (${stamp.toLocaleString()})`
 }
 
+/**
+ * Both halves of "what should I read next" live here: the titles a relation
+ * found on its own, and the anime that need a search by hand. One question
+ * asked two ways, so one screen with two views rather than two nav entries.
+ */
 export function Discovery({ onChanged }: { onChanged: () => void }) {
+  const [view, setView] = useState<'suggestions' | 'unmatched'>('suggestions')
+  const [unmatchedTotal, setUnmatchedTotal] = useState<number | null>(null)
   const [items, setItems] = useState<Suggestion[]>([])
   const [writeFailures, setWriteFailures] = useState<Suggestion[]>([])
   const [choice, setChoice] = useState<Record<number, { status: ListStatusValue; download: boolean }>>({})
@@ -76,13 +69,22 @@ export function Discovery({ onChanged }: { onChanged: () => void }) {
   useEffect(load, [])
   useJobEvents(load)
 
+  // Counting the unmatched anime is a database read, not a provider search, so
+  // the tab can carry its number without anything being searched on mount.
+  useEffect(() => {
+    api
+      .unmatched({ limit: 1 })
+      .then((page) => setUnmatchedTotal(page.total))
+      .catch(() => undefined)
+  }, [])
+
   const settingFor = (item: Suggestion) =>
-    choice[item.id] ?? { status: DEFAULT_STATUS, download: DOWNLOADS_BY_DEFAULT.includes(DEFAULT_STATUS) }
+    choice[item.id] ?? { status: DEFAULT_STATUS, download: downloadsByDefault(DEFAULT_STATUS) }
 
   const setStatus = (item: Suggestion, status: ListStatusValue) =>
     setChoice((current) => ({
       ...current,
-      [item.id]: { status, download: DOWNLOADS_BY_DEFAULT.includes(status) },
+      [item.id]: { status, download: downloadsByDefault(status) },
     }))
 
   const setDownload = (item: Suggestion, download: boolean) =>
@@ -126,78 +128,100 @@ export function Discovery({ onChanged }: { onChanged: () => void }) {
     <section>
       <header className="page-head">
         <h1>Discovery</h1>
-        <button onClick={() => api.refreshDiscovery().then(load)}>Search now</button>
+        {view === 'suggestions' && (
+          <button onClick={() => api.refreshDiscovery().then(load)}>Search now</button>
+        )}
       </header>
-      {error && <p className="row-error">{error}</p>}
-      {notice && <p className="notice">{notice}</p>}
-      {writeFailures.length > 0 && (
-        <div className="panel">
-          <h2>Status not saved to every list</h2>
-          {writeFailures.map((item) => (
-            <p key={item.id} className="row-error">
-              {item.title} —{' '}
-              {item.write_results
-                .filter((result) => !result.ok && !result.skipped)
-                .map(
-                  (result) =>
-                    `${result.target}: ${result.error ?? 'failure with no details'}${whenOf(result.at)}`,
-                )
-                .join(' · ')}
-            </p>
+      <div className="toolbar">
+        <button
+          className={view === 'suggestions' ? 'primary' : ''}
+          onClick={() => setView('suggestions')}
+        >
+          Suggestions{items.length > 0 && ` (${items.length})`}
+        </button>
+        <button
+          className={view === 'unmatched' ? 'primary' : ''}
+          onClick={() => setView('unmatched')}
+        >
+          No match found{unmatchedTotal !== null && ` (${unmatchedTotal})`}
+        </button>
+      </div>
+      {view === 'unmatched' ? (
+        <Unmatched onChanged={onChanged} onTotal={setUnmatchedTotal} />
+      ) : (
+        <>
+        {error && <p className="row-error">{error}</p>}
+        {notice && <p className="notice">{notice}</p>}
+        {writeFailures.length > 0 && (
+          <div className="panel">
+            <h2>Status not saved to every list</h2>
+            {writeFailures.map((item) => (
+              <p key={item.id} className="row-error">
+                {item.title} —{' '}
+                {item.write_results
+                  .filter((result) => !result.ok && !result.skipped)
+                  .map(
+                    (result) =>
+                      `${result.target}: ${result.error ?? 'failure with no details'}${whenOf(result.at)}`,
+                  )
+                  .join(' · ')}
+              </p>
+            ))}
+          </div>
+        )}
+        {items.length === 0 && (
+          <p className="empty">Nothing new. Everything on the anime list already has a manga match.</p>
+        )}
+        <div className="grid">
+          {items.map((item) => (
+            <article className="card" key={item.id}>
+              {item.cover_url && <img src={item.cover_url} alt="" loading="lazy" />}
+              <h2>{item.title}</h2>
+              <p className="reason">{reasonOf(item)}</p>
+              <p className="sources">
+                {uniqueSources(item).map((source) => (
+                  <span
+                    key={source.site}
+                    className={source.site === item.best_source?.site ? 'chip chip-best' : 'chip'}
+                  >
+                    {source.site}
+                  </span>
+                ))}
+              </p>
+              <label>
+                Status
+                <select
+                  value={settingFor(item).status}
+                  onChange={(event) => setStatus(item, event.target.value as ListStatusValue)}
+                >
+                  {STATUSES.map((status) => (
+                    <option key={status.value} value={status.value}>
+                      {status.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="toggle">
+                <input
+                  type="checkbox"
+                  checked={settingFor(item).download}
+                  onChange={(event) => setDownload(item, event.target.checked)}
+                />
+                Download now
+              </label>
+              <div className="actions">
+                <button disabled={busy === item.id} onClick={() => add(item)}>
+                  Add
+                </button>
+                <button className="ghost" disabled={busy === item.id} onClick={() => dismiss(item)}>
+                  Dismiss
+                </button>
+              </div>
+            </article>
           ))}
         </div>
+        </>
       )}
-      {items.length === 0 && (
-        <p className="empty">Nothing new. Everything on the anime list already has a manga match.</p>
-      )}
-      <div className="grid">
-        {items.map((item) => (
-          <article className="card" key={item.id}>
-            {item.cover_url && <img src={item.cover_url} alt="" loading="lazy" />}
-            <h2>{item.title}</h2>
-            <p className="reason">{reasonOf(item)}</p>
-            <p className="sources">
-              {uniqueSources(item).map((source) => (
-                <span
-                  key={source.site}
-                  className={source.site === item.best_source?.site ? 'chip chip-best' : 'chip'}
-                >
-                  {source.site}
-                </span>
-              ))}
-            </p>
-            <label>
-              Status
-              <select
-                value={settingFor(item).status}
-                onChange={(event) => setStatus(item, event.target.value as ListStatusValue)}
-              >
-                {STATUSES.map((status) => (
-                  <option key={status.value} value={status.value}>
-                    {status.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="toggle">
-              <input
-                type="checkbox"
-                checked={settingFor(item).download}
-                onChange={(event) => setDownload(item, event.target.checked)}
-              />
-              Download now
-            </label>
-            <div className="actions">
-              <button disabled={busy === item.id} onClick={() => add(item)}>
-                Add
-              </button>
-              <button className="ghost" disabled={busy === item.id} onClick={() => dismiss(item)}>
-                Dismiss
-              </button>
-            </div>
-          </article>
-        ))}
-      </div>
     </section>
   )
 }

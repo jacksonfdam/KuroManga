@@ -149,7 +149,7 @@ th { color: var(--muted); font-weight: 500; font-size: 12px; }
 .candidates { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 12px; }
 
 .candidate { display: flex; gap: 10px; text-align: left; align-items: stretch; padding: 10px; }
-.candidate .thumb { width: 54px; aspect-ratio: 3/4; border-radius: 5px; background: var(--panel-soft) center/cover no-repeat; flex: none; }
+.thumb { width: 54px; aspect-ratio: 3/4; border-radius: 5px; background: var(--panel-soft) center/cover no-repeat; flex: none; }
 
 .log {
   background: #0e0f16;
@@ -207,3 +207,30 @@ th { color: var(--muted); font-weight: 500; font-size: 12px; }
   padding: 8px 10px;
   margin: 0 0 12px;
 }
+
+/* The unmatched list is one wide row per anime rather than a card in .grid, so
+   a search can open its candidates underneath without reflowing the whole page. */
+.unmatched-row { display: flex; gap: 12px; align-items: flex-start; }
+.unmatched-row .thumb { width: 48px; }
+.unmatched-row .grow { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+.unmatched-row .grow .title { font-weight: 600; }
+.unmatched-row > .actions { flex: none; display: flex; gap: 8px; }
+
+/* Review's candidates are one click each; these carry a status, a toggle and a
+   button, so they need the extra width. */
+.candidates.roomy { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); margin-top: 12px; }
+
+.candidate-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.candidate .candidate-body label { margin: 0; }
+.candidate .candidate-body .actions { margin: auto 0 0; display: flex; gap: 8px; }
+
+/* A format the provider never stated is a warning, not a fact. */
+.pill.unsure { color: var(--warn); border-color: #5c4a24; }
+.pill.known { color: var(--ok); border-color: #2c5b45; }
+
+.page-nav { display: flex; align-items: center; gap: 8px; margin: 14px 0; }
+.page-nav span { color: var(--muted); font-size: 12px; }
+
+.searching { color: var(--accent); font-size: 12px; margin: 10px 0 0; }
+.notice.info { color: var(--accent); border-color: #33477e; }
+.notice .undo { margin-left: 10px; padding: 2px 8px; font-size: 12px; }

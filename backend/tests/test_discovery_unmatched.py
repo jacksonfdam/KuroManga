@@ -5,6 +5,7 @@ approving one of its results is allowed to decide on the user's behalf.
 """
 
 import json
+from types import SimpleNamespace
 
 import httpx
 import pytest
@@ -13,7 +14,7 @@ from sqlalchemy import text
 
 from app.api.main import app
 from app.db import get_sessionmaker
-from app.discovery.unmatched import merge_candidates
+from app.discovery.unmatched import collapse_anime, merge_candidates
 from app.enums import ListStatus, Provider
 from app.providers import get_source
 from app.providers.anilist import parse_manga_search as parse_anilist_search
@@ -59,6 +60,7 @@ async def insert_anime(
     romaji: str = "Vinland Saga",
     english: str | None = "Vinland Saga",
     status: str = "completed",
+    synonyms: list[str] | None = None,
     related: list | None = None,
     hidden: bool = False,
 ) -> int:
@@ -71,7 +73,8 @@ async def insert_anime(
                                              title_english, synonyms, status, progress_episode,
                                              total_episodes, cover_url, related_manga, raw,
                                              manga_dismissed_at, updated_at)
-                    values (:provider, :media_id, :romaji, :english, '[]'::jsonb, :status, 24, 24,
+                    values (:provider, :media_id, :romaji, :english,
+                            cast(:synonyms as jsonb), :status, 24, 24,
                             'https://covers/vs.jpg', cast(:related as jsonb), '{}'::jsonb,
                             case when :hidden then now() end, now())
                     returning id
@@ -83,6 +86,7 @@ async def insert_anime(
                     "romaji": romaji,
                     "english": english,
                     "status": status,
+                    "synonyms": json.dumps(synonyms or []),
                     "related": json.dumps(related or []),
                     "hidden": hidden,
                 },
@@ -119,9 +123,15 @@ class FakeSource:
 
     can_search = True
 
-    def __init__(self, results):
+    def __init__(self, results, provider=Provider.ANILIST):
         self.results = results
+        self.provider = provider
         self.queries: list[str] = []
+
+    def search_query(self, titles):
+        # The real source picks the query, limits and all: a fake that accepted
+        # anything would test the route against a provider nobody ships.
+        return get_source(self.provider).search_query(titles)
 
     async def search_manga(self, access_token, title, limit=10):
         self.queries.append(title)
@@ -140,7 +150,9 @@ def _answer(monkeypatch, fixture, slug: str):
         Provider.ANILIST: FakeSource(
             parse_anilist_search(fixture(f"anilist_manga_search{suffix}.json"))
         ),
-        Provider.MAL: FakeSource(parse_mal_search(fixture(f"mal_manga_search{suffix}.json"))),
+        Provider.MAL: FakeSource(
+            parse_mal_search(fixture(f"mal_manga_search{suffix}.json")), Provider.MAL
+        ),
         Provider.MANGABAKA: _UnsearchableFakeSource(),
     }
 
@@ -210,6 +222,210 @@ async def test_the_same_anime_on_both_providers_is_offered_once(client):
     assert sorted(body["items"][0]["providers"]) == ["anilist", "mal"]
 
 
+async def test_two_rows_that_agree_only_on_their_english_title_are_one_anime(client):
+    """The providers disagree about romaji far more often than about English.
+
+    Grouping on the romaji spelling alone listed this one twice, and the user
+    searched it twice, hid it twice and could add it twice.
+    """
+    anilist_id = await insert_anime(
+        "anilist", "116589", romaji="86: Eighty Six", english="86 EIGHTY-SIX"
+    )
+    await insert_anime("mal", "41457", romaji="86", english="86 Eighty-Six")
+
+    body = (await client.get("/api/discovery/unmatched")).json()
+    assert body["total"] == 1
+    assert body["items"][0]["id"] == anilist_id
+    assert sorted(body["items"][0]["providers"]) == ["anilist", "mal"]
+
+
+async def test_two_rows_that_agree_only_on_a_synonym_are_one_anime(client):
+    """Neither title matches; what the two providers agree on is a name underneath."""
+    await insert_anime(
+        "anilist",
+        "8246",
+        romaji="NARUTO: Dai Gekitotsu! Maboroshi no Chitei Iseki Dattebayo",
+        english="Naruto the Movie: Legend of the Stone of Gelel",
+        synonyms=["Naruto Movie 2"],
+    )
+    await insert_anime(
+        "mal",
+        "934",
+        romaji="Naruto Movie 2: Dai Gekitotsu! Maboroshi no Chiteiiseki Dattebayo!",
+        english="Naruto the Movie 2: Legend of the Stone of Gelel",
+        synonyms=["Naruto Movie 2"],
+    )
+
+    assert (await client.get("/api/discovery/unmatched")).json()["total"] == 1
+
+
+async def test_a_franchise_sharing_a_synonym_stays_one_row_per_season(client):
+    """Every season carries the franchise name, and one Hide button cannot answer
+    for six anime. A fold that chains through a shared name gives it one."""
+    for provider, media_id, romaji, english in (
+        ("mal", "31964", "Boku no Hero Academia", "My Hero Academia"),
+        ("mal", "33486", "Boku no Hero Academia 2nd Season", "My Hero Academia Season 2"),
+        ("anilist", "21459", "Boku no Hero Academia", "My Hero Academia"),
+        ("anilist", "21856", "Boku no Hero Academia 2", "My Hero Academia Season 2"),
+    ):
+        await insert_anime(
+            provider,
+            media_id,
+            romaji=romaji,
+            english=english,
+            synonyms=["My Hero Academia", "Heroaca"],
+        )
+
+    body = (await client.get("/api/discovery/unmatched")).json()
+    assert body["total"] == 2
+    assert sorted(a["title"] for a in body["items"]) == [
+        "My Hero Academia",
+        "My Hero Academia Season 2",
+    ]
+    assert all(sorted(a["providers"]) == ["anilist", "mal"] for a in body["items"])
+
+
+def _row(row_id: int, provider: str, romaji: str, english: str, synonyms=(),
+         total_episodes=None, media_id=None):
+    return SimpleNamespace(
+        id=row_id,
+        provider=provider,
+        provider_media_id=str(media_id if media_id is not None else row_id),
+        title_romaji=romaji,
+        title_english=english,
+        synonyms=list(synonyms),
+        status="completed",
+        progress_episode=0,
+        total_episodes=total_episodes,
+        cover_url=None,
+        manga_dismissed_at=None,
+    )
+
+
+def _grouping(rows) -> list[tuple[int, ...]]:
+    return sorted(
+        tuple(sorted(member.row_id for member in anime.members)) for anime in collapse_anime(rows)
+    )
+
+
+def test_the_fold_does_not_depend_on_the_order_the_rows_arrive_in():
+    """A sync writes rows in whatever order a provider answered in.
+
+    The fold takes the pairs it merges in order of the evidence behind them
+    rather than in the order the rows turned up, so the same library reads the
+    same way twice - and the seasons land beside their own mirror, not beside
+    each other.
+    """
+    franchise = ["My Hero Academia", "Heroaca"]
+    rows = [
+        _row(1, "mal", "Boku no Hero Academia", "My Hero Academia", franchise),
+        _row(2, "mal", "Boku no Hero Academia 2nd Season", "My Hero Academia Season 2", franchise),
+        _row(3, "anilist", "Boku no Hero Academia", "My Hero Academia", franchise),
+        _row(4, "anilist", "Boku no Hero Academia 2", "My Hero Academia Season 2", franchise),
+    ]
+
+    def grouping(order):
+        return sorted(
+            tuple(sorted(member.row_id for member in anime.members))
+            for anime in collapse_anime(order)
+        )
+
+    assert grouping(rows) == [(1, 3), (2, 4)]
+    assert grouping(list(reversed(rows))) == [(1, 3), (2, 4)]
+    assert grouping([rows[2], rows[1], rows[3], rows[0]]) == [(1, 3), (2, 4)]
+
+
+def test_kamisama_kiss_seasons_do_not_cross():
+    """Real ids, real episode counts. Both seasons use the identical string on
+    both providers, so own-title evidence ties and the id tie-break used to
+    decide - sync order, which means nothing - and it crossed the seasons:
+    mal 14713 (season 1) landed on anilist 20801 (season 2) and mal 25681
+    (season 2) landed on anilist 14713 (season 1).
+    """
+    rows = [
+        _row(354, "mal", "Kamisama Hajimemashita", "Kamisama Kiss",
+             total_episodes=13, media_id=14713),
+        _row(1853, "anilist", "Kamisama Hajimemashita", "Kamisama Kiss",
+             total_episodes=13, media_id=14713),
+        _row(355, "mal", "Kamisama Hajimemashita◎", "Kamisama Kiss Season 2",
+             total_episodes=12, media_id=25681),
+        _row(1582, "anilist", "Kamisama Hajimemashita◎", "Kamisama Kiss◎",
+             total_episodes=12, media_id=20801),
+    ]
+
+    assert _grouping(rows) == [(354, 1853), (355, 1582)]
+
+
+def test_magi_sinbad_tv_and_ova_do_not_cross():
+    """Real ids, real episode counts, real synonyms. The OVA (mal 22097, 5
+    episodes) and the TV series (anilist 21394, 13 episodes) carry the exact
+    same title on both providers, and a Japanese synonym every row in the
+    family shares ties them all together too - so nothing but episode count
+    tells them apart. The OVA's own AniList row (20609, 5 episodes) and the
+    TV's own MyAnimeList row (31741, 13 episodes) are what they actually
+    belong with.
+    """
+    jp = "マギ シンドバッドの冒険"
+    rows = [
+        _row(453, "mal", "Magi: Sinbad no Bouken", "Magi: Adventure of Sinbad",
+             synonyms=["Magi: Adventure of Sinbad OVA", jp], total_episodes=5, media_id=22097),
+        _row(1443, "anilist", "Magi: Sinbad no Bouken OVA", "Magi: Adventure of Sinbad (OVA)",
+             synonyms=["Magi: Adventure of Sinbad", f"{jp} OVA"], total_episodes=5, media_id=20609),
+        _row(454, "mal", "Magi: Sinbad no Bouken (TV)", "Magi: Adventure of Sinbad",
+             synonyms=[jp], total_episodes=13, media_id=31741),
+        _row(1860, "anilist", "Magi: Sinbad no Bouken", "Magi: Adventure of Sinbad",
+             synonyms=[jp], total_episodes=13, media_id=21394),
+    ]
+
+    assert _grouping(rows) == [(453, 1443), (454, 1860)]
+
+
+def test_kimetsu_mugen_ressha_movie_and_arc_do_not_cross():
+    """Real ids, real episode counts, real synonyms. The TV arc (mal 49926, 7
+    episodes) and the movie (anilist 112151, 1 episode) share a romaji title,
+    and a synonym the TV arc and the movie's own AniList row both carry ties
+    them tighter still - enough that without the episode count the fold paired
+    the wrong pair outright, leaving the MAL movie row (40456) and the AniList
+    TV row (129874) as orphan singletons.
+    """
+    rows = [
+        _row(390, "mal", "Kimetsu no Yaiba: Mugen Ressha-hen",
+             "Demon Slayer: Kimetsu no Yaiba Mugen Train Arc",
+             synonyms=["Kimetsu no Yaiba Movie: Mugen Ressha-hen (TV)", "鬼滅の刃 無限列車編"],
+             total_episodes=7, media_id=49926),
+        _row(1755, "anilist", "Kimetsu no Yaiba: Mugen Ressha-hen (TV)",
+             "Demon Slayer: Kimetsu no Yaiba Mugen Train Arc",
+             synonyms=["鬼滅の刃 無限列車編 (TV)"], total_episodes=7, media_id=129874),
+        _row(387, "mal", "Kimetsu no Yaiba Movie: Mugen Ressha-hen",
+             "Demon Slayer: Kimetsu no Yaiba - The Movie: Mugen Train",
+             synonyms=["Gekijouban Kimetsu no Yaiba: Mugen Ressha-hen", "劇場版 鬼滅の刃 無限列車編"],
+             total_episodes=1, media_id=40456),
+        _row(1918, "anilist", "Kimetsu no Yaiba: Mugen Ressha-hen",
+             "Demon Slayer -Kimetsu no Yaiba- The Movie: Mugen Train",
+             synonyms=["鬼滅の刃 無限列車編"], total_episodes=1, media_id=112151),
+    ]
+
+    assert _grouping(rows) == [(387, 1918), (390, 1755)]
+
+
+def test_a_legitimate_episode_disagreement_still_merges():
+    """Demoting a mismatched pair is not forbidding it: when nothing else
+    competes for either row, providers who simply count episodes differently
+    (mal 51179, 12 episodes; anilist 146065, 13) still have to merge - it is
+    the only candidate either row has.
+    """
+    rows = [
+        _row(530, "mal", "Mushoku Tensei II: Isekai Ittara Honki Dasu",
+             "Mushoku Tensei: Jobless Reincarnation Season 2",
+             total_episodes=12, media_id=51179),
+        _row(1631, "anilist", "Mushoku Tensei II: Isekai Ittara Honki Dasu",
+             "Mushoku Tensei: Jobless Reincarnation Season 2",
+             total_episodes=13, media_id=146065),
+    ]
+
+    assert _grouping(rows) == [(530, 1631)]
+
+
 async def test_one_provider_answering_settles_the_anime_for_both(client):
     """Otherwise the MyAnimeList half of a matched anime comes back on its own."""
     await insert_anime(
@@ -227,6 +443,49 @@ async def test_the_list_pages(client):
         await insert_anime("anilist", media_id, romaji=title, english=title)
     body = (await client.get("/api/discovery/unmatched?limit=2&offset=2")).json()
     assert body["total"] == 3
+    assert len(body["items"]) == 1
+
+
+async def test_the_filter_matches_a_synonym_and_the_total_counts_what_matched(client):
+    """Reaching one row of seven hundred means asking the server, not the page.
+
+    A filter over the twenty-five rows already loaded would look like a search
+    box and answer for a thirtieth of the list.
+    """
+    await insert_anime("anilist", "21", romaji="Vinland Saga", english="Vinland Saga")
+    await insert_anime(
+        "anilist",
+        "1735",
+        romaji="Tokidoki Bosotto Rossiya-go de Dereru Tonari no Alya-san",
+        english="Alya Sometimes Hides Her Feelings in Russian",
+        synonyms=["Roshidere"],
+    )
+
+    body = (await client.get("/api/discovery/unmatched?q=roshidere")).json()
+    assert body["total"] == 1
+    assert [a["media_id"] for a in body["items"]] == ["1735"]
+    assert (await client.get("/api/discovery/unmatched?q=berserk")).json() == {
+        "total": 0,
+        "items": [],
+    }
+
+
+async def test_the_filter_folds_case_and_punctuation_the_way_the_grouping_does(client):
+    """One notion of what makes two titles the same, not a second one for the box."""
+    await insert_anime("anilist", "116589", romaji="86: Eighty Six", english="86 EIGHTY-SIX")
+    await insert_anime("anilist", "21", romaji="Vinland Saga", english="Vinland Saga")
+
+    body = (await client.get("/api/discovery/unmatched?q=eighty-six")).json()
+    assert body["total"] == 1
+    assert [a["media_id"] for a in body["items"]] == ["116589"]
+
+
+async def test_the_filter_is_applied_before_the_page_is_cut(client):
+    for media_id, title in (("21", "Vinland Saga"), ("22", "Berserk"), ("23", "Vinland Saga 2")):
+        await insert_anime("anilist", media_id, romaji=title, english=title)
+
+    body = (await client.get("/api/discovery/unmatched?q=vinland&limit=1")).json()
+    assert body["total"] == 2
     assert len(body["items"]) == 1
 
 
@@ -257,9 +516,12 @@ async def test_a_search_ranks_the_closest_title_first(client, providers_answer):
 async def test_a_search_asks_each_provider_once(client, providers_answer):
     """AniList's rate limit is the one the user has already hit today."""
     anime_id = await insert_anime("anilist", "21")
-    await client.post(f"/api/discovery/unmatched/{anime_id}/search")
+    body = (await client.post(f"/api/discovery/unmatched/{anime_id}/search")).json()
     assert providers_answer[Provider.ANILIST].queries == ["Vinland Saga"]
     assert providers_answer[Provider.MAL].queries == ["Vinland Saga"]
+    # Neither provider substituted anything, so both agree with `query` - the
+    # screen has nothing worth pointing out here.
+    assert body["queries"] == {"anilist": "Vinland Saga", "mal": "Vinland Saga"}
 
 
 async def test_a_search_persists_nothing(client, providers_answer):
@@ -356,6 +618,62 @@ async def test_a_rate_limited_provider_is_told_apart_from_a_broken_one(
     anime_id = await insert_anime("anilist", "21")
     body = (await client.post(f"/api/discovery/unmatched/{anime_id}/search")).json()
     assert body["errors"][0]["code"] == "rate_limited"
+
+
+async def test_a_two_character_title_is_asked_of_another_name_the_anime_goes_by(
+    client, providers_answer
+):
+    """MyAnimeList refuses `q` under three characters, and refuses it every time.
+
+    The row already carries the longer name the provider indexes the manga
+    under, so the user keeps both halves of the answer.
+    """
+    anime_id = await insert_anime("anilist", "116589", romaji="86", english="86 Eighty-Six")
+    body = (await client.post(f"/api/discovery/unmatched/{anime_id}/search")).json()
+
+    assert providers_answer[Provider.MAL].queries == ["86 Eighty-Six"]
+    assert providers_answer[Provider.ANILIST].queries == ["86"]
+    assert body["errors"] == []
+    assert body["candidates"]
+    # The one `query` the screen shows is AniList's; MyAnimeList answered a
+    # different question, and the user is owed that difference.
+    assert body["query"] == "86"
+    assert body["queries"] == {"mal": "86 Eighty-Six", "anilist": "86"}
+
+
+async def test_a_query_a_provider_cannot_accept_is_not_an_error_to_retry(
+    client, providers_answer
+):
+    """`provider_error` tells the user to search again. This one never succeeds."""
+    anime_id = await insert_anime("anilist", "116589", romaji="86", english=None)
+    body = (await client.post(f"/api/discovery/unmatched/{anime_id}/search")).json()
+
+    assert [(e["provider"], e["code"]) for e in body["errors"]] == [("mal", "query_unsupported")]
+    # Refused before it was sent: the point is that nothing was asked.
+    assert providers_answer[Provider.MAL].queries == []
+    assert {c["provider"] for c in body["candidates"]} == {"anilist"}
+
+
+async def test_an_over_long_title_is_trimmed_rather_than_refused(client, providers_answer):
+    """Sixty-five characters of romaji is a 400, and the opening words still name it."""
+    anime_id = await insert_anime(
+        "anilist",
+        "1",
+        romaji="Maou no Ore ga Dorei Elf wo Yome ni Shitanda ga, Dou Medereba Ii?",
+        english=None,
+    )
+    body = (await client.post(f"/api/discovery/unmatched/{anime_id}/search")).json()
+
+    assert providers_answer[Provider.MAL].queries == [
+        "Maou no Ore ga Dorei Elf wo Yome ni Shitanda ga, Dou Medereba"
+    ]
+    assert body["errors"] == []
+    # The trim is invisible in `query` - it is still the full romaji title -
+    # so `queries` is where the trimmed name MyAnimeList actually got shows up.
+    assert body["queries"]["mal"] == (
+        "Maou no Ore ga Dorei Elf wo Yome ni Shitanda ga, Dou Medereba"
+    )
+    assert body["query"] == "Maou no Ore ga Dorei Elf wo Yome ni Shitanda ga, Dou Medereba Ii?"
 
 
 async def test_the_light_novel_an_anime_was_adapted_from_is_never_offered(

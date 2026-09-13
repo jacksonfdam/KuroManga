@@ -1,7 +1,10 @@
+import pytest
+
 from app.config import get_settings
 from app.enums import ListStatus, Provider
 from app.providers.anilist import AniListSource, parse_list
 from app.providers.anilist import parse_manga_search as parse_anilist_search
+from app.providers.base import QueryUnsupported
 from app.providers.mal import MyAnimeListSource, parse_page
 from app.providers.mal import parse_manga_search as parse_mal_search
 
@@ -187,3 +190,38 @@ def test_mal_search_keeps_a_result_with_an_unmapped_media_type(fixture):
     results = parse_mal_search(payload)
     assert [r.media_id for r in results] == ["999002"]
     assert results[0].format is None
+
+
+# The three live searches MyAnimeList refused with a 400: `q` is documented as
+# three to sixty-four characters, and the refusal is the query's own property.
+
+
+def test_mal_leaves_a_query_it_accepts_alone():
+    assert MyAnimeListSource().search_query(["Vinland Saga", "Vinland Saga"]) == "Vinland Saga"
+
+
+def test_mal_trims_an_over_long_query_at_a_word_boundary():
+    long = "Isekai Mokushiroku Mynoghra: Hametsu no Bunmei de Hajimeru Sekai Seifuku"
+    query = MyAnimeListSource().search_query([long])
+    assert len(query) <= 64
+    assert query == "Isekai Mokushiroku Mynoghra: Hametsu no Bunmei de Hajimeru Sekai"
+    assert long.startswith(query)
+
+
+def test_mal_trims_an_over_long_query_with_no_word_boundary_to_cut_at():
+    query = MyAnimeListSource().search_query(["x" * 80])
+    assert query == "x" * 64
+
+
+def test_mal_asks_for_a_longer_name_rather_than_one_it_would_refuse():
+    """`86` is `86 Eighty-Six` on MyAnimeList, and skipping it would lose the half."""
+    assert MyAnimeListSource().search_query(["86", "86 Eighty-Six"]) == "86 Eighty-Six"
+
+
+def test_mal_refuses_to_be_asked_when_no_name_fits():
+    with pytest.raises(QueryUnsupported):
+        MyAnimeListSource().search_query(["86", "", "5"])
+
+
+def test_anilist_has_no_such_limit_and_takes_the_first_name():
+    assert AniListSource().search_query(["86", "86 Eighty-Six"]) == "86"

@@ -18,6 +18,7 @@ from app.providers.base import (
     ListEntryDTO,
     ListSource,
     MangaMeta,
+    QueryUnsupported,
     TokenSet,
 )
 
@@ -47,6 +48,12 @@ SEARCH_FIELDS = (
     "id,title,alternative_titles,num_chapters,main_picture,start_date,status,media_type"
 )
 SEARCH_LIMIT = 10
+
+# Documented bounds on `q`: outside them /manga answers 400, and answers it again
+# however many times it is asked. Three of twelve real searches were refused this
+# way - a two-character romaji title, and two romaji titles past sixty-four.
+SEARCH_QUERY_MIN = 3
+SEARCH_QUERY_MAX = 64
 
 # MyAnimeList's own vocabulary, translated into AniList's so one filter and one
 # badge serve both. It splits what AniList calls NOVEL into two, and everything
@@ -80,6 +87,22 @@ ANIME_STATUS_MAP = {
     "on_hold": ListStatus.ON_HOLD,
     "dropped": ListStatus.DROPPED,
 }
+
+
+def acceptable_query(title: str) -> str:
+    """`title` as MyAnimeList's search will take it, or empty when it will not.
+
+    The trim stops at a word boundary: sixty-four characters of a long romaji
+    title ending mid-word searches for a fragment that is nobody's title, where
+    the whole words before it are what the manga is indexed under.
+    """
+    query = " ".join((title or "").split())
+    if len(query) > SEARCH_QUERY_MAX:
+        # One character past the limit, so a cut that lands exactly on a space
+        # keeps the whole word before it rather than throwing it away.
+        head = query[: SEARCH_QUERY_MAX + 1]
+        query = head.rsplit(" ", 1)[0] if " " in head else head[:SEARCH_QUERY_MAX]
+    return query if len(query) >= SEARCH_QUERY_MIN else ""
 
 
 class MyAnimeListSource(ListSource):
@@ -128,6 +151,24 @@ class MyAnimeListSource(ListSource):
             url = (page.get("paging") or {}).get("next")
             params = None
         return entries
+
+    def search_query(self, titles: list[str]) -> str:
+        """The first of the anime's names MyAnimeList will actually accept.
+
+        A title too long is trimmed, because its opening words still name the
+        manga. A title too short is abandoned for the next name the anime goes
+        by - `86` is `86 Eighty-Six` on MyAnimeList, and skipping the provider
+        would cost the user half the answer for every show titled with a number
+        or an acronym, permanently and with no way to ask again.
+        """
+        for title in titles:
+            query = acceptable_query(title)
+            if query:
+                return query
+        raise QueryUnsupported(
+            "MyAnimeList searches for 3 to 64 characters, and no title this anime"
+            " goes by fits"
+        )
 
     async def search_manga(
         self, access_token: str, title: str, limit: int = SEARCH_LIMIT
