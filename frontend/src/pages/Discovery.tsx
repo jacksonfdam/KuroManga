@@ -1,23 +1,8 @@
 import { useEffect, useState } from 'react'
 
 import { api, ListStatusValue, Suggestion, SuggestionSource } from '../api'
+import { DEFAULT_STATUS, STATUSES, downloadsByDefault } from '../listStatus'
 import { useJobEvents } from '../useEvents'
-
-const STATUSES: { value: ListStatusValue; label: string }[] = [
-  { value: 'reading', label: 'Reading' },
-  { value: 'plan_to_read', label: 'Plan to read' },
-  { value: 'completed', label: 'Completed' },
-  { value: 'on_hold', label: 'On hold' },
-  { value: 'dropped', label: 'Dropped' },
-]
-
-// A suggestion is something the user has not started, so the default status
-// must not claim otherwise.
-const DEFAULT_STATUS: ListStatusValue = 'plan_to_read'
-
-// Only what is being read now downloads unasked. Planning to read something is
-// not asking for its whole backlog on disk tonight.
-const DOWNLOADS_BY_DEFAULT: ListStatusValue[] = ['reading']
 
 function reasonOf(suggestion: Suggestion): string {
   const { origin_title, origin_status, total_episodes } = suggestion.reason
@@ -77,12 +62,12 @@ export function Discovery({ onChanged }: { onChanged: () => void }) {
   useJobEvents(load)
 
   const settingFor = (item: Suggestion) =>
-    choice[item.id] ?? { status: DEFAULT_STATUS, download: DOWNLOADS_BY_DEFAULT.includes(DEFAULT_STATUS) }
+    choice[item.id] ?? { status: DEFAULT_STATUS, download: downloadsByDefault(DEFAULT_STATUS) }
 
   const setStatus = (item: Suggestion, status: ListStatusValue) =>
     setChoice((current) => ({
       ...current,
-      [item.id]: { status, download: DOWNLOADS_BY_DEFAULT.includes(status) },
+      [item.id]: { status, download: downloadsByDefault(status) },
     }))
 
   const setDownload = (item: Suggestion, download: boolean) =>
