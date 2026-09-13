@@ -6,6 +6,7 @@ user's decision, and a cron does not get to undo it.
 """
 
 import json
+from typing import Any
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,7 +17,14 @@ from app.handlers.base import JobContext, register
 from app.handlers.list_sync import load_access_token
 from app.providers import get_source
 from app.providers.base import MangaMeta
+from app.sources import Candidate, all_sources
+from app.sources.mangadex import manga_id_from_candidate
 from app.text_utils import normalize
+
+# MangaDex publishes a documented API, numbers its chapters reliably and holds the
+# personal login, so it only loses the tie-break when another site matches clearly
+# better rather than marginally.
+MANGADEX_EDGE = 0.05
 
 
 async def anime_rows(session: AsyncSession) -> list:
@@ -56,8 +64,42 @@ async def already_a_series(session: AsyncSession, title: str) -> bool:
     return result.first() is not None
 
 
+def source_summary(candidates: list[Candidate]) -> dict[str, Any]:
+    """Every site that answered, ranked with MangaDex's tie-break edge, plus its uuid."""
+    summary = [
+        {
+            "site": c.source_site,
+            "url": c.source_url,
+            "chapters": c.chapter_count,
+            "score": float(c.score),
+        }
+        for c in sorted(candidates, key=lambda c: c.score, reverse=True)
+    ]
+    uuid = next(
+        (manga_id_from_candidate(c) for c in candidates if manga_id_from_candidate(c)), None
+    )
+    best = None
+    if summary:
+        ranked = sorted(
+            candidates,
+            key=lambda c: c.score + (MANGADEX_EDGE if c.source_site == "mangadex" else 0.0),
+            reverse=True,
+        )
+        winner = ranked[0]
+        best = {
+            "site": winner.source_site,
+            "url": winner.source_url,
+            "score": float(winner.score),
+        }
+    return {"sources": summary, "mangadex_uuid": uuid, "best": best}
+
+
 async def upsert_suggestion(
-    session: AsyncSession, seed: Seed, meta: MangaMeta | None, score: float
+    session: AsyncSession,
+    seed: Seed,
+    meta: MangaMeta | None,
+    score: float,
+    sources: dict[str, Any] | None = None,
 ) -> None:
     await session.execute(
         text(
@@ -100,6 +142,7 @@ async def upsert_suggestion(
                         "progress_episode": seed.origin.progress_episode,
                         "total_episodes": seed.origin.total_episodes,
                     },
+                    **(sources or {}),
                 }
             ),
         },
@@ -142,6 +185,12 @@ async def handle(ctx: JobContext) -> None:
             total_episodes=seed.origin.total_episodes,
             total_chapters=entry.total_chapters if entry else None,
         )
-        await upsert_suggestion(ctx.session, seed, entry, score)
+        candidates: list[Candidate] = []
+        for source in all_sources():
+            try:
+                candidates.extend(await source.search([seed.title], limit=5))
+            except Exception as exc:  # noqa: BLE001 - a dead site must not stop the build
+                await ctx.log(f"{source.site} search failed: {exc}", level="warning")
+        await upsert_suggestion(ctx.session, seed, entry, score, source_summary(candidates))
 
     await ctx.log(f"done: {len(wanted)} suggestions", pct=100)

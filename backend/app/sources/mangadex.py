@@ -106,6 +106,16 @@ def manga_id_from_url(url: str) -> str:
     raise ValueError(f"not a mangadex title url: {url}")
 
 
+def manga_id_from_candidate(candidate: Candidate) -> str | None:
+    """The uuid behind a MangaDex candidate, or None for any other site."""
+    if candidate.source_site != SITE:
+        return None
+    try:
+        return manga_id_from_url(candidate.source_url)
+    except ValueError:
+        return None
+
+
 class MangaDexSource(Source):
     site = SITE
     domains = ("mangadex.org",)

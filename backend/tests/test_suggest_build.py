@@ -77,3 +77,57 @@ async def test_rebuilding_never_resurrects_a_dismissed_suggestion(fixture):
         row = (await session.execute(text("select state, rank_score from suggestion"))).one()
     assert row.state == "dismissed"
     assert float(row.rank_score) == 0.80
+
+
+from app.handlers.suggest_build import source_summary
+from app.sources.base import Candidate
+
+
+def candidate(site, url, score, chapters=100):
+    return Candidate(source_site=site, source_url=url, title="Vinland Saga",
+                     chapter_count=chapters, score=score)
+
+
+def test_the_summary_keeps_every_site_that_answered():
+    summary = source_summary(
+        [
+            candidate("asurascan", "https://asuracomic.net/series/vs", 0.90),
+            candidate("mangadex", "https://mangadex.org/title/uuid-1", 0.88),
+        ]
+    )
+    assert {s["site"] for s in summary["sources"]} == {"asurascan", "mangadex"}
+
+
+def test_mangadex_wins_a_close_call_because_its_numbering_can_be_trusted():
+    summary = source_summary(
+        [
+            candidate("asurascan", "https://asuracomic.net/series/vs", 0.90),
+            candidate("mangadex", "https://mangadex.org/title/uuid-1", 0.88),
+        ]
+    )
+    assert summary["best"]["site"] == "mangadex"
+
+
+def test_a_clearly_better_match_elsewhere_still_wins():
+    summary = source_summary(
+        [
+            candidate("asurascan", "https://asuracomic.net/series/vs", 0.95),
+            candidate("mangadex", "https://mangadex.org/title/uuid-1", 0.60),
+        ]
+    )
+    assert summary["best"]["site"] == "asurascan"
+
+
+def test_the_mangadex_uuid_is_kept_even_when_another_site_is_preferred():
+    """Writing the MangaDex reading status needs the uuid, whatever we download from."""
+    summary = source_summary(
+        [
+            candidate("asurascan", "https://asuracomic.net/series/vs", 0.95),
+            candidate("mangadex", "https://mangadex.org/title/uuid-1", 0.60),
+        ]
+    )
+    assert summary["mangadex_uuid"] == "uuid-1"
+
+
+def test_no_candidates_means_no_best_and_no_uuid():
+    assert source_summary([]) == {"sources": [], "mangadex_uuid": None, "best": None}
