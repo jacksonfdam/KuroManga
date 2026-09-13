@@ -30,9 +30,25 @@ docker compose up -d --build
 - Interface: <http://localhost:8080>
 - Komga: <http://localhost:25600>
 
-Ajuste `PUID` e `PGID` no `.env` para o seu usuário (`id -u`, `id -g`). O worker
-escreve na biblioteca e o Komga lê; com uids diferentes o Komga encontra arquivos
-que não consegue abrir, e o erro que ele mostra não aponta para permissão.
+Ajuste `PUID` e `PGID` no `.env` para o seu usuário (`id -u`, `id -g`). Isso vale
+só para o worker, que é quem escreve na biblioteca. O Komga roda com o usuário da
+própria imagem: sobrescrever o usuário dele quebra o `/config`, que é onde ele
+guarda o banco SQLite — o sintoma é um `SQLITE_CANTOPEN` em loop de restart, que
+não menciona permissão em lugar nenhum. A biblioteca ele só lê, e arquivos com
+leitura para todos bastam.
+
+O serviço `bootstrap` roda sozinho a cada `up`: espera o Komga responder, cria o
+administrador inicial se ninguém criou ainda, e cria a biblioteca apontando para
+`/manga` se ela não existir. É idempotente.
+
+### Credenciais do Komga
+
+Preencha `KOMGA_API_KEY` no `.env` (no Komga: Settings, Account, API keys). É a
+forma normal de autenticar, e a chave pode ser revogada sozinha.
+
+`KOMGA_USER` e `KOMGA_PASS` só são necessários uma vez, para reivindicar uma
+instância recém-criada: sem usuário não existe chave, e o endpoint de claim só
+aceita email e senha. Com isso preenchido o `bootstrap` faz o claim para você.
 
 ### Credenciais das listas
 
@@ -67,23 +83,16 @@ lease e backoff são exatamente o que um mock erraria.
 
 ## Estado
 
-Fases 1 a 4 implementadas: infraestrutura, listas, matching e download.
-
-Falta da spec:
-
-- **Fase 5 — Komga.** O serviço já sobe no compose e lê a biblioteca, mas a criação
-  automática da library pela API, a varredura disparada após cada download e a
-  reconciliação de `chapter.state` contra os books do Komga ainda não existem. Hoje
-  a reconciliação olha o disco, e a library você cria uma vez pela interface do Komga.
-- **Fase 6 — progresso de volta.** Ler read-status do Komga e escrever em
-  MyAnimeList e AniList. As duas escritas (`push_progress`) já estão implementadas
-  nos provedores; falta o handler que as chama.
+As seis fases da spec estão implementadas: infraestrutura, listas, matching,
+download, integração com o Komga e progresso de volta para as listas.
 
 As flags do binário `manga-downloader` foram conferidas contra o `--help` da versão
 1.9.0 (`--format`, `--language`, `--output-dir`). O comando é montado em
 `app/downloader/runner.py:build_command` e o parse da saída fica no mesmo módulo,
 cobertos por testes — se uma versão futura mudar as flags, a correção é local.
 
-O que ainda não foi exercido contra a rede: uma busca real no MangaDex e um
-download real. As duas bordas rodam de fixtures nos testes; o primeiro uso com
-listas conectadas é que fecha essa verificação.
+O que ainda não foi exercido contra a rede: uma busca real no MangaDex, um
+download real, e a escrita de progresso no MyAnimeList e no AniList. Essas três
+bordas rodam de fixtures nos testes. O loop do Komga foi verificado contra uma
+instância real: claim, criação da biblioteca, varredura, casamento de série por
+pasta e de book por caminho, e leitura do progresso de leitura de volta.

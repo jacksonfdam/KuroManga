@@ -240,9 +240,15 @@ o registro inicial só for possível pela interface web, o `bootstrap` pula a cr
 usuário, cria apenas a library após o registro, e o passo manual único fica documentado no
 README.
 
-**Permissões.** `worker` e `komga` rodam com o mesmo `user: "${PUID}:${PGID}"` vindo de
-`.env`, com umask consistente. Sem isso o Komga encontra arquivos CBZ que não consegue abrir,
-e a mensagem de erro resultante não aponta para permissão.
+**Permissões.** Apenas o `worker` roda com `user: "${PUID}:${PGID}"`, porque é quem escreve na
+biblioteca. O `komga` mantém o usuário da própria imagem: sobrescrevê-lo impede a escrita em
+`/config`, onde fica o banco SQLite, e o resultado é um `SQLITE_CANTOPEN` em loop de restart
+cuja mensagem não menciona permissão. A biblioteca o Komga apenas lê, e arquivos legíveis por
+todos são suficientes.
+
+**Imagem compartilhada.** `api`, `worker` e `bootstrap` são o mesmo programa com entrypoints
+diferentes e declaram a mesma `image:`. Sem isso, reconstruir um deixa os outros rodando
+código antigo, e o sintoma é um job falhando com "no handler registered".
 
 **Logs.** Todos os serviços usam driver `json-file` com `max-size: 10m` e `max-file: 3`, para
 que o disco não encha silenciosamente. O log operacional relevante é `job_event`, exibido na
@@ -294,5 +300,6 @@ seja local.
 Sites de origem mudam layout e bloqueiam por IP. O semáforo por host e o backoff reduzem o
 problema, mas não o eliminam; a falha é visível na interface em vez de silenciosa.
 
-A criação do usuário administrador do Komga no primeiro boot é o único ponto do desenho ainda
-não verificado contra a documentação, e está isolado no serviço `bootstrap`.
+A escrita de progresso no MyAnimeList e no AniList é o único caminho do desenho ainda não
+exercido contra o serviço real, por depender de contas conectadas. A leitura do progresso no
+Komga e todo o restante do laço foram verificados contra uma instância real.
