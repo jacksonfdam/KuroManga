@@ -28,7 +28,7 @@ from app.handlers.list_sync import (
 )
 from app.handlers.suggest_build import upsert_suggestion
 from app.providers import get_source
-from app.providers.base import ListEntryDTO, MangaMeta
+from app.providers.base import ListEntryDTO, MangaMeta, QueryUnsupported
 from app.providers.tokens import NotConnected, access_token_for
 from app.queue import repo
 from app.sources import source_for_url
@@ -466,14 +466,18 @@ async def known_states(
 
 
 def error_code(exc: Exception) -> str:
-    """Which of the three things went wrong, as a word the screen can branch on.
+    """Which of the four things went wrong, as a word the screen can branch on.
 
-    The three ask for different things from the user - authorise the provider,
-    wait a minute, try later - and `detail` is an English sentence from whichever
-    library raised, which no screen should ever have to pattern-match.
+    The four ask for different things from the user - authorise the provider,
+    wait a minute, try later, and nothing at all - and `detail` is an English
+    sentence from whichever library raised, which no screen should ever have to
+    pattern-match. `query_unsupported` earns its own word because it is the one
+    outcome a retry cannot change, and the screen was telling the user to retry.
     """
     if isinstance(exc, NotConnected):
         return "not_connected"
+    if isinstance(exc, QueryUnsupported):
+        return "query_unsupported"
     if isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code == 429:
         return "rate_limited"
     return "provider_error"
@@ -551,9 +555,13 @@ async def search_unmatched(anime_id: int, session: Session) -> dict[str, Any]:
     errors: list[dict[str, str]] = []
     searchable = [provider for provider in Provider if get_source(provider).can_search]
     for provider in searchable:
+        source = get_source(provider)
         try:
+            # Asked before the token is: a query the provider cannot accept is
+            # settled here, without a request and without a renewal spent on one.
+            query = source.search_query(anime.search_titles)
             token = await access_token_for(session, provider)
-            results = await get_source(provider).search_manga(token, anime.search_title)
+            results = await source.search_manga(token, query)
         except Exception as exc:  # noqa: BLE001 - one provider down is half an answer
             # Reported rather than swallowed: half a result set that looks whole
             # is how a user concludes a manga does not exist.

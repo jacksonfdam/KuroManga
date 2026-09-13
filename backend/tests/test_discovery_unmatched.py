@@ -123,9 +123,15 @@ class FakeSource:
 
     can_search = True
 
-    def __init__(self, results):
+    def __init__(self, results, provider=Provider.ANILIST):
         self.results = results
+        self.provider = provider
         self.queries: list[str] = []
+
+    def search_query(self, titles):
+        # The real source picks the query, limits and all: a fake that accepted
+        # anything would test the route against a provider nobody ships.
+        return get_source(self.provider).search_query(titles)
 
     async def search_manga(self, access_token, title, limit=10):
         self.queries.append(title)
@@ -144,7 +150,9 @@ def _answer(monkeypatch, fixture, slug: str):
         Provider.ANILIST: FakeSource(
             parse_anilist_search(fixture(f"anilist_manga_search{suffix}.json"))
         ),
-        Provider.MAL: FakeSource(parse_mal_search(fixture(f"mal_manga_search{suffix}.json"))),
+        Provider.MAL: FakeSource(
+            parse_mal_search(fixture(f"mal_manga_search{suffix}.json")), Provider.MAL
+        ),
         Provider.MANGABAKA: _UnsearchableFakeSource(),
     }
 
@@ -509,6 +517,52 @@ async def test_a_rate_limited_provider_is_told_apart_from_a_broken_one(
     anime_id = await insert_anime("anilist", "21")
     body = (await client.post(f"/api/discovery/unmatched/{anime_id}/search")).json()
     assert body["errors"][0]["code"] == "rate_limited"
+
+
+async def test_a_two_character_title_is_asked_of_another_name_the_anime_goes_by(
+    client, providers_answer
+):
+    """MyAnimeList refuses `q` under three characters, and refuses it every time.
+
+    The row already carries the longer name the provider indexes the manga
+    under, so the user keeps both halves of the answer.
+    """
+    anime_id = await insert_anime("anilist", "116589", romaji="86", english="86 Eighty-Six")
+    body = (await client.post(f"/api/discovery/unmatched/{anime_id}/search")).json()
+
+    assert providers_answer[Provider.MAL].queries == ["86 Eighty-Six"]
+    assert providers_answer[Provider.ANILIST].queries == ["86"]
+    assert body["errors"] == []
+    assert body["candidates"]
+
+
+async def test_a_query_a_provider_cannot_accept_is_not_an_error_to_retry(
+    client, providers_answer
+):
+    """`provider_error` tells the user to search again. This one never succeeds."""
+    anime_id = await insert_anime("anilist", "116589", romaji="86", english=None)
+    body = (await client.post(f"/api/discovery/unmatched/{anime_id}/search")).json()
+
+    assert [(e["provider"], e["code"]) for e in body["errors"]] == [("mal", "query_unsupported")]
+    # Refused before it was sent: the point is that nothing was asked.
+    assert providers_answer[Provider.MAL].queries == []
+    assert {c["provider"] for c in body["candidates"]} == {"anilist"}
+
+
+async def test_an_over_long_title_is_trimmed_rather_than_refused(client, providers_answer):
+    """Sixty-five characters of romaji is a 400, and the opening words still name it."""
+    anime_id = await insert_anime(
+        "anilist",
+        "1",
+        romaji="Maou no Ore ga Dorei Elf wo Yome ni Shitanda ga, Dou Medereba Ii?",
+        english=None,
+    )
+    body = (await client.post(f"/api/discovery/unmatched/{anime_id}/search")).json()
+
+    assert providers_answer[Provider.MAL].queries == [
+        "Maou no Ore ga Dorei Elf wo Yome ni Shitanda ga, Dou Medereba"
+    ]
+    assert body["errors"] == []
 
 
 async def test_the_light_novel_an_anime_was_adapted_from_is_never_offered(

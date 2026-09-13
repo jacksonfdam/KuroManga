@@ -105,6 +105,16 @@ class NotSupported(Exception):
     """The provider does not offer this capability."""
 
 
+class QueryUnsupported(Exception):
+    """The provider's search will never accept this query.
+
+    Distinct from a failure on purpose. A provider that fell over is worth
+    asking again; one that refuses the query itself will refuse it identically
+    every time, and a screen that cannot tell the two apart invites a retry it
+    knows nothing about.
+    """
+
+
 class ListSource(ABC):
     """A remote reading list.
 
@@ -159,6 +169,20 @@ class ListSource(ABC):
     async def set_status(self, access_token: str, media_id: str, status: ListStatus) -> None:
         """Write the manga's list status, creating the entry when it is absent."""
         raise NotImplementedError
+
+    def search_query(self, titles: list[str]) -> str:
+        """Which of the anime's spellings to hand `search_manga`.
+
+        Providers put their own limits on what a search term may be, and the
+        caller holds several names for the same anime. Choosing here is what
+        keeps a term a provider would reject from ever being sent, rather than
+        spending a request to be told so. Raises `QueryUnsupported` when none of
+        them can be asked for.
+        """
+        for title in titles:
+            if title.strip():
+                return title.strip()
+        raise QueryUnsupported(f"{self.provider} was given no title to search for")
 
     async def search_manga(
         self, access_token: str, title: str, limit: int = 10
