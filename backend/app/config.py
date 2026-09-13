@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     download_concurrency: int = 3
 
     komga_url: str = "http://komga:25600"
+    komga_api_key: str = ""
     komga_user: str = ""
     komga_pass: str = ""
     komga_library_name: str = "Manga"
