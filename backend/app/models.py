@@ -226,6 +226,7 @@ class AnimeEntry(Base):
     cover_url: Mapped[str | None] = mapped_column(Text)
     related_manga: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, nullable=False, default=list)
     raw: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    manga_dismissed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
