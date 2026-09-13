@@ -11,7 +11,10 @@ from app.sources.base import Candidate, ChapterRef, Source, register
 from app.sources.comick_client import ComickClient, parse_chapters, parse_search
 
 SITES = (
-    ("asurascan", ("asuracomic.net", "asurascans.com", "asuratoon.com")),
+    # asurascan is not registered: the service flags it clientOnly and, checked
+    # against the running instance, its server-side scrape returns zero results
+    # for every query. It only works through the companion userscript inside a
+    # browser, which this pipeline does not run. Do not re-add it.
     ("weebcentral", ("weebcentral.com",)),
 )
 
@@ -28,7 +31,7 @@ class ComickSource(Source):
     async def search(self, titles: list[str], *, limit: int = 8) -> list[Candidate]:
         if not titles:
             return []
-        payload = await self._api.search(titles[0], [self.site])
+        payload = await self._api.search(titles[0], self.site)
         return parse_search(payload, titles, site=self.site)[:limit]
 
     async def list_chapters(self, url: str, *, language: str = "en") -> list[ChapterRef]:
