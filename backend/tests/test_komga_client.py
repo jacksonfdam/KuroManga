@@ -1,12 +1,10 @@
 """Komga client behaviour, from recorded responses and a stub transport."""
 
 import json
-from decimal import Decimal
 
 import httpx
 import pytest
 
-from app.downloader.paths import number_from_filename
 from app.komga.client import KomgaClient, library_payload, parse_books, pick_series
 
 pytestmark = pytest.mark.asyncio
