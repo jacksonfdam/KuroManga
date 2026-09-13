@@ -89,7 +89,7 @@ def test_an_unknown_length_scores_on_the_status_alone():
     ) == 0.10
 
 
-def test_a_seed_is_hashable_so_dedupe_can_use_a_set():
+def test_two_seeds_with_the_same_values_are_equal():
     origin = Origin(Provider.MAL, "21", "V", ListStatus.COMPLETED, 24, 24)
     assert Seed(Provider.MAL, "1", "V", "SOURCE", origin) == Seed(
         Provider.MAL, "1", "V", "SOURCE", origin
