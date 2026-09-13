@@ -101,10 +101,30 @@ class TokenSet:
     account_name: str | None = None
 
 
+class NotSupported(Exception):
+    """The provider does not offer this capability."""
+
+
 class ListSource(ABC):
-    """A remote reading list."""
+    """A remote reading list.
+
+    Authentication is not uniform across providers: most use OAuth, but some
+    authenticate with a static key configured out of band. `uses_oauth` says
+    which, so callers do not have to guess from whether a method raises.
+    """
 
     provider: Provider
+
+    #: False when the credential comes from configuration instead of an OAuth flow.
+    uses_oauth: bool = True
+
+    #: False while a provider is read only. Nothing will be written to it.
+    writable: bool = True
+
+    @classmethod
+    def static_credential(cls) -> str | None:
+        """The configured credential, for providers that do not use OAuth."""
+        return None
 
     @abstractmethod
     async def fetch_list(self, access_token: str) -> list[ListEntryDTO]:
@@ -114,13 +134,13 @@ class ListSource(ABC):
     async def push_progress(self, access_token: str, media_id: str, chapter: int) -> None:
         """Write the read chapter count back to the provider."""
 
-    @abstractmethod
     def authorize_url(self, redirect_uri: str, state: str, verifier: str) -> str:
         """Where to send the browser to start the OAuth flow."""
+        raise NotSupported(f"{self.provider} does not authenticate through OAuth")
 
-    @abstractmethod
     async def exchange_code(self, code: str, redirect_uri: str, verifier: str) -> TokenSet:
         """Trade an authorization code for tokens."""
+        raise NotSupported(f"{self.provider} does not authenticate through OAuth")
 
     async def refresh(self, refresh_token: str) -> TokenSet | None:
         """Renew an expiring token. None when the provider does not support it."""

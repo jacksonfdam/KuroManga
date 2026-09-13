@@ -4,6 +4,7 @@ from enum import StrEnum
 class Provider(StrEnum):
     MAL = "mal"
     ANILIST = "anilist"
+    MANGABAKA = "mangabaka"
 
 
 class ListStatus(StrEnum):

@@ -4,24 +4,15 @@ These exist because a parameter binding that Postgres cannot type, or a column
 that does not exist, only fails at query time. Neither shows up in a unit test.
 """
 
-import subprocess
-import sys
-
 import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
 
 from app.api.main import app
 from app.db import get_sessionmaker
+from app.enums import Provider
 
 pytestmark = pytest.mark.asyncio
-
-
-@pytest.fixture(scope="session", autouse=True)
-def schema():
-    subprocess.run(
-        [sys.executable, "-m", "alembic", "upgrade", "head"], check=True, capture_output=True
-    )
 
 
 @pytest.fixture
@@ -83,7 +74,7 @@ async def test_series_list_accepts_a_state_filter(client):
 async def test_settings_expose_defaults_and_provider_status(client):
     body = (await client.get("/api/settings")).json()
     assert body["values"]["download_concurrency"]
-    assert set(body["providers"]) == {"mal", "anilist"}
+    assert set(body["providers"]) == {str(provider) for provider in Provider}
 
 
 async def test_settings_reject_unknown_keys_instead_of_storing_them(client):

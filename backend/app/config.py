@@ -31,6 +31,10 @@ class Settings(BaseSettings):
 
     # MangaDex personal client. Optional: search and chapter feeds work anonymously,
     # and MangaDex caches anonymous responses but not authenticated ones.
+    # MangaBaka API key. Full account access, so it stays in .env and is never
+    # written to the database.
+    mangabaka_token: str = ""
+
     mangadex_client_id: str = ""
     mangadex_client_secret: str = ""
     mangadex_username: str = ""

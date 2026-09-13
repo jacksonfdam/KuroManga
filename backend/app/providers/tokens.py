@@ -67,7 +67,15 @@ async def store_token(
 
 
 async def access_token_for(session: AsyncSession, provider: Provider) -> str:
-    """Return a usable access token, renewing it first when it is about to expire."""
+    """Return a usable access token, renewing it first when it is about to expire.
+
+    A provider that authenticates with a configured key has nothing stored and
+    nothing to refresh, so it is answered before the token table is consulted.
+    """
+    static = get_source(provider).static_credential()
+    if static:
+        return static
+
     result = await session.execute(
         text(
             """
@@ -79,6 +87,11 @@ async def access_token_for(session: AsyncSession, provider: Provider) -> str:
     )
     row = result.first()
     if row is None:
+        source = get_source(provider)
+        if not source.uses_oauth:
+            raise NotConnected(
+                f"{provider} is not configured; set its key in the environment"
+            )
         raise NotConnected(f"{provider} is not connected; authorise it in Settings")
 
     if not is_expiring(row.expires_at) or not row.refresh_token:
