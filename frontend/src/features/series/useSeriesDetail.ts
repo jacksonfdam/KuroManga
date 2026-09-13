@@ -28,7 +28,9 @@ export function useSeriesDetail(id: number) {
       try {
         await api.setAutoDownload(id, enabled)
       } catch (failure) {
-        setData(previous)
+        // Only if the updater above actually ran: rolling back to null would
+        // put the screen into its first-load skeleton over a refused toggle.
+        if (previous) setData(previous)
         throw failure
       }
     },
