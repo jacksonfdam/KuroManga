@@ -246,12 +246,17 @@ export const api = {
     request<{ ok: boolean; queued: number }>('/api/discovery/refresh', { method: 'POST' }),
   // Unlike /api/suggestions this answers with an envelope, because 500 anime are
   // paged and a bare array could not carry the total.
-  unmatched: (options: { hidden?: boolean; limit?: number; offset?: number } = {}) => {
+  unmatched: (
+    options: { hidden?: boolean; q?: string; limit?: number; offset?: number } = {},
+  ) => {
     const query = new URLSearchParams({
       hidden: String(options.hidden ?? false),
       limit: String(options.limit ?? 50),
       offset: String(options.offset ?? 0),
     })
+    // The route filters the whole list and counts what matched, so an empty
+    // filter is simply left out rather than sent as one that matches all.
+    if (options.q) query.set('q', options.q)
     return request<UnmatchedPage>(`/api/discovery/unmatched?${query}`)
   },
   searchUnmatched: (id: number) =>

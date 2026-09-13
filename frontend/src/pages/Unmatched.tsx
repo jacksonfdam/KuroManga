@@ -113,6 +113,8 @@ export function Unmatched({
   const [items, setItems] = useState<UnmatchedAnime[]>([])
   const [total, setTotal] = useState(0)
   const [offset, setOffset] = useState(0)
+  const [typed, setTyped] = useState('')
+  const [filter, setFilter] = useState('')
   const [showHidden, setShowHidden] = useState(false)
   const [results, setResults] = useState<Record<number, UnmatchedSearch>>({})
   const [searching, setSearching] = useState<number | null>(null)
@@ -125,21 +127,37 @@ export function Unmatched({
 
   const load = useCallback(async () => {
     try {
-      const page = await api.unmatched({ hidden: showHidden, limit: PAGE_SIZE, offset })
+      const page = await api.unmatched({
+        hidden: showHidden,
+        q: filter,
+        limit: PAGE_SIZE,
+        offset,
+      })
       setItems(page.items)
       setTotal(page.total)
-      // The hidden listing is its own set rather than the rest of this one, so
-      // its count would be the wrong number to hang on the tab.
-      if (!showHidden) onTotal(page.total)
+      // The hidden listing is its own set rather than the rest of this one, and
+      // a filtered count is a slice of neither, so neither belongs on the tab.
+      if (!showHidden && !filter) onTotal(page.total)
       if (page.total > 0 && offset >= page.total) setOffset(Math.max(0, page.total - PAGE_SIZE))
     } catch (err) {
       setError(String(err))
     }
-  }, [showHidden, offset, onTotal])
+  }, [showHidden, filter, offset, onTotal])
 
   useEffect(() => {
     load()
   }, [load])
+
+  // The server holds the whole list, so the box asks it rather than sifting the
+  // twenty-five rows on screen — and the keystrokes are collected first, or one
+  // typed word is a request per letter.
+  useEffect(() => {
+    const settle = setTimeout(() => {
+      setFilter(typed.trim())
+      setOffset(0)
+    }, 250)
+    return () => clearTimeout(settle)
+  }, [typed])
 
   const swapView = (hidden: boolean) => {
     setShowHidden(hidden)
@@ -401,12 +419,19 @@ export function Unmatched({
         <button className={showHidden ? 'primary' : ''} onClick={() => swapView(true)}>
           Hidden
         </button>
+        <input
+          placeholder="Filter by title"
+          value={typed}
+          onChange={(event) => setTyped(event.target.value)}
+        />
       </div>
 
       <p className="sub">
-        {showHidden
-          ? 'The anime you hid, listed on their own. Unhide one to put it back where it can be searched.'
-          : `${total} anime on your list that no relation could turn into a manga. Nothing is searched until you ask for it.`}
+        {filter
+          ? `${total} ${showHidden ? 'hidden anime' : 'anime'} matching “${filter}”. The whole list is filtered, not the page you are on.`
+          : showHidden
+            ? 'The anime you hid, listed on their own. Unhide one to put it back where it can be searched.'
+            : `${total} anime on your list that no relation could turn into a manga. Nothing is searched until you ask for it.`}
       </p>
 
       {error && <p className="row-error">{error}</p>}
@@ -423,9 +448,11 @@ export function Unmatched({
 
       {items.length === 0 ? (
         <div className="empty">
-          {showHidden
-            ? 'Nothing hidden. Anything you hide on the other tab waits here.'
-            : 'Nothing left. Every anime on your list has a manga match or is hidden.'}
+          {filter
+            ? `Nothing matches “${filter}”. Every spelling an anime is known by is read, so try part of another one.`
+            : showHidden
+              ? 'Nothing hidden. Anything you hide on the other tab waits here.'
+              : 'Nothing left. Every anime on your list has a manga match or is hidden.'}
         </div>
       ) : (
         items.map(renderAnime)
