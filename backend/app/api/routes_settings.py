@@ -19,6 +19,7 @@ Session = Annotated[AsyncSession, Depends(db_session)]
 EDITABLE = {
     settings_store.CRON_LIST_SYNC,
     settings_store.CRON_CHAPTER_DISCOVER,
+    settings_store.CRON_PROGRESS_PUSH,
     settings_store.DOWNLOAD_CONCURRENCY,
     settings_store.PER_SOURCE_CONCURRENCY,
     settings_store.AUTO_DOWNLOAD_NEW,
@@ -69,7 +70,12 @@ async def write_settings(body: SettingsIn, session: Session) -> dict[str, Any]:
             await settings_store.set_value(session, key, value)
     await session.commit()
     cron_changed = any(
-        key in {settings_store.CRON_LIST_SYNC, settings_store.CRON_CHAPTER_DISCOVER}
+        key
+        in {
+            settings_store.CRON_LIST_SYNC,
+            settings_store.CRON_CHAPTER_DISCOVER,
+            settings_store.CRON_PROGRESS_PUSH,
+        }
         for key in body.values
     )
     return {

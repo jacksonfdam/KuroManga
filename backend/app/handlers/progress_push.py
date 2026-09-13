@@ -1,0 +1,95 @@
+"""Close the loop: what you read in Komga becomes progress on your lists.
+
+Only forward movement is written. If a list already records a higher chapter
+than Komga has marked read, the list wins, so reading elsewhere is never undone
+by this job.
+"""
+
+from decimal import Decimal
+
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.enums import JobType, Provider
+from app.handlers.base import JobContext, PermanentError, register
+from app.komga import KomgaBook, from_settings
+from app.providers import get_source
+
+
+def highest_completed(books: list[KomgaBook], numbers: dict[str, Decimal]) -> Decimal | None:
+    """The furthest chapter marked finished, ignoring books we did not place."""
+    completed = [numbers[book.id] for book in books if book.completed and book.id in numbers]
+    return max(completed) if completed else None
+
+
+async def chapter_numbers(session: AsyncSession, series_id: int) -> dict[str, Decimal]:
+    result = await session.execute(
+        text(
+            """
+            select komga_book_id, number from chapter
+             where series_id = :series_id and komga_book_id is not null
+            """
+        ),
+        {"series_id": series_id},
+    )
+    return {row.komga_book_id: Decimal(str(row.number)) for row in result.all()}
+
+
+async def entries_of(session: AsyncSession, series_id: int) -> list:
+    result = await session.execute(
+        text(
+            """
+            select e.id, e.provider, e.provider_media_id, e.user_progress_chapter,
+                   t.access_token
+              from list_entry e
+              join provider_token t on t.provider = e.provider
+             where e.series_id = :series_id
+            """
+        ),
+        {"series_id": series_id},
+    )
+    return result.all()
+
+
+@register(JobType.PROGRESS_PUSH)
+async def handle(ctx: JobContext) -> None:
+    series_id = int(ctx.payload["series_id"])
+    result = await ctx.session.execute(
+        text("select komga_series_id from series where id = :id"), {"id": series_id}
+    )
+    row = result.first()
+    if row is None:
+        raise PermanentError(f"series {series_id} no longer exists")
+    if not row.komga_series_id:
+        raise PermanentError(f"series {series_id} has not been indexed by komga yet")
+
+    client = from_settings()
+    if not client.has_credentials:
+        raise PermanentError("set KOMGA_API_KEY, or KOMGA_USER and KOMGA_PASS")
+
+    books = await client.books_of_series(row.komga_series_id)
+    numbers = await chapter_numbers(ctx.session, series_id)
+    furthest = highest_completed(books, numbers)
+
+    if furthest is None:
+        await ctx.log("nothing marked read in komga", pct=100)
+        return
+
+    read_chapter = int(furthest)
+    pushed = 0
+
+    for entry in await entries_of(ctx.session, series_id):
+        if read_chapter <= entry.user_progress_chapter:
+            continue
+        provider = Provider(entry.provider)
+        await get_source(provider).push_progress(
+            entry.access_token, entry.provider_media_id, read_chapter
+        )
+        await ctx.session.execute(
+            text("update list_entry set user_progress_chapter = :n where id = :id"),
+            {"n": read_chapter, "id": entry.id},
+        )
+        await ctx.log(f"{provider}: progress set to chapter {read_chapter}")
+        pushed += 1
+
+    await ctx.log(f"chapter {read_chapter} read, {pushed} lists updated", pct=100)

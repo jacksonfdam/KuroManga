@@ -13,6 +13,7 @@ from app.config import get_settings
 
 CRON_LIST_SYNC = "cron_list_sync"
 CRON_CHAPTER_DISCOVER = "cron_chapter_discover"
+CRON_PROGRESS_PUSH = "cron_progress_push"
 DOWNLOAD_CONCURRENCY = "download_concurrency"
 PER_SOURCE_CONCURRENCY = "per_source_concurrency"
 AUTO_DOWNLOAD_NEW = "auto_download_new"
@@ -22,6 +23,7 @@ AUTO_DOWNLOAD_NEW = "auto_download_new"
 class Defaults:
     cron_list_sync: str = "0 */6 * * *"
     cron_chapter_discover: str = "0 */2 * * *"
+    cron_progress_push: str = "30 * * * *"
     per_source_concurrency: int = 2
     auto_download_new: bool = True
 
@@ -35,6 +37,8 @@ def _fallback(key: str) -> str:
             return DEFAULTS.cron_list_sync
         case k if k == CRON_CHAPTER_DISCOVER:
             return DEFAULTS.cron_chapter_discover
+        case k if k == CRON_PROGRESS_PUSH:
+            return DEFAULTS.cron_progress_push
         case k if k == DOWNLOAD_CONCURRENCY:
             return str(get_settings().download_concurrency)
         case k if k == PER_SOURCE_CONCURRENCY:
@@ -83,6 +87,7 @@ async def all_settings(session: AsyncSession) -> dict[str, str]:
     keys = [
         CRON_LIST_SYNC,
         CRON_CHAPTER_DISCOVER,
+        CRON_PROGRESS_PUSH,
         DOWNLOAD_CONCURRENCY,
         PER_SOURCE_CONCURRENCY,
         AUTO_DOWNLOAD_NEW,
