@@ -149,7 +149,7 @@ th { color: var(--muted); font-weight: 500; font-size: 12px; }
 .candidates { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 12px; }
 
 .candidate { display: flex; gap: 10px; text-align: left; align-items: stretch; padding: 10px; }
-.candidate .thumb { width: 54px; aspect-ratio: 3/4; border-radius: 5px; background: var(--panel-soft) center/cover no-repeat; flex: none; }
+.thumb { width: 54px; aspect-ratio: 3/4; border-radius: 5px; background: var(--panel-soft) center/cover no-repeat; flex: none; }
 
 .log {
   background: #0e0f16;
