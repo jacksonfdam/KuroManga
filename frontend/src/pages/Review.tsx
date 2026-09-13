@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 
-import { api, type ReviewPayload, type Series } from '../api'
+import { api, type ReviewPayload, type Series } from '../lib/api'
 
 /**
  * The mapping queue. This screen is the pipeline's only manual step, so it is

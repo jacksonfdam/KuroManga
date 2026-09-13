@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 
-import { api, type SettingsPayload } from '../api'
+import { api, type SettingsPayload } from '../lib/api'
 
 const FIELDS: Array<{ key: string; label: string; hint?: string }> = [
   { key: 'download_concurrency', label: 'Parallel downloads' },

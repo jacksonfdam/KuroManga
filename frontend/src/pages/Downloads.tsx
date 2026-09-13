@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 
-import { api, type Job, type JobEvent } from '../api'
-import { useJobEvents } from '../useEvents'
+import { api, type Job, type JobEvent } from '../lib/api'
+import { useJobEvents } from '../lib/useEvents'
 
 function label(job: Job): string {
   if (job.chapter_number !== null) {

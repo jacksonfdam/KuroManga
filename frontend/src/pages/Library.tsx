@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 
-import { api, type Series, type SeriesState } from '../api'
-import { useJobEvents } from '../useEvents'
+import { api, type Series, type SeriesState } from '../lib/api'
+import { useJobEvents } from '../lib/useEvents'
 
 const FILTERS: Array<{ key: SeriesState | 'all'; label: string }> = [
   { key: 'all', label: 'All' },

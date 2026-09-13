@@ -119,4 +119,8 @@ export const api = {
   authStart: (provider: string) => request<{ url: string }>(`/api/auth/${provider}/start`),
   disconnect: (provider: string) =>
     request<{ ok: boolean }>(`/api/auth/${provider}`, { method: 'DELETE' }),
+  integrations: () =>
+    request<{ integrations: { name: string; state: string; detail: string | null }[] }>(
+      '/api/health/integrations',
+    ).then((body) => body.integrations),
 }

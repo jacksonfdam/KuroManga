@@ -1,0 +1,48 @@
+export type ListStatus = 'reading' | 'plan_to_read' | 'completed' | 'on_hold' | 'dropped'
+
+export const STATUS_TONE: Record<ListStatus, 'secondary' | 'primary' | 'tertiary' | 'warning' | 'error'> = {
+  reading: 'secondary',
+  completed: 'primary',
+  plan_to_read: 'tertiary',
+  on_hold: 'warning',
+  dropped: 'error',
+}
+
+export const STATUS_LABEL: Record<ListStatus, string> = {
+  reading: 'Reading',
+  plan_to_read: 'Plan to read',
+  completed: 'Completed',
+  on_hold: 'On hold',
+  dropped: 'Dropped',
+}
+
+/** Chapter numbers are decimals. 12.00 reads as 12; 12.50 must stay 12.5. */
+export function formatChapter(value: number): string {
+  return Number.isInteger(value) ? String(value) : String(Number(value.toFixed(2)))
+}
+
+export function relativeTime(iso: string): string {
+  const seconds = Math.round((Date.now() - new Date(iso).getTime()) / 1000)
+  const units: [Intl.RelativeTimeFormatUnit, number][] = [
+    ['second', 60], ['minute', 60], ['hour', 24], ['day', 7], ['week', 4.35], ['month', 12],
+  ]
+  let value = seconds
+  for (const [unit, step] of units) {
+    if (Math.abs(value) < step) {
+      return new Intl.RelativeTimeFormat('en', { numeric: 'auto' }).format(-Math.round(value), unit)
+    }
+    value /= step
+  }
+  return new Intl.RelativeTimeFormat('en', { numeric: 'auto' }).format(-Math.round(value), 'year')
+}
+
+export function formatBytes(bytes: number): string {
+  const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB']
+  let value = bytes
+  let unit = 0
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024
+    unit += 1
+  }
+  return `${value.toFixed(value >= 100 || unit === 0 ? 0 : 2)} ${units[unit]}`
+}
