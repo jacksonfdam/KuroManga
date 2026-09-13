@@ -59,6 +59,61 @@ select s.id, s.canonical_title, s.slug, s.needs_review, s.meta, s.komga_series_i
  order by s.canonical_title
 """
 
+# Same aggregate as LIST_SQL, narrowed to one row — the detail route needs the
+# exact shape the library card already rendered, not a second query that could
+# drift from it one column at a time.
+LIST_SQL_ONE = """
+select s.id, s.canonical_title, s.slug, s.needs_review, s.meta, s.komga_series_id,
+       s.auto_download,
+       coalesce(m.source_site, '') as source_site,
+       coalesce(m.source_url, '') as source_url,
+       count(c.id) filter (where c.state = 'downloaded') as downloaded,
+       count(c.id) as known,
+       count(c.id) filter (where c.state in ('queued', 'downloading')) as in_flight,
+       count(c.id) filter (where c.state = 'failed') as failed,
+       array_remove(array_agg(distinct e.provider), null) as providers,
+       max(e.total_chapters) as total_chapters,
+       (array_agg(e.status order by e.updated_at desc))[1] as status,
+       coalesce(max(e.user_progress_chapter), 0) as progress,
+       max(e.updated_at) as updated_at,
+       (array_agg(e.raw order by e.updated_at desc))[1] as raw
+  from series s
+  left join source_mapping m on m.series_id = s.id and m.active
+  left join chapter c on c.series_id = s.id
+  left join list_entry e on e.series_id = s.id
+ where s.id = :id
+ group by s.id, m.source_site, m.source_url
+"""
+
+
+def _row_to_series(row: Any) -> dict[str, Any]:
+    """Shared by the list and detail routes so they cannot drift.
+
+    Two builders would each need updating the same way forever, and the
+    detail page would quietly start disagreeing with the card the user
+    clicked to reach it.
+    """
+    return {
+        "id": row.id,
+        "title": row.canonical_title,
+        "slug": row.slug,
+        "cover_url": (row.meta or {}).get("cover_url"),
+        "source_site": row.source_site or None,
+        "source_url": row.source_url or None,
+        "providers": sorted(row.providers or []),
+        "downloaded": row.downloaded,
+        "known": row.known,
+        "in_flight": row.in_flight,
+        "failed": row.failed,
+        "total_chapters": row.total_chapters,
+        "auto_download": row.auto_download,
+        "state": _state_of(row),
+        "status": row.status,
+        "progress": row.progress,
+        "updated_at": row.updated_at.isoformat() if row.updated_at else None,
+        **_display_fields(row.raw),
+    }
+
 
 def _state_of(row: Any) -> str:
     if row.in_flight:
@@ -130,29 +185,62 @@ async def list_series(
     result = await session.execute(text(LIST_SQL))
     series = []
     for row in result.all():
-        item = {
-            "id": row.id,
-            "title": row.canonical_title,
-            "slug": row.slug,
-            "cover_url": (row.meta or {}).get("cover_url"),
-            "source_site": row.source_site or None,
-            "source_url": row.source_url or None,
-            "providers": sorted(row.providers or []),
-            "downloaded": row.downloaded,
-            "known": row.known,
-            "in_flight": row.in_flight,
-            "failed": row.failed,
-            "total_chapters": row.total_chapters,
-            "auto_download": row.auto_download,
-            "state": _state_of(row),
-            "status": row.status,
-            "progress": row.progress,
-            "updated_at": row.updated_at.isoformat() if row.updated_at else None,
-            **_display_fields(row.raw),
-        }
+        item = _row_to_series(row)
         if state is None or item["state"] == state:
             series.append(item)
     return series
+
+
+@router.get("/{series_id}")
+async def series_detail(series_id: int, session: Session) -> dict[str, Any]:
+    result = await session.execute(text(LIST_SQL_ONE), {"id": series_id})
+    row = result.first()
+    if row is None:
+        raise HTTPException(status_code=404, detail="series not found")
+
+    chapters = await session.execute(
+        text(
+            """
+            select number, title, state, file_path
+              from chapter where series_id = :id order by number
+            """
+        ),
+        {"id": series_id},
+    )
+    entries = await session.execute(
+        text(
+            """
+            select provider, provider_media_id, status, user_progress_chapter, updated_at
+              from list_entry where series_id = :id order by provider
+            """
+        ),
+        {"id": series_id},
+    )
+    return {
+        "series": _row_to_series(row),
+        "mapping": {"source_site": row.source_site, "source_url": row.source_url}
+        if row.source_url
+        else None,
+        "chapters": [
+            {
+                "number": float(c.number),
+                "title": c.title,
+                "state": c.state,
+                "file_path": c.file_path,
+            }
+            for c in chapters.all()
+        ],
+        "entries": [
+            {
+                "provider": e.provider,
+                "provider_media_id": e.provider_media_id,
+                "status": e.status,
+                "user_progress_chapter": e.user_progress_chapter,
+                "updated_at": e.updated_at.isoformat() if e.updated_at else None,
+            }
+            for e in entries.all()
+        ],
+    }
 
 
 @router.get("/{series_id}/candidates")

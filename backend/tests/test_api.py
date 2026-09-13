@@ -258,3 +258,44 @@ async def test_settings_expose_the_new_pipeline_keys(client):
     assert values["reading_minutes_per_chapter"] == "8"
     assert "comick_url" in values
     assert values["comick_enabled"] == "false"
+
+
+async def test_series_detail_returns_chapters_and_entries(client):
+    # asyncpg's prepared-statement protocol refuses a `;`-joined batch (see
+    # every other multi-insert test in this file) — one execute() per statement.
+    async with get_sessionmaker()() as session:
+        await session.execute(
+            text(
+                """
+                insert into series (canonical_title, slug, needs_review, meta)
+                values ('Eleceed', 'eleceed', false, '{}'::jsonb)
+                """
+            )
+        )
+        await session.execute(
+            text(
+                """
+                insert into list_entry
+                       (provider, provider_media_id, series_id, status, user_progress_chapter, synonyms, raw)
+                values ('mal', '7', 1, 'reading', 280, '[]'::jsonb, '{}'::jsonb)
+                """
+            )
+        )
+        await session.execute(
+            text(
+                """
+                insert into chapter (series_id, number, title, state)
+                values (1, 280, 'Kayden', 'downloaded')
+                """
+            )
+        )
+        await session.commit()
+
+    body = (await client.get("/api/series/1")).json()
+    assert body["series"]["title"] == 'Eleceed'
+    assert [c["state"] for c in body["chapters"]] == ["downloaded"]
+    assert [e["provider"] for e in body["entries"]] == ["mal"]
+
+
+async def test_series_detail_for_a_missing_series_is_a_404(client):
+    assert (await client.get("/api/series/999999")).status_code == 404
