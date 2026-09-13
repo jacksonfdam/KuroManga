@@ -8,6 +8,9 @@ const VARIANT: Record<string, string> = {
   primary: 'bg-primary text-on-primary hover:bg-primary-container',
   surface: 'bg-surface-container-high text-on-surface shadow-sm hover:bg-surface-bright',
   ghost: 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface',
+  // The 12%-tint-over-solid pairing StatusPill already uses for a state that
+  // needs to read as a warning rather than a neutral action.
+  danger: 'bg-error/[0.12] text-error hover:bg-error-container hover:text-on-error-container',
 }
 
 // text-label-md already carries both size and weight (tailwind.config.ts defines
@@ -19,7 +22,7 @@ const SIZE: Record<string, string> = {
 }
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'surface' | 'ghost'
+  variant?: 'primary' | 'surface' | 'ghost' | 'danger'
   size?: 'sm' | 'md'
   icon?: IconName
   children: ReactNode

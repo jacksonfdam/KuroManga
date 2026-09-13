@@ -3,7 +3,7 @@ import { Navigate, Route, Routes, useOutletContext } from 'react-router-dom'
 import { DownloadsPage } from '../features/downloads/DownloadsPage'
 import { LibraryPage } from '../features/library/LibraryPage'
 import { ReviewPage } from '../features/review/ReviewPage'
-import { Settings } from '../pages/Settings'
+import { SettingsPage } from '../features/settings/SettingsPage'
 import { AppShell } from './AppShell'
 
 // /home, /discovery and /stats are deliberately absent: those screens belong
@@ -26,7 +26,7 @@ export function AppRoutes() {
         <Route path="library" element={<LibraryPage />} />
         <Route path="review" element={<ReviewRoute />} />
         <Route path="downloads" element={<DownloadsPage />} />
-        <Route path="settings" element={<Settings />} />
+        <Route path="settings" element={<SettingsPage />} />
       </Route>
     </Routes>
   )

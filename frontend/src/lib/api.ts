@@ -73,9 +73,18 @@ export interface JobEvent {
 
 export interface SettingsPayload {
   values: Record<string, string>
-  providers: Record<string, { connected: boolean; configured: boolean; account_name?: string }>
+  providers: Record<
+    string,
+    { connected: boolean; configured: boolean; account_name?: string; expires_at?: string | null }
+  >
   sources: Record<string, { authenticated: boolean; username: string | null }>
   library_path: string
+}
+
+export interface Integration {
+  name: string
+  state: 'ok' | 'unauthenticated' | 'unreachable'
+  detail: string | null
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -133,7 +142,7 @@ export const api = {
   disconnect: (provider: string) =>
     request<{ ok: boolean }>(`/api/auth/${provider}`, { method: 'DELETE' }),
   integrations: () =>
-    request<{ integrations: { name: string; state: string; detail: string | null }[] }>(
-      '/api/health/integrations',
-    ).then((body) => body.integrations),
+    request<{ integrations: Integration[] }>('/api/health/integrations').then(
+      (body) => body.integrations,
+    ),
 }
