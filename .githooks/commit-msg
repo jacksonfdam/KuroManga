@@ -29,10 +29,13 @@ sed -e '/^[Cc]o-[Aa]uthored-[Bb]y:.*[Cc]laude/d' \
     "$message" > "$message.stripped"
 
 # Collapse the blank lines the removed trailers leave behind, so the message
-# does not end in whitespace where a trailer block used to be.
+# does not end in whitespace where a trailer block used to be. A run of two or
+# more blanks left by stripping an interior trailer collapses to one, the same
+# as a run that was never touched; a run at end of file is dropped entirely
+# because nothing follows it to justify keeping it.
 awk 'BEGIN { blank = 0 }
-     /^[[:space:]]*$/ { blank++; next }
-     { while (blank > 0) { print ""; blank-- } print }
+     /^[[:space:]]*$/ { blank = 1; next }
+     { if (blank) { print ""; blank = 0 } print }
      END { }' "$message.stripped" > "$message"
 
 rm -f "$message.stripped"
