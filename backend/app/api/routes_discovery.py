@@ -9,6 +9,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import db_session
+from app.discovery.unmatched import TITLE_MATCH
 from app.enums import JobType, ListStatus, Provider, SuggestionState
 from app.handlers.list_sync import (
     create_series,
@@ -139,10 +140,17 @@ async def resolve_series_for(
     return await create_series(session, entries[0], aliases)
 
 
-@router.post("/suggestions/{suggestion_id}/add")
-async def add_suggestion(suggestion_id: int, body: AddIn, session: Session) -> dict[str, Any]:
-    """Approving is what turns a suggestion into a series, a list entry and a status."""
-    row = await _load(session, suggestion_id)
+async def approve(
+    session: AsyncSession, row: Any, *, status: ListStatus, download: bool
+) -> dict[str, Any]:
+    """Turn a suggestion into a series, list entries and a status write.
+
+    Both ways into Discovery end here: the suggestion the relation graph built,
+    and the one a title search produced. They have to behave identically - the
+    same dedupe, the same untouched progress, the same jobs - and a second copy
+    of this would drift the moment either route changed.
+    """
+    suggestion_id = row.id
     if row.state == SuggestionState.ADDED:
         raise HTTPException(status_code=409, detail="suggestion already added")
 
@@ -154,7 +162,7 @@ async def add_suggestion(suggestion_id: int, body: AddIn, session: Session) -> d
         ListEntryDTO(
             provider=Provider(provider),
             media_id=media_id,
-            status=body.status,
+            status=status,
             title_english=row.title,
             total_chapters=row.total_chapters,
             cover_url=row.cover_url,
@@ -172,7 +180,7 @@ async def add_suggestion(suggestion_id: int, body: AddIn, session: Session) -> d
         await repo.enqueue(
             session,
             JobType.LIST_WRITE,
-            {"suggestion_id": suggestion_id, "status": str(body.status)},
+            {"suggestion_id": suggestion_id, "status": str(status)},
             priority=0,
             dedupe_key=f"list_write:{suggestion_id}",
         )
@@ -188,9 +196,14 @@ async def add_suggestion(suggestion_id: int, body: AddIn, session: Session) -> d
             {"id": series_id},
         )
     ).first() is not None
-    best = (row.meta or {}).get("best") or {}
+    meta = row.meta or {}
+    best = meta.get("best") or {}
     needs_review = not mapped
-    if not mapped and best.get("url") and confident(row.title, best):
+    # Nobody declared this manga to be the adaptation - a search agreed with a
+    # spelling. That is the whole point of the distinction, so however well the
+    # titles line up it is the user, on Review, who decides what it really is.
+    declared = meta.get("relation") != TITLE_MATCH
+    if not mapped and declared and best.get("url") and confident(row.title, best):
         try:
             site = source_for_url(best["url"]).site
         except ValueError:
@@ -220,9 +233,9 @@ async def add_suggestion(suggestion_id: int, body: AddIn, session: Session) -> d
     # user already follows should stop being followed.
     await session.execute(
         text("update series set auto_download = auto_download or :enabled where id = :id"),
-        {"enabled": body.download, "id": series_id},
+        {"enabled": download, "id": series_id},
     )
-    if body.download and not needs_review:
+    if download and not needs_review:
         job_ids.append(
             await repo.enqueue(
                 session,
@@ -250,7 +263,7 @@ async def add_suggestion(suggestion_id: int, body: AddIn, session: Session) -> d
         {
             "id": suggestion_id,
             "series_id": series_id,
-            "extra": json.dumps({"chosen_status": str(body.status), "download": body.download}),
+            "extra": json.dumps({"chosen_status": str(status), "download": download}),
         },
     )
     await session.commit()
@@ -260,6 +273,13 @@ async def add_suggestion(suggestion_id: int, body: AddIn, session: Session) -> d
         "job_ids": [j for j in job_ids if j],
         "needs_review": needs_review,
     }
+
+
+@router.post("/suggestions/{suggestion_id}/add")
+async def add_suggestion(suggestion_id: int, body: AddIn, session: Session) -> dict[str, Any]:
+    """Approving is what turns a suggestion into a series, a list entry and a status."""
+    row = await _load(session, suggestion_id)
+    return await approve(session, row, status=body.status, download=body.download)
 
 
 @router.post("/suggestions/{suggestion_id}/dismiss")
@@ -289,3 +309,4 @@ async def refresh(session: Session) -> dict[str, Any]:
         queued += 1 if job_id else 0
     await session.commit()
     return {"ok": True, "queued": queued}
+
