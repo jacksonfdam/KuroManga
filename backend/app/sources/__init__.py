@@ -1,6 +1,6 @@
 """Source sites. Importing a module is what registers it."""
 
-from app.sources import mangadex  # noqa: F401
+from app.sources import comick, mangadex  # noqa: F401
 from app.sources.base import (
     Candidate,
     ChapterRef,

@@ -38,6 +38,11 @@ class Settings(BaseSettings):
 
     downloader_binary: str = "manga-downloader"
 
+    # Self-hosted comick-source-api. It scrapes search results and chapter
+    # lists for sites the download binary already covers, but has no endpoint
+    # for page images, so it never touches downloading itself.
+    comick_api_url: str = "http://comick:3000"
+
     @property
     def database_url(self) -> str:
         return (

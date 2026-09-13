@@ -1,0 +1,25 @@
+{
+  "results": [
+    {
+      "source": "asurascan",
+      "manga": [
+        {
+          "id": "vinland-saga",
+          "title": "Vinland Saga",
+          "url": "https://asuracomic.net/series/vinland-saga",
+          "coverImage": "https://asura/cover.jpg",
+          "latestChapter": 210,
+          "lastUpdated": "2026-08-01"
+        },
+        {
+          "id": "vinland-saga-side",
+          "title": "Vinland Saga Side Story",
+          "url": "https://asuracomic.net/series/vinland-saga-side",
+          "coverImage": null,
+          "latestChapter": 0,
+          "lastUpdated": "2026-01-01"
+        }
+      ]
+    }
+  ]
+}

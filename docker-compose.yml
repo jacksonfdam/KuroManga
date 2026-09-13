@@ -49,6 +49,7 @@ services:
       KOMGA_USER: ${KOMGA_USER:-}
       KOMGA_PASS: ${KOMGA_PASS:-}
       KOMGA_LIBRARY_NAME: ${KOMGA_LIBRARY_NAME:-Manga}
+      COMICK_API_URL: ${COMICK_API_URL:-http://comick:3000}
     command: >
       sh -c "alembic upgrade head &&
              uvicorn app.api.main:app --host 0.0.0.0 --port 8000"
@@ -85,6 +86,7 @@ services:
       KOMGA_USER: ${KOMGA_USER:-}
       KOMGA_PASS: ${KOMGA_PASS:-}
       KOMGA_LIBRARY_NAME: ${KOMGA_LIBRARY_NAME:-Manga}
+      COMICK_API_URL: ${COMICK_API_URL:-http://comick:3000}
     command: python -m app.worker.main
     # Same uid as komga, so the files this writes are the files komga can read.
     user: "${PUID:-1000}:${PGID:-1000}"
@@ -121,6 +123,14 @@ services:
     depends_on:
       komga:
         condition: service_started
+    logging: *logging
+
+  comick:
+    build:
+      context: https://github.com/GooglyBlox/comick-source-api.git
+    restart: unless-stopped
+    expose:
+      - "3000"
     logging: *logging
 
   komga:
