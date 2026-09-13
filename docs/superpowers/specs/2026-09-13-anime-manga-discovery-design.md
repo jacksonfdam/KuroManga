@@ -46,7 +46,7 @@ Out:
 resolving an anime to a manga costs no request beyond what would be made anyway. MyAnimeList has
 `related_manga`, but only in each anime's detail (`/anime/{id}`), one request per title. Fetching
 that detail only for what AniList did not resolve turns a preference for accuracy into saved
-requests.
+requests. **This fallback was removed after shipping — see "As built" below.**
 
 **Its own subsystem, not an extension of what exists.** A suggestion is not a series. Keeping
 suggestions in `series` behind a flag would force every Library, downloader and Komga query to carry
@@ -307,6 +307,29 @@ Written after the implementation (branch `feat/anime-manga-discovery`, PR #19), 
 left intact: that is the record of what was decided, this section is the record of what was built.
 Where the two disagree, this section holds.
 
+### MyAnimeList's fallback was built, then removed: it cannot work
+
+The fallback described above shipped as designed: `ANIME_LIST_SYNC` called
+`/v2/anime/{id}?fields=related_manga` once for every MyAnimeList anime AniList had not already
+resolved. Nobody had checked that endpoint against the live API first. After a completed sync the
+database held 970 MyAnimeList anime rows and 0 with a relation, so it was checked directly:
+
+```
+GET /v2/anime/21?fields=related_manga          -> {"id":21,"title":"One Piece","related_manga":[]}
+GET /v2/anime/37521?fields=related_manga       -> related_manga: []
+GET /v2/anime/37521?fields=id,title,related_manga{node{id,title}},related_anime
+                                               -> related_manga: [], related_anime: 2 entries
+```
+
+One Piece and the other title both obviously have a source manga, and the request syntax itself
+works — the same nested-field form returns real data for `related_anime` on the same call. MyAnimeList's
+v2 API simply never populates `related_manga` on the anime endpoint; that field only ever links manga
+to manga, not anime to manga. The fallback was pure cost: about 970 requests against the user's
+account every twelve hours, for zero relations, ever. It was removed (`fetch_related_manga`,
+`parse_related_manga`, `needs_mal_relations`, and the per-anime branch in `ANIME_LIST_SYNC`) rather
+than kept dormant, so nobody spends a future cycle re-adding it on the same assumption. Reading the
+MyAnimeList anime list itself is unaffected — only the relation lookup was dead.
+
 ### Approval resolves before it creates
 
 The design says to create `series`. The implementation looks first: by media id, then by alias,
@@ -429,12 +452,10 @@ all, and the reused provider row said "signed in".
 ### Known gaps
 
 - The format filter (`LIGHT_NOVEL`, `NOVEL`, `ONE_SHOT` out) only works on AniList, whose edges carry
-  `format`. MyAnimeList's `related_manga` carries no media type, so on a MAL-only account a light
-  novel can become a suggestion.
+  `format`. MyAnimeList exposes no anime→manga relation at all (see "As built" above), so a MAL-only
+  account gets no automatic suggestions, filtered or not.
 - A suggestion that has stopped being a suggestion — the manga was added by hand on the provider —
   stays `new`, because the rebuild never touches `state`. The card sits there and the badge
   overcounts.
-- A MyAnimeList anime with no manga at all is queried again every cycle, because the criterion for
-  "still to fetch" is an empty `related_manga`.
 
-Those three, and the smaller ones, are in issue #21.
+That one, and the smaller ones, are in issue #21.

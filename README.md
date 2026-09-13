@@ -33,9 +33,10 @@ disk.
 
 Besides your manga lists, the pipeline reads your *anime* lists on MyAnimeList and AniList,
 on a cron of their own: every 12 hours by default, adjustable in Settings, and the
-*Procurar agora* button on the Discovery screen forces a pass right away. AniList already
-returns, in the same list query, which manga each anime adapts; MyAnimeList only exposes
-that per anime, so the extra request is made only for the titles AniList did not resolve.
+*Procurar agora* button on the Discovery screen forces a pass right away. AniList returns,
+in the same list query, which manga each anime adapts; MyAnimeList's API does not expose
+that relation at all. So only anime that AniList knows a source manga for become suggestions
+automatically (an on-demand search by title, for the rest, is planned separately).
 
 Every manga adapted from an anime on your list becomes a suggestion on the **Discovery**
 screen — unless it is already on one of your manga lists, or already exists as a local

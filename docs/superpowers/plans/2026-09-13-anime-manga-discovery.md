@@ -54,6 +54,15 @@ itself caused. Each of these was a correct implementation of what is written abo
 - **A name in the file table that was never built.** `sources/mangadex.py` was to gain
   `search_id`; what it needed was `manga_id_from_candidate`, reading the uuid off a
   candidate the search already returned.
+- **A fallback specified from documentation, never checked against the API.** The plan had
+  `ANIME_LIST_SYNC` call `/v2/anime/{id}?fields=related_manga` for whatever AniList did not
+  resolve. Nobody had called that endpoint with a real token first: it returns an empty
+  `related_manga` for every anime, including titles with an unmistakable source manga, because
+  MyAnimeList's v2 API never populates that field on the anime endpoint — it links manga to
+  manga, not anime to manga. Verified directly against the live API and against 970 MyAnimeList
+  anime rows synced with 0 relations among them, then removed; see the design doc's "As built"
+  section. A plan that adds a fallback for a documented-but-unverified field has to say it was
+  checked against the live service, not just the docs.
 
 Follow-ups deliberately left for a second pass are in issue #21.
 
