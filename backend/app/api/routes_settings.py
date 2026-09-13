@@ -90,6 +90,7 @@ async def write_settings(body: SettingsIn, session: Session) -> dict[str, Any]:
             settings_store.CRON_LIST_SYNC,
             settings_store.CRON_CHAPTER_DISCOVER,
             settings_store.CRON_PROGRESS_PUSH,
+            settings_store.CRON_ANIME_LIST_SYNC,
         }
         for key in body.values
     )

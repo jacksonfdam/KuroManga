@@ -14,9 +14,10 @@ const STATUSES: { value: ListStatusValue; label: string }[] = [
 const DOWNLOADS_BY_DEFAULT: ListStatusValue[] = ['reading', 'plan_to_read']
 
 function reasonOf(suggestion: Suggestion): string {
-  const { origin_title, origin_status } = suggestion.reason
+  const { origin_title, origin_status, total_episodes } = suggestion.reason
   if (!origin_title) return 'Relacionado a um anime da sua lista'
-  const watched = origin_status === 'completed' ? 'anime completo' : 'anime em andamento'
+  const episodes = total_episodes ? ` (${total_episodes} episódios)` : ''
+  const watched = origin_status === 'completed' ? `anime completo${episodes}` : `anime em andamento${episodes}`
   const chapters = suggestion.total_chapters
   const beyond = chapters ? ` — mangá vai até o capítulo ${chapters}` : ''
   return `de ${origin_title}, ${watched}${beyond}`
@@ -67,6 +68,8 @@ export function Discovery({ onChanged }: { onChanged: () => void }) {
       await api.dismissSuggestion(item.id)
       setItems((current) => current.filter((s) => s.id !== item.id))
       onChanged()
+    } catch (e) {
+      setError(String(e))
     } finally {
       setBusy(null)
     }
@@ -78,7 +81,7 @@ export function Discovery({ onChanged }: { onChanged: () => void }) {
         <h1>Discovery</h1>
         <button onClick={() => api.refreshDiscovery().then(load)}>Procurar agora</button>
       </header>
-      {error && <p className="error">{error}</p>}
+      {error && <p className="row-error">{error}</p>}
       {items.length === 0 && <p className="empty">Nada novo. A lista de anime já virou mangá.</p>}
       <div className="grid">
         {items.map((item) => (
