@@ -9,11 +9,15 @@ The full design lives in [`docs/superpowers/specs/2026-09-13-manga-komga-pipelin
 ## How it works
 
 ```
-list (MAL / AniList)  ->  canonical series  ->  you confirm the source  ->  chapters
-                                                                              |
-                                                       CBZ + ComicInfo.xml  <-+
-                                                                |
-                                                        /manga  ->  Komga  ->  reader
+manga list (MAL / AniList)  ->  canonical series  ->  you confirm the source  ->  chapters
+                                                                                    |
+                                                             CBZ + ComicInfo.xml  <-+
+                                                                      |
+                                                              /manga  ->  Komga  ->  reader
+
+anime list (MAL / AniList)  ->  Discovery  ->  you approve  -+
+                                                             |
+                                        (joins the flow above as a canonical series)
 ```
 
 A new entry lands on the **Review** screen and stops there. You confirm once which manga
@@ -24,6 +28,52 @@ and shows in the Library how many are missing.
 (leave it empty for everything missing) and a *Follow new chapters* button. Only the
 series you follow enter the download schedule; the rest stay catalogued without using
 disk.
+
+## Discovery
+
+Besides your manga lists, the pipeline reads your *anime* lists on MyAnimeList and AniList,
+on a cron of their own: every 12 hours by default, adjustable in Settings, and the
+*Procurar agora* button on the Discovery screen forces a pass right away. AniList already
+returns, in the same list query, which manga each anime adapts; MyAnimeList only exposes
+that per anime, so the extra request is made only for the titles AniList did not resolve.
+
+Every manga adapted from an anime on your list becomes a suggestion on the **Discovery**
+screen — unless it is already on one of your manga lists, or already exists as a local
+series, in which case suggesting it again would be noise. Each card shows which anime it
+came from, whether that anime has finished and with how many episodes, how many chapters
+the manga has, and which sites it was found on: enough to decide whether it is worth it.
+
+Approving a suggestion with the status you chose reuses the local series when there already
+is one — the one `list_sync` created under a different spelling, say — and creates a new one
+only when there is none. The status goes to every list that knows that manga, and only
+those: MyAnimeList and AniList by the ids the suggestion carries, and MangaDex when the UUID
+was found. If a write fails, the screen shows which one and when, and the queue repeats only
+what is missing. A MangaDex without the credentials in `.env` does not count as a failure:
+they are optional, so that target simply does not exist in this installation, and it is
+recorded as skipped.
+
+A checkbox on each suggestion decides whether the download starts now or waits, and it
+arrives already set from the status you chose. When the candidate source has exactly the
+same title and a high enough score, the mapping is made directly and the series skips the
+Review screen. When it does not, the series waits on Review, and the download you asked for
+starts as soon as the source is confirmed there. *Baixar agora* only ever turns following
+on, never off: approving with the box unchecked does not take a series you already followed
+out of the download schedule. Dismissing a suggestion is permanent — it does not come back
+on a later pass.
+
+A series approved as *Completo* has its chapters marked read in Komga once, at the first
+indexing after the files arrive. Indexing runs per download batch, so only the books indexed
+in that first pass are marked; on a long series the rest stays unread
+([#21](https://github.com/jacksonfdam/KuroManga/issues/21)). Beyond that, reading progress
+still comes only from the existing `progress_push` cron, which only moves forward —
+Discovery writes status, never the chapter read.
+
+To find a source for each suggestion the pipeline searches MangaDex and the bundled `comick`
+service, which covers sites MangaDex does not have: today asurascan and weebcentral. comick
+answers with search results and chapter lists only, with no page-image endpoint, so
+downloads from those sites still go through the `manga-downloader` binary, which already
+knew how to fetch them. If comick is down, Discovery loses those sources from the search
+rather than breaking.
 
 ## Running it
 
@@ -44,6 +94,11 @@ Komga only reads the library, so world-readable files are enough.
 The `bootstrap` service runs on its own on every `up`: it waits for Komga to answer,
 creates the initial administrator if nobody has, and creates the library pointing at
 `/manga` if it does not exist. It is idempotent.
+
+The `comick` service comes up with the rest and needs no credentials: `COMICK_API_URL`
+points at it and defaults to `http://comick:3000`. Its build `context` pins a commit on
+purpose — third-party code does not run here unreviewed — so updating it means changing the
+SHA after reading what changed.
 
 ### Komga credentials
 
@@ -66,12 +121,15 @@ interface at a different address, set `PUBLIC_BASE_URL` in `.env` — the redire
 built from it.
 
 Once the stack is up, go to **Settings**, connect both providers and click **Sync now**.
+The same credentials cover the anime lists Discovery reads; there is nothing else to
+connect.
 
 ### MangaDex credentials (optional)
 
 Search and chapter listing work anonymously, and MangaDex caches anonymous responses but
 not authenticated ones, so signing in makes searches slower rather than faster. Leave the
-four `MANGADEX_` variables empty unless your account needs to see restricted titles.
+four `MANGADEX_` variables empty unless your account needs to see restricted titles, or you
+want Discovery to write the status you approve to your MangaDex list as well.
 
 ## Development
 
@@ -94,7 +152,9 @@ are exactly what a mock would get wrong.
 ## State
 
 All six phases of the design are implemented: infrastructure, lists, matching, downloads,
-the Komga integration, and reading progress written back to the lists.
+the Komga integration, and reading progress written back to the lists. Discovery sits on
+top of them, and has a design of its own in
+[`docs/superpowers/specs/2026-09-13-anime-manga-discovery-design.md`](docs/superpowers/specs/2026-09-13-anime-manga-discovery-design.md).
 
 Downloads happen in batches. `manga-downloader` re-reads a manga's entire chapter index on
 every invocation, so one job per chapter meant seven hundred index reads to fetch seven
@@ -112,8 +172,9 @@ search and chapter listing, real downloads producing CBZ files with valid `Comic
 and the whole Komga loop — claim, library creation, scanning, matching a series by folder
 and a book by path, and reading progress back out.
 
-Not yet exercised: writing progress back to MyAnimeList and AniList against a live
-account. That path runs from fixtures in the tests.
+Not yet exercised: writing progress and status back to MyAnimeList and AniList against a
+live account, writing status to MangaDex, and searching through comick. Those paths run
+from fixtures in the tests.
 
 ## License
 

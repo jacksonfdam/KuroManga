@@ -14,6 +14,7 @@ from app.config import get_settings
 CRON_LIST_SYNC = "cron_list_sync"
 CRON_CHAPTER_DISCOVER = "cron_chapter_discover"
 CRON_PROGRESS_PUSH = "cron_progress_push"
+CRON_ANIME_LIST_SYNC = "cron_anime_list_sync"
 DOWNLOAD_CONCURRENCY = "download_concurrency"
 PER_SOURCE_CONCURRENCY = "per_source_concurrency"
 DOWNLOAD_BATCH_SIZE = "download_batch_size"
@@ -25,6 +26,7 @@ class Defaults:
     cron_list_sync: str = "0 */6 * * *"
     cron_chapter_discover: str = "0 */2 * * *"
     cron_progress_push: str = "30 * * * *"
+    cron_anime_list_sync: str = "0 */12 * * *"
     per_source_concurrency: int = 2
     download_batch_size: int = 20
     auto_download_new: bool = True
@@ -41,6 +43,8 @@ def _fallback(key: str) -> str:
             return DEFAULTS.cron_chapter_discover
         case k if k == CRON_PROGRESS_PUSH:
             return DEFAULTS.cron_progress_push
+        case k if k == CRON_ANIME_LIST_SYNC:
+            return DEFAULTS.cron_anime_list_sync
         case k if k == DOWNLOAD_CONCURRENCY:
             return str(get_settings().download_concurrency)
         case k if k == PER_SOURCE_CONCURRENCY:
@@ -92,6 +96,7 @@ async def all_settings(session: AsyncSession) -> dict[str, str]:
         CRON_LIST_SYNC,
         CRON_CHAPTER_DISCOVER,
         CRON_PROGRESS_PUSH,
+        CRON_ANIME_LIST_SYNC,
         DOWNLOAD_CONCURRENCY,
         PER_SOURCE_CONCURRENCY,
         DOWNLOAD_BATCH_SIZE,

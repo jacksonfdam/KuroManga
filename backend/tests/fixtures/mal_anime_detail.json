@@ -1,0 +1,12 @@
+{
+  "id": 99,
+  "title": "Kaijuu 8-gou",
+  "related_manga": [
+    {"node": {"id": 122763, "title": "Kaijuu 8-gou"}, "relation_type": "source",
+     "relation_type_formatted": "Original Source"},
+    {"node": {"id": 140000, "title": "Kaijuu 8-gou: B-side"}, "relation_type": "side_story",
+     "relation_type_formatted": "Side Story"},
+    {"node": {"id": 160000, "title": "Kaijuu 8-gou: Kouhen"}, "relation_type": "adaptation",
+     "relation_type_formatted": "Adaptation"}
+  ]
+}

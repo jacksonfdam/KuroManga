@@ -1,0 +1,9 @@
+{
+  "source": "asurascan",
+  "totalChapters": 3,
+  "chapters": [
+    {"id": "c1", "number": 1, "title": "Normandy", "url": "https://asuracomic.net/series/vs/chapter/1"},
+    {"id": "c2", "number": 2.5, "title": null, "url": "https://asuracomic.net/series/vs/chapter/2-5"},
+    {"id": "c3", "number": 0, "title": "Prologue", "url": "https://asuracomic.net/series/vs/chapter/prologue"}
+  ]
+}

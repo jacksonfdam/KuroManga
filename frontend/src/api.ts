@@ -66,9 +66,51 @@ export interface JobEvent {
 export interface SettingsPayload {
   values: Record<string, string>
   providers: Record<string, { connected: boolean; configured: boolean; account_name?: string }>
-  sources: Record<string, { authenticated: boolean; username: string | null }>
+  sources: Record<string, SourceStatus>
   library_path: string
 }
+
+/** MangaDex has an account; comick has none, so it only reports whether it answers. */
+export type SourceStatus =
+  | { authenticated: boolean; username: string | null }
+  | { reachable: boolean }
+
+export interface SuggestionSource {
+  site: string
+  url: string
+  chapters: number | null
+  score: number
+}
+
+export interface Suggestion {
+  id: number
+  title: string
+  cover_url: string | null
+  total_chapters: number | null
+  year: number | null
+  publishing_status: string | null
+  state: 'new' | 'dismissed' | 'added'
+  rank_score: number
+  series_id: number | null
+  reason: {
+    origin_title: string | null
+    origin_status: string | null
+    total_episodes: number | null
+    relation: string | null
+  }
+  sources: SuggestionSource[]
+  best_source: { site: string; url: string; score: number } | null
+  write_results: {
+    target: string
+    ok: boolean
+    // A target that has nothing configured to write to, rather than one that failed.
+    skipped?: boolean
+    error: string | null
+    at?: string
+  }[]
+}
+
+export type ListStatusValue = 'reading' | 'plan_to_read' | 'completed' | 'on_hold' | 'dropped'
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
@@ -119,4 +161,14 @@ export const api = {
   authStart: (provider: string) => request<{ url: string }>(`/api/auth/${provider}/start`),
   disconnect: (provider: string) =>
     request<{ ok: boolean }>(`/api/auth/${provider}`, { method: 'DELETE' }),
+  suggestions: (state = 'new') => request<Suggestion[]>(`/api/suggestions?state=${state}`),
+  addSuggestion: (id: number, status: ListStatusValue, download: boolean) =>
+    request<{ ok: boolean; series_id: number; needs_review: boolean }>(
+      `/api/suggestions/${id}/add`,
+      { method: 'POST', body: JSON.stringify({ status, download }) },
+    ),
+  dismissSuggestion: (id: number) =>
+    request<{ ok: boolean }>(`/api/suggestions/${id}/dismiss`, { method: 'POST' }),
+  refreshDiscovery: () =>
+    request<{ ok: boolean; queued: number }>('/api/discovery/refresh', { method: 'POST' }),
 }

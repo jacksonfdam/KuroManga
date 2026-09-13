@@ -11,6 +11,7 @@ from app import settings_store
 from app.api.deps import db_session
 from app.config import get_settings
 from app.enums import Provider
+from app.sources.comick_client import ComickClient
 from app.sources.mangadex_auth import tokens as mangadex_tokens
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
@@ -25,6 +26,7 @@ EDITABLE = {
     settings_store.PER_SOURCE_CONCURRENCY,
     settings_store.DOWNLOAD_BATCH_SIZE,
     settings_store.AUTO_DOWNLOAD_NEW,
+    settings_store.CRON_ANIME_LIST_SYNC,
 }
 
 
@@ -45,6 +47,7 @@ async def read_settings(session: Session) -> dict[str, Any]:
         for row in result.all()
     }
     settings = get_settings()
+    comick_up = await ComickClient().health()
     return {
         "values": await settings_store.all_settings(session),
         "providers": {
@@ -66,7 +69,10 @@ async def read_settings(session: Session) -> dict[str, Any]:
                 # what the account itself is allowed to see.
                 "authenticated": mangadex_tokens.configured,
                 "username": settings.mangadex_username or None,
-            }
+            },
+            # comick has no accounts at all, so the only thing worth reporting is
+            # whether the service answers.
+            "comick": {"reachable": comick_up},
         },
     }
 
@@ -85,6 +91,7 @@ async def write_settings(body: SettingsIn, session: Session) -> dict[str, Any]:
             settings_store.CRON_LIST_SYNC,
             settings_store.CRON_CHAPTER_DISCOVER,
             settings_store.CRON_PROGRESS_PUSH,
+            settings_store.CRON_ANIME_LIST_SYNC,
         }
         for key in body.values
     )

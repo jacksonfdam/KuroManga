@@ -38,3 +38,12 @@ class JobType(StrEnum):
     DOWNLOAD_BATCH = "download_batch"
     KOMGA_SCAN = "komga_scan"
     PROGRESS_PUSH = "progress_push"
+    ANIME_LIST_SYNC = "anime_list_sync"
+    SUGGEST_BUILD = "suggest_build"
+    LIST_WRITE = "list_write"
+
+
+class SuggestionState(StrEnum):
+    NEW = "new"
+    DISMISSED = "dismissed"
+    ADDED = "added"

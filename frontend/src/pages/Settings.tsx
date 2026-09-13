@@ -11,6 +11,11 @@ const FIELDS: Array<{ key: string; label: string; hint?: string }> = [
     label: 'Chapter discovery schedule (cron)',
     hint: 'worker restart required',
   },
+  {
+    key: 'cron_anime_list_sync',
+    label: 'Sync da lista de anime',
+    hint: 'worker restart required',
+  },
   { key: 'auto_download_new', label: 'Search sources for new entries (true/false)' },
 ]
 
@@ -82,7 +87,11 @@ export function Settings() {
             style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0' }}
           >
             <b style={{ width: 90 }}>{source}</b>
-            {info.authenticated ? (
+            {'reachable' in info ? (
+              <span className={info.reachable ? 'pill mapped' : 'pill failed'}>
+                {info.reachable ? 'reachable' : 'not answering'}
+              </span>
+            ) : info.authenticated ? (
               <span className="pill mapped">
                 signed in{info.username ? ` · ${info.username}` : ''}
               </span>
@@ -90,9 +99,9 @@ export function Settings() {
               <span className="pill">anonymous</span>
             )}
             <span className="meta" style={{ flex: 1 }}>
-              Anonymous is the normal mode. MangaDex caches anonymous responses and not
-              authenticated ones, so signing in makes searches slower, not faster. Set the four
-              MANGADEX_ variables in .env only if your account needs to see restricted titles.
+              {'reachable' in info
+                ? 'No account and no API key: comick either answers or it does not. While it is down, Discovery searches MangaDex alone.'
+                : 'Anonymous is the normal mode. MangaDex caches anonymous responses and not authenticated ones, so signing in makes searches slower, not faster. Set the four MANGADEX_ variables in .env only if your account needs to see restricted titles.'}
             </span>
           </div>
         ))}
