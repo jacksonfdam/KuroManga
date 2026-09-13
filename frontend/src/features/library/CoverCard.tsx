@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom'
+
 import { Icon } from '../../ui'
 import { formatChapter, formatProviders, formatSeriesFormat } from '../../lib/format'
 import type { Series } from '../../lib/api'
@@ -24,7 +26,10 @@ export function CoverCard({
   const pipeline = pipelineNote(series)
 
   return (
-    <div className="group flex flex-col transition-transform duration-300 hover:-translate-y-1 hover:shadow-glow">
+    <Link
+      to={`/series/${series.id}`}
+      className="group flex flex-col transition-transform duration-300 hover:-translate-y-1 hover:shadow-glow"
+    >
       <div
         className={`relative aspect-[2/3] w-full overflow-hidden rounded-lg border bg-surface-container-highest ${
           needsReview ? 'border-error/40' : 'border-white/[0.08]'
@@ -62,7 +67,10 @@ export function CoverCard({
             </span>
           )}
         </div>
-        <div className="absolute bottom-2 right-2">
+        {/* Stops the click from bubbling to the card's own Link — the quick-add
+            button and "open this series" are two different actions stacked on
+            the same corner of the art. */}
+        <div className="absolute bottom-2 right-2" onClick={(event) => event.preventDefault()}>
           <QuickIncrement progress={series.progress} onIncrement={(next) => onIncrement(series.id, next)} />
         </div>
         {/* 4px, flush with the image's own bottom edge — DESIGN.md's Manga Cover
@@ -97,7 +105,7 @@ export function CoverCard({
           ) : null}
         </div>
       </div>
-    </div>
+    </Link>
   )
 }
 
