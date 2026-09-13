@@ -75,6 +75,10 @@ export function JobRow({
           <div className="flex flex-wrap items-center gap-2">
             <JobStateBadge state={job.state} />
             <span className="truncate text-body-md font-bold text-on-surface">{jobLabel(job)}</span>
+            {/* jobLabel() never names the handler — a chapter number doesn't
+                say whether it's a download, a discover pass or a list sync,
+                so two different job types can otherwise read identically. */}
+            <span className="shrink-0 font-mono text-label-sm text-outline">{job.type}</span>
           </div>
           {job.last_message && (
             <p className="mt-1 truncate font-mono text-label-sm text-outline">{job.last_message}</p>
