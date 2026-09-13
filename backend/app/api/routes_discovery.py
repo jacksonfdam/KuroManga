@@ -15,7 +15,7 @@ from app.handlers.list_sync import (
     existing_series_for_entry,
     find_series_by_alias,
     merge_aliases,
-    upsert_entry,
+    upsert_entry_status,
 )
 from app.providers.base import ListEntryDTO
 from app.queue import repo
@@ -166,7 +166,7 @@ async def add_suggestion(suggestion_id: int, body: AddIn, session: Session) -> d
     )
     series_id = await resolve_series_for(session, entries, aliases)
     for entry in entries:
-        await upsert_entry(session, entry, series_id)
+        await upsert_entry_status(session, entry, series_id)
 
     job_ids: list[int | None] = [
         await repo.enqueue(

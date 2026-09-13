@@ -161,6 +161,49 @@ async def upsert_entry(session: AsyncSession, dto: ListEntryDTO, series_id: int)
     )
 
 
+async def upsert_entry_status(session: AsyncSession, dto: ListEntryDTO, series_id: int) -> None:
+    """Write status onto an entry without touching what the provider owns.
+
+    Status flows outward from Discovery; reading progress never does. A DTO built
+    from a suggestion carries no progress and no provider metadata, so an upsert
+    like the one above would zero `user_progress_chapter` — the only forward-only
+    guard in the system is `progress_push` comparing against it, and a zeroed
+    watermark lets Komga push a lower chapter over the user's real account.
+    """
+    await session.execute(
+        text(
+            """
+            insert into list_entry (provider, provider_media_id, series_id, title_romaji,
+                                    title_english, synonyms, status, user_progress_chapter,
+                                    total_chapters, cover_url, raw, updated_at)
+            values (:provider, :media_id, :series_id, :romaji, :english, cast(:synonyms as jsonb),
+                    :status, :progress, :total, :cover, cast(:raw as jsonb), now())
+            on conflict (provider, provider_media_id) do update
+               set series_id = coalesce(list_entry.series_id, excluded.series_id),
+                   status = excluded.status,
+                   title_english = coalesce(list_entry.title_english, excluded.title_english),
+                   total_chapters = coalesce(list_entry.total_chapters,
+                                             excluded.total_chapters),
+                   cover_url = coalesce(list_entry.cover_url, excluded.cover_url),
+                   updated_at = now()
+            """
+        ),
+        {
+            "provider": str(dto.provider),
+            "media_id": dto.media_id,
+            "series_id": series_id,
+            "romaji": dto.title_romaji,
+            "english": dto.title_english,
+            "synonyms": json.dumps(dto.synonyms),
+            "status": str(dto.status),
+            "progress": dto.progress_chapter,
+            "total": dto.total_chapters,
+            "cover": dto.cover_url,
+            "raw": json.dumps(dto.raw or {}),
+        },
+    )
+
+
 async def existing_series_for_entry(
     session: AsyncSession, dto: ListEntryDTO
 ) -> int | None:

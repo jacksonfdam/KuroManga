@@ -317,3 +317,86 @@ async def test_a_dismissed_suggestion_leaves_the_new_list(client, suggestion_id)
 async def test_refresh_queues_one_sync_per_provider(client, suggestion_id):
     body = (await client.post("/api/discovery/refresh")).json()
     assert body["queued"] == 2
+
+
+async def test_approving_leaves_the_progress_and_metadata_list_sync_already_read(
+    client, suggestion_id
+):
+    """Status flows outward from Discovery; reading progress never does.
+
+    A zeroed watermark would let the next progress_push write Komga's lower count
+    over the chapter the user's real account holds, and nothing reads it back.
+    """
+    async with get_sessionmaker()() as session:
+        series_id = (
+            await session.execute(
+                text(
+                    """
+                    insert into series (canonical_title, slug, needs_review, meta, created_at)
+                    values ('Vinland Saga', 'vinland-saga', true,
+                            '{"aliases": ["vinland saga"]}'::jsonb, now())
+                    returning id
+                    """
+                )
+            )
+        ).scalar_one()
+        await session.execute(
+            text(
+                """
+                insert into list_entry (provider, provider_media_id, series_id, title_romaji,
+                                        title_english, synonyms, status, user_progress_chapter,
+                                        total_chapters, cover_url, raw, updated_at)
+                values ('anilist', '3000', :series_id, 'Vinrando Saga', 'Vinland Saga',
+                        '["VS"]'::jsonb, 'reading', 150, 210, 'https://covers/vs.jpg',
+                        '{"id": 3000}'::jsonb, now())
+                """
+            ),
+            {"series_id": series_id},
+        )
+        await session.commit()
+
+    await client.post(
+        f"/api/suggestions/{suggestion_id}/add", json={"status": "completed", "download": False}
+    )
+
+    async with get_sessionmaker()() as session:
+        entry = (
+            await session.execute(
+                text(
+                    """
+                    select status, user_progress_chapter, title_romaji, synonyms, cover_url, raw
+                      from list_entry where provider = 'anilist'
+                    """
+                )
+            )
+        ).one()
+    assert entry.user_progress_chapter == 150
+    assert entry.title_romaji == "Vinrando Saga"
+    assert entry.synonyms == ["VS"]
+    assert entry.cover_url == "https://covers/vs.jpg"
+    assert entry.raw == {"id": 3000}
+    assert entry.status == "completed"
+
+
+async def test_approving_still_creates_a_list_entry_that_did_not_exist(client, suggestion_id):
+    """Preserving an existing entry must not turn into writing no entry at all."""
+    await client.post(
+        f"/api/suggestions/{suggestion_id}/add", json={"status": "on_hold", "download": False}
+    )
+    async with get_sessionmaker()() as session:
+        entries = (
+            await session.execute(
+                text(
+                    """
+                    select provider, provider_media_id, status, user_progress_chapter, series_id
+                      from list_entry order by provider
+                    """
+                )
+            )
+        ).all()
+    assert [(e.provider, e.provider_media_id, e.status) for e in entries] == [
+        ("anilist", "3000", "on_hold"),
+        ("mal", "500", "on_hold"),
+    ]
+    assert all(e.user_progress_chapter == 0 and e.series_id for e in entries)
+
