@@ -264,6 +264,119 @@ async def test_a_seed_that_blows_up_leaves_the_earlier_seeds_committed(monkeypat
     assert titles == [seen[0]]
 
 
+async def test_a_new_suggestion_already_on_the_list_is_retired_with_its_series(monkeypatch):
+    """Horimiya, in production: added by hand, the card must not stay on Discovery."""
+    source = FakeSource()
+    monkeypatch.setattr(build, "all_sources", lambda: [source])
+    async with get_sessionmaker()() as session:
+        await insert_anime(session, "21", "3000", "Vinland Saga")
+        await session.execute(
+            text(
+                """
+                insert into series (canonical_title, slug, needs_review, meta, created_at)
+                values ('Vinland Saga', 'vinland-saga', false, '{}'::jsonb, now())
+                """
+            )
+        )
+        series_id = (
+            await session.execute(text("select id from series"))
+        ).scalar_one()
+        await session.execute(
+            text(
+                """
+                insert into list_entry (provider, provider_media_id, series_id, status,
+                                        user_progress_chapter, synonyms, raw, updated_at)
+                values ('anilist', '3000', :series_id, 'plan_to_read', 0, '[]'::jsonb,
+                        '{}'::jsonb, now())
+                """
+            ),
+            {"series_id": series_id},
+        )
+        await session.execute(
+            text(
+                """
+                insert into suggestion (provider, provider_media_id, title, state, alt_ids, meta)
+                values ('anilist', '3000', 'Vinland Saga', 'new', '{}'::jsonb, '{}'::jsonb)
+                """
+            )
+        )
+        await session.commit()
+
+    await run_build()
+
+    assert source.searched == []
+    async with get_sessionmaker()() as session:
+        row = (
+            await session.execute(text("select state, series_id from suggestion"))
+        ).one()
+    assert row.state == "added"
+    assert row.series_id == series_id
+
+
+async def test_a_dismissed_suggestion_now_on_the_list_stays_dismissed(monkeypatch):
+    """Being added by hand does not get to undo a dismissal."""
+    source = FakeSource()
+    monkeypatch.setattr(build, "all_sources", lambda: [source])
+    async with get_sessionmaker()() as session:
+        await insert_anime(session, "21", "3000", "Vinland Saga")
+        await session.execute(
+            text(
+                """
+                insert into list_entry (provider, provider_media_id, status,
+                                        user_progress_chapter, synonyms, raw, updated_at)
+                values ('anilist', '3000', 'plan_to_read', 0, '[]'::jsonb, '{}'::jsonb, now())
+                """
+            )
+        )
+        await session.execute(
+            text(
+                """
+                insert into suggestion (provider, provider_media_id, title, state, alt_ids, meta)
+                values ('anilist', '3000', 'Vinland Saga', 'dismissed', '{}'::jsonb, '{}'::jsonb)
+                """
+            )
+        )
+        await session.commit()
+
+    await run_build()
+
+    async with get_sessionmaker()() as session:
+        row = (
+            await session.execute(text("select state, series_id from suggestion"))
+        ).one()
+    assert row.state == "dismissed"
+    assert row.series_id is None
+
+
+async def test_a_new_suggestion_still_off_every_list_is_untouched(monkeypatch):
+    source = FakeSource()
+    monkeypatch.setattr(build, "all_sources", lambda: [source])
+    async with get_sessionmaker()() as session:
+        await insert_anime(session, "21", "3000", "Vinland Saga")
+        await insert_anime(session, "22", "4001", "Kaijuu 8-gou")
+        await session.execute(
+            text(
+                """
+                insert into suggestion (provider, provider_media_id, title, state, alt_ids, meta)
+                values ('anilist', '3000', 'Vinland Saga', 'new', '{}'::jsonb, '{}'::jsonb)
+                """
+            )
+        )
+        await session.commit()
+
+    await run_build()
+
+    assert source.searched == ["Vinland Saga", "Kaijuu 8-gou"]
+    async with get_sessionmaker()() as session:
+        row = (
+            await session.execute(
+                text("select state, series_id from suggestion where provider_media_id = '3000'")
+            )
+        ).one()
+    assert row.state == "new"
+    assert row.series_id is None
+
+
 async def test_a_manga_that_is_already_a_local_series_is_not_searched_for(monkeypatch):
     """The alias exclusion is what keeps Discovery off manga the library already has."""
     source = FakeSource()

@@ -1,8 +1,12 @@
 """Turn the anime mirror into suggestions.
 
-The state of an existing suggestion is never touched here. Rebuilding refreshes
-what the card shows and how it ranks; whether the user already answered it is the
-user's decision, and a cron does not get to undo it.
+Rebuilding refreshes what a card shows and how it ranks, and that is all it does
+to a suggestion the user has already answered: a dismissal is the user's decision
+and a cron does not get to undo it. But a suggestion still sitting in `new` is not
+an answer yet, and if the seed behind it turns out to already be on a list -
+because the user added it here or by hand somewhere else - leaving the card up
+would be a lie about their own list. That one case gets retired to `added`
+instead of left to rot on the Discovery screen.
 """
 
 import json
@@ -61,21 +65,66 @@ async def already_dismissed(session: AsyncSession) -> set[tuple[str, str]]:
     return {(row.provider, row.provider_media_id) for row in result.all()}
 
 
-async def already_a_series(session: AsyncSession, title: str) -> bool:
+async def matching_series_id(session: AsyncSession, title: str) -> int | None:
+    """The series this title already belongs to, if the library already has it."""
     alias = normalize(title)
     if not alias:
-        return False
+        return None
     result = await session.execute(
         text(
             """
-            select 1 from series
+            select id from series
              where jsonb_exists(meta -> 'aliases', :alias)
              limit 1
             """
         ),
         {"alias": alias},
     )
-    return result.first() is not None
+    row = result.first()
+    return row.id if row else None
+
+
+async def series_id_from_list_entry(session: AsyncSession, ids: set[tuple[str, str]]) -> int | None:
+    """The series a matching list_entry row already resolved to, if any."""
+    for provider, media_id in ids:
+        result = await session.execute(
+            text(
+                "select series_id from list_entry"
+                " where provider = :provider and provider_media_id = :media_id"
+            ),
+            {"provider": provider, "media_id": media_id},
+        )
+        row = result.first()
+        if row and row.series_id is not None:
+            return row.series_id
+    return None
+
+
+async def retire_suggestion(
+    session: AsyncSession, ids: set[tuple[str, str]], series_id: int | None
+) -> None:
+    """The seed behind this suggestion is already on a list, one way or another.
+
+    Only a `new` row moves: an `added` row is already correct, and a `dismissed`
+    row stays dismissed no matter what its manga does next - that protection is
+    the whole reason the rebuild rule exists. The `state = 'new'` guard is what
+    keeps this from ever touching a dismissal.
+    """
+    for provider, media_id in ids:
+        await session.execute(
+            text(
+                """
+                update suggestion
+                   set state = 'added',
+                       series_id = :series_id,
+                       updated_at = now()
+                 where provider = :provider
+                   and provider_media_id = :media_id
+                   and state = 'new'
+                """
+            ),
+            {"provider": provider, "media_id": media_id, "series_id": series_id},
+        )
 
 
 def source_summary(candidates: list[Candidate]) -> dict[str, Any]:
@@ -182,9 +231,17 @@ async def handle(ctx: JobContext) -> None:
         ids = {(str(seed.provider), seed.media_id)} | {
             (provider, media_id) for provider, media_id in seed.alt_ids.items()
         }
-        if ids & known or ids & dismissed:
+        matched_known = ids & known
+        if matched_known or ids & dismissed:
+            # A row that is actually dismissed is left alone by retire_suggestion's own
+            # state = 'new' guard, whether or not it also happens to be known now.
+            if matched_known:
+                series_id = await series_id_from_list_entry(ctx.session, matched_known)
+                await retire_suggestion(ctx.session, ids, series_id)
             continue
-        if await already_a_series(ctx.session, seed.title):
+        series_id = await matching_series_id(ctx.session, seed.title)
+        if series_id is not None:
+            await retire_suggestion(ctx.session, ids, series_id)
             continue
         wanted.append(seed)
     await ctx.log(f"{len(wanted)} still worth looking up", pct=40)
