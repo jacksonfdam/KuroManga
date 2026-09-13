@@ -63,10 +63,9 @@ async def integrations(session: Session) -> dict[str, Any]:
         _entry("komga", "ok" if komga.has_credentials else "unauthenticated")
     )
 
-    # comick_url has no dedicated setting key yet; settings_store.get falls back to
-    # "" for keys it does not recognise, so an unset URL reads as unauthenticated
-    # rather than raising.
-    comick_url = await settings_store.get(session, "comick_url")
+    # An unset URL defaults to "" (settings_store.DEFAULTS.comick_url), which reads
+    # as unauthenticated rather than raising.
+    comick_url = await settings_store.get(session, settings_store.COMICK_URL)
     items.append(
         _entry("comick", "ok" if comick_url else "unauthenticated", comick_url or None)
     )

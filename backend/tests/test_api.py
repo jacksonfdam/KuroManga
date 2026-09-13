@@ -250,3 +250,11 @@ async def test_progress_advances_whichever_provider_is_behind(client):
     response = await client.post("/api/series/1/progress", json={"chapter": 120})
     assert response.status_code == 200
     assert response.json() == {"progress": 120, "queued": True}
+
+
+async def test_settings_expose_the_new_pipeline_keys(client):
+    values = (await client.get("/api/settings")).json()["values"]
+    assert values["cron_anime_sync"] == "0 */12 * * *"
+    assert values["reading_minutes_per_chapter"] == "8"
+    assert "comick_url" in values
+    assert values["comick_enabled"] == "false"

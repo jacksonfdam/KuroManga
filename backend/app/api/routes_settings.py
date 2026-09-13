@@ -21,10 +21,14 @@ EDITABLE = {
     settings_store.CRON_LIST_SYNC,
     settings_store.CRON_CHAPTER_DISCOVER,
     settings_store.CRON_PROGRESS_PUSH,
+    settings_store.CRON_ANIME_SYNC,
     settings_store.DOWNLOAD_CONCURRENCY,
     settings_store.PER_SOURCE_CONCURRENCY,
     settings_store.DOWNLOAD_BATCH_SIZE,
     settings_store.AUTO_DOWNLOAD_NEW,
+    settings_store.COMICK_URL,
+    settings_store.COMICK_ENABLED,
+    settings_store.READING_MINUTES_PER_CHAPTER,
 }
 
 
@@ -85,6 +89,7 @@ async def write_settings(body: SettingsIn, session: Session) -> dict[str, Any]:
             settings_store.CRON_LIST_SYNC,
             settings_store.CRON_CHAPTER_DISCOVER,
             settings_store.CRON_PROGRESS_PUSH,
+            settings_store.CRON_ANIME_SYNC,
         }
         for key in body.values
     )
