@@ -209,3 +209,41 @@ async def test_a_result_is_stamped_so_a_stale_failure_is_recognisable():
         await session.commit()
     results = await write_results_of(suggestion_id)
     assert datetime.fromisoformat(results["mal"]["at"]).tzinfo is not None
+
+
+async def test_an_unconfigured_mangadex_is_an_absence_not_a_failure(monkeypatch):
+    """The four MANGADEX_ variables are optional, so empty is the default setup.
+
+    Failing here would burn the retry ladder and retire the job as failed even
+    though MyAnimeList and AniList took the status.
+    """
+    written = []
+
+    async def fake_access_token_for(session, provider):
+        return "token"
+
+    class FakeProviderSource:
+        async def set_status(self, token, media_id, status):
+            written.append(("anilist", media_id))
+
+    async def no_credentials(client=None):
+        return None
+
+    monkeypatch.setattr("app.handlers.list_write.access_token_for", fake_access_token_for)
+    monkeypatch.setattr(
+        "app.handlers.list_write.get_source", lambda provider: FakeProviderSource()
+    )
+    # The real MangaDexSource, reached the way the handler reaches it, with the
+    # credentials it would find in a default deployment: none.
+    monkeypatch.setattr("app.sources.mangadex_auth.tokens.token", no_credentials)
+
+    async with get_sessionmaker()() as session:
+        suggestion_id = await insert_suggestion(session, meta={"mangadex_uuid": "uuid-1"})
+        job = await lease_write_job(session, suggestion_id)
+        await handle(JobContext(session=session, job=job))
+
+    assert written == [("anilist", "3000")]
+    results = await write_results_of(suggestion_id)
+    assert results["anilist"]["ok"] is True
+    assert results["mangadex"]["skipped"] is True
+    assert results["mangadex"]["ok"] is False

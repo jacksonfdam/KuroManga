@@ -16,6 +16,7 @@ from app.enums import JobType, ListStatus, Provider
 from app.handlers.base import JobContext, PermanentError, register
 from app.providers import get_source
 from app.providers.tokens import NotConnected, access_token_for
+from app.sources import NotConfigured
 from app.sources import get_source as get_site
 
 
@@ -40,7 +41,13 @@ def pending_targets(row: Any) -> list[tuple[str, str]]:
 
 
 async def record_result(
-    session: AsyncSession, suggestion_id: int, target: str, *, ok: bool, error: str | None
+    session: AsyncSession,
+    suggestion_id: int,
+    target: str,
+    *,
+    ok: bool,
+    error: str | None,
+    skipped: bool = False,
 ) -> None:
     await session.execute(
         text(
@@ -70,6 +77,7 @@ async def record_result(
                     {
                         "target": target,
                         "ok": ok,
+                        "skipped": skipped,
                         "error": error,
                         "at": datetime.now(UTC).isoformat(),
                     }
@@ -108,6 +116,7 @@ async def handle(ctx: JobContext) -> None:
 
     failures: list[str] = []
     disconnected: list[str] = []
+    absent: list[str] = []
     for target, media_id in pending:
         try:
             if target == "mangadex":
@@ -116,6 +125,17 @@ async def handle(ctx: JobContext) -> None:
                 provider = Provider(target)
                 token = await access_token_for(ctx.session, provider)
                 await get_source(provider).set_status(token, media_id, status)
+        except NotConfigured as exc:
+            await record_result(
+                ctx.session, suggestion_id, target, ok=False, skipped=True, error=str(exc)
+            )
+            await ctx.session.commit()
+            # A list nobody configured is an absence, like a suggestion with no
+            # MangaDex uuid: the optional credentials being empty is the default,
+            # and failing here would retire a job that wrote the other two lists.
+            absent.append(target)
+            await ctx.log(f"{target} skipped: {exc}")
+            continue
         except NotConnected as exc:
             await record_result(ctx.session, suggestion_id, target, ok=False, error=str(exc))
             await ctx.session.commit()
@@ -137,11 +157,11 @@ async def handle(ctx: JobContext) -> None:
 
     if failures:
         raise RuntimeError("; ".join(failures)[:500])
-    if len(disconnected) == len(pending):
+    if disconnected and len(disconnected) + len(absent) == len(pending):
         # Nothing was written and nothing can be: an account does not reconnect
         # itself, so burning the remaining attempts against it buys nothing.
         raise PermanentError(f"not connected: {', '.join(disconnected)}")
-    if disconnected:
-        await ctx.log(f"written, except on {', '.join(disconnected)}", pct=100)
+    if disconnected or absent:
+        await ctx.log(f"written, except on {', '.join([*disconnected, *absent])}", pct=100)
         return
     await ctx.log("status written everywhere", pct=100)

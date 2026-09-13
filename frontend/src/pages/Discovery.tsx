@@ -43,7 +43,11 @@ export function Discovery({ onChanged }: { onChanged: () => void }) {
     // stale token would otherwise never reach the user.
     api
       .suggestions('added')
-      .then((added) => setWriteFailures(added.filter((s) => s.write_results.some((r) => !r.ok))))
+      // A skipped target is an absence, not a failure: MangaDex without personal
+      // credentials is the default setup, and it has nothing to say to the user.
+      .then((added) =>
+        setWriteFailures(added.filter((s) => s.write_results.some((r) => !r.ok && !r.skipped))),
+      )
       .catch((e) => setError(String(e)))
   }
 
@@ -111,7 +115,7 @@ export function Discovery({ onChanged }: { onChanged: () => void }) {
             <p key={item.id} className="row-error">
               {item.title} —{' '}
               {item.write_results
-                .filter((result) => !result.ok)
+                .filter((result) => !result.ok && !result.skipped)
                 .map(
                   (result) =>
                     `${result.target}: ${result.error ?? 'falha sem detalhe'}${whenOf(result.at)}`,

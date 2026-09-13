@@ -100,7 +100,14 @@ export interface Suggestion {
   }
   sources: SuggestionSource[]
   best_source: { site: string; url: string; score: number } | null
-  write_results: { target: string; ok: boolean; error: string | null; at?: string }[]
+  write_results: {
+    target: string
+    ok: boolean
+    // A target that has nothing configured to write to, rather than one that failed.
+    skipped?: boolean
+    error: string | null
+    at?: string
+  }[]
 }
 
 export type ListStatusValue = 'reading' | 'plan_to_read' | 'completed' | 'on_hold' | 'dropped'

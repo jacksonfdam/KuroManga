@@ -9,6 +9,14 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 
 
+class NotConfigured(RuntimeError):
+    """The site needs a personal login this deployment never set up.
+
+    Distinct from a failed call: nothing is wrong, the target simply does not
+    exist here, so a caller records an absence instead of retrying.
+    """
+
+
 @dataclass(frozen=True)
 class Candidate:
     source_site: str
