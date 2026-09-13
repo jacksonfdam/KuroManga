@@ -26,9 +26,23 @@ services:
   api:
     build: ./backend
     restart: unless-stopped
-    env_file: .env
     environment:
       POSTGRES_HOST: postgres
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_USER: ${POSTGRES_USER:-manga}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-manga}
+      POSTGRES_DB: ${POSTGRES_DB:-manga}
+      LIBRARY_PATH: ${LIBRARY_PATH:-/manga}
+      DOWNLOAD_CONCURRENCY: ${DOWNLOAD_CONCURRENCY:-3}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:8080}
+      MAL_CLIENT_ID: ${MAL_CLIENT_ID:-}
+      MAL_CLIENT_SECRET: ${MAL_CLIENT_SECRET:-}
+      ANILIST_CLIENT_ID: ${ANILIST_CLIENT_ID:-}
+      ANILIST_CLIENT_SECRET: ${ANILIST_CLIENT_SECRET:-}
+      KOMGA_URL: ${KOMGA_URL:-http://komga:25600}
+      KOMGA_USER: ${KOMGA_USER:-}
+      KOMGA_PASS: ${KOMGA_PASS:-}
+      KOMGA_LIBRARY_NAME: ${KOMGA_LIBRARY_NAME:-Manga}
     command: >
       sh -c "alembic upgrade head &&
              uvicorn app.api.main:app --host 0.0.0.0 --port 8000"
@@ -42,9 +56,23 @@ services:
   worker:
     build: ./backend
     restart: unless-stopped
-    env_file: .env
     environment:
       POSTGRES_HOST: postgres
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_USER: ${POSTGRES_USER:-manga}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-manga}
+      POSTGRES_DB: ${POSTGRES_DB:-manga}
+      LIBRARY_PATH: ${LIBRARY_PATH:-/manga}
+      DOWNLOAD_CONCURRENCY: ${DOWNLOAD_CONCURRENCY:-3}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:8080}
+      MAL_CLIENT_ID: ${MAL_CLIENT_ID:-}
+      MAL_CLIENT_SECRET: ${MAL_CLIENT_SECRET:-}
+      ANILIST_CLIENT_ID: ${ANILIST_CLIENT_ID:-}
+      ANILIST_CLIENT_SECRET: ${ANILIST_CLIENT_SECRET:-}
+      KOMGA_URL: ${KOMGA_URL:-http://komga:25600}
+      KOMGA_USER: ${KOMGA_USER:-}
+      KOMGA_PASS: ${KOMGA_PASS:-}
+      KOMGA_LIBRARY_NAME: ${KOMGA_LIBRARY_NAME:-Manga}
     command: python -m app.worker.main
     # Same uid as komga, so the files this writes are the files komga can read.
     user: "${PUID:-1000}:${PGID:-1000}"

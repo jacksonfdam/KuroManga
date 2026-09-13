@@ -1,6 +1,6 @@
 # The downloader is a Go program invoked as a subprocess, so it is built once
 # here and copied into the runtime image.
-FROM golang:1.23-alpine AS downloader
+FROM golang:1.26-alpine AS downloader
 RUN apk add --no-cache git
 RUN go install github.com/elboletaire/manga-downloader@latest
 
