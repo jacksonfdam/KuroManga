@@ -1,0 +1,90 @@
+"""Runtime settings held in the database, so they change without a redeploy.
+
+Environment variables carry credentials and paths; this table carries the knobs
+the interface is allowed to turn.
+"""
+
+from dataclasses import dataclass
+
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.config import get_settings
+
+CRON_LIST_SYNC = "cron_list_sync"
+CRON_CHAPTER_DISCOVER = "cron_chapter_discover"
+DOWNLOAD_CONCURRENCY = "download_concurrency"
+PER_SOURCE_CONCURRENCY = "per_source_concurrency"
+AUTO_DOWNLOAD_NEW = "auto_download_new"
+
+
+@dataclass(frozen=True)
+class Defaults:
+    cron_list_sync: str = "0 */6 * * *"
+    cron_chapter_discover: str = "0 */2 * * *"
+    per_source_concurrency: int = 2
+    auto_download_new: bool = True
+
+
+DEFAULTS = Defaults()
+
+
+def _fallback(key: str) -> str:
+    match key:
+        case k if k == CRON_LIST_SYNC:
+            return DEFAULTS.cron_list_sync
+        case k if k == CRON_CHAPTER_DISCOVER:
+            return DEFAULTS.cron_chapter_discover
+        case k if k == DOWNLOAD_CONCURRENCY:
+            return str(get_settings().download_concurrency)
+        case k if k == PER_SOURCE_CONCURRENCY:
+            return str(DEFAULTS.per_source_concurrency)
+        case k if k == AUTO_DOWNLOAD_NEW:
+            return "true" if DEFAULTS.auto_download_new else "false"
+        case _:
+            return ""
+
+
+async def get(session: AsyncSession, key: str) -> str:
+    result = await session.execute(
+        text("select value from setting where key = :key"), {"key": key}
+    )
+    row = result.first()
+    return row[0] if row else _fallback(key)
+
+
+async def get_int(session: AsyncSession, key: str) -> int:
+    raw = await get(session, key)
+    try:
+        return int(raw)
+    except ValueError:
+        return int(_fallback(key))
+
+
+async def get_bool(session: AsyncSession, key: str) -> bool:
+    return (await get(session, key)).strip().lower() in {"1", "true", "yes", "on"}
+
+
+async def set_value(session: AsyncSession, key: str, value: str) -> None:
+    await session.execute(
+        text(
+            """
+            insert into setting (key, value) values (:key, :value)
+            on conflict (key) do update set value = excluded.value
+            """
+        ),
+        {"key": key, "value": value},
+    )
+
+
+async def all_settings(session: AsyncSession) -> dict[str, str]:
+    result = await session.execute(text("select key, value from setting"))
+    stored = dict(result.all())
+    keys = [
+        CRON_LIST_SYNC,
+        CRON_CHAPTER_DISCOVER,
+        DOWNLOAD_CONCURRENCY,
+        PER_SOURCE_CONCURRENCY,
+        AUTO_DOWNLOAD_NEW,
+    ]
+    return {key: stored.get(key, _fallback(key)) for key in keys}
