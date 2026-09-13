@@ -9,7 +9,14 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import db_session
-from app.discovery.unmatched import TITLE_MATCH
+from app.discovery.seeds import Origin, Seed, rank_score
+from app.discovery.unmatched import (
+    TITLE_MATCH,
+    MangaCandidate,
+    UnmatchedAnime,
+    collapse_anime,
+    merge_candidates,
+)
 from app.enums import JobType, ListStatus, Provider, SuggestionState
 from app.handlers.list_sync import (
     create_series,
@@ -18,7 +25,10 @@ from app.handlers.list_sync import (
     merge_aliases,
     upsert_entry_status,
 )
-from app.providers.base import ListEntryDTO
+from app.handlers.suggest_build import upsert_suggestion
+from app.providers import get_source
+from app.providers.base import ListEntryDTO, MangaMeta
+from app.providers.tokens import access_token_for
 from app.queue import repo
 from app.sources import source_for_url
 from app.text_utils import normalize
@@ -310,3 +320,209 @@ async def refresh(session: Session) -> dict[str, Any]:
     await session.commit()
     return {"ok": True, "queued": queued}
 
+
+# The whole non-dropped mirror, collapsed in Python: which rows are worth a
+# search is a question about the anime, not about either provider's row, and
+# only the collapsed shape can answer it. It is a thousand narrow rows.
+ANIME_ROWS = """
+select id, provider, provider_media_id, title_romaji, title_english, cover_url,
+       total_episodes, progress_episode, status
+  from anime_entry
+ where status <> 'dropped'
+ order by id
+"""
+
+# A provider row is settled when a relation already covers it, when the user hid
+# it, or when a suggestion already named it as its origin.
+SETTLED_ROWS = """
+select provider, provider_media_id
+  from anime_entry
+ where jsonb_array_length(coalesce(related_manga, '[]'::jsonb)) > 0
+    or manga_dismissed_at is not null
+union
+select meta -> 'origin' ->> 'provider', meta -> 'origin' ->> 'media_id'
+  from suggestion
+ where meta -> 'origin' ->> 'media_id' is not null
+"""
+
+
+class SearchAddIn(AddIn):
+    """The candidate the user picked, as the search handed it to them."""
+
+    provider: Provider
+    media_id: str
+    title: str
+    alt_ids: dict[str, str] = {}
+    cover_url: str | None = None
+    total_chapters: int | None = None
+    year: int | None = None
+    publishing_status: str | None = None
+
+
+def anime_payload(anime: UnmatchedAnime) -> dict[str, Any]:
+    return {
+        "id": anime.id,
+        "provider": str(anime.provider),
+        "media_id": anime.media_id,
+        "title": anime.title_english or anime.title_romaji,
+        "title_romaji": anime.title_romaji,
+        "title_english": anime.title_english,
+        "cover_url": anime.cover_url,
+        "total_episodes": anime.total_episodes,
+        "progress_episode": anime.progress_episode,
+        "status": str(anime.status),
+        "providers": anime.providers,
+    }
+
+
+def candidate_payload(candidate: MangaCandidate) -> dict[str, Any]:
+    return {
+        "provider": str(candidate.provider),
+        "media_id": candidate.media_id,
+        "alt_ids": candidate.alt_ids,
+        "providers": candidate.providers,
+        "title": candidate.title,
+        "cover_url": candidate.cover_url,
+        "total_chapters": candidate.total_chapters,
+        "year": candidate.year,
+        "publishing_status": candidate.publishing_status,
+        "score": candidate.score,
+    }
+
+
+async def collapsed_anime(session: AsyncSession) -> list[UnmatchedAnime]:
+    return collapse_anime((await session.execute(text(ANIME_ROWS))).all())
+
+
+async def _load_anime(session: AsyncSession, anime_id: int) -> UnmatchedAnime:
+    """Resolve by any member's id, and without the eligibility filter.
+
+    The add is what settles an anime, so between the search and the click the row
+    it came from stops being offered. An id the user is already holding has to
+    keep working anyway.
+    """
+    for anime in await collapsed_anime(session):
+        if any(member.row_id == anime_id for member in anime.members):
+            return anime
+    raise HTTPException(status_code=404, detail="anime not found")
+
+
+@router.get("/discovery/unmatched")
+async def list_unmatched(
+    session: Session,
+    limit: Annotated[int, Query(le=200)] = 50,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> dict[str, Any]:
+    """The anime worth offering a search for. Nothing here searches anything."""
+    settled = {
+        (row[0], row[1]) for row in (await session.execute(text(SETTLED_ROWS))).all()
+    }
+    # One provider settling an anime settles the anime: the other row is the same
+    # show, and offering it would be offering the same search twice.
+    items = [
+        anime
+        for anime in await collapsed_anime(session)
+        if not any((str(m.provider), m.media_id) in settled for m in anime.members)
+    ]
+    # Alphabetical, because five hundred rows paged by offset are only navigable
+    # if the same anime is always on the same page.
+    items.sort(key=lambda a: normalize(a.title_english or a.title_romaji or ""))
+    return {
+        "total": len(items),
+        "items": [anime_payload(a) for a in items[offset : offset + limit]],
+    }
+
+
+@router.post("/discovery/unmatched/{anime_id}/search")
+async def search_unmatched(anime_id: int, session: Session) -> dict[str, Any]:
+    """One request per provider per click. Persists nothing, decides nothing."""
+    anime = await _load_anime(session, anime_id)
+    if not anime.search_title:
+        raise HTTPException(status_code=400, detail="anime has no title to search for")
+
+    found: list[tuple[Provider, MangaMeta]] = []
+    errors: list[dict[str, str]] = []
+    for provider in Provider:
+        try:
+            token = await access_token_for(session, provider)
+            results = await get_source(provider).search_manga(token, anime.search_title)
+        except Exception as exc:  # noqa: BLE001 - one provider down is half an answer
+            # Reported rather than swallowed: half a result set that looks whole
+            # is how a user concludes a manga does not exist.
+            errors.append({"provider": str(provider), "detail": str(exc)[:300]})
+            continue
+        found.extend((provider, meta) for meta in results if meta.title)
+
+    # Nothing about the search is stored, but access_token_for renews an expiring
+    # token in the session it was handed, and a route that never commits throws
+    # that renewal away on every click.
+    await session.commit()
+
+    return {
+        "anime": anime_payload(anime),
+        "query": anime.search_title,
+        "candidates": [candidate_payload(c) for c in merge_candidates(found, anime.titles)],
+        "errors": errors,
+    }
+
+
+@router.post("/discovery/unmatched/{anime_id}/add")
+async def add_unmatched(anime_id: int, body: SearchAddIn, session: Session) -> dict[str, Any]:
+    """The chosen candidate becomes a suggestion, then takes the ordinary path."""
+    anime = await _load_anime(session, anime_id)
+    seed = Seed(
+        provider=body.provider,
+        media_id=body.media_id,
+        title=body.title,
+        relation=TITLE_MATCH,
+        origin=Origin(
+            provider=anime.provider,
+            media_id=anime.media_id,
+            title=anime.title_english or anime.title_romaji or "",
+            status=anime.status,
+            progress_episode=anime.progress_episode,
+            total_episodes=anime.total_episodes,
+        ),
+        alt_ids=body.alt_ids,
+    )
+    meta = MangaMeta(
+        media_id=body.media_id,
+        title=body.title,
+        cover_url=body.cover_url,
+        total_chapters=body.total_chapters,
+        year=body.year,
+        publishing_status=body.publishing_status,
+    )
+    score = rank_score(
+        anime_status=anime.status,
+        publishing_status=body.publishing_status,
+        total_episodes=anime.total_episodes,
+        total_chapters=body.total_chapters,
+    )
+    await upsert_suggestion(session, seed, meta, score)
+    suggestion_id = (
+        await session.execute(
+            text(
+                "select id from suggestion"
+                " where provider = :provider and provider_media_id = :media_id"
+            ),
+            {"provider": str(body.provider), "media_id": body.media_id},
+        )
+    ).scalar_one()
+
+    result = await approve(session, await _load(session, suggestion_id),
+                           status=body.status, download=body.download)
+    return {**result, "suggestion_id": suggestion_id}
+
+
+@router.post("/discovery/unmatched/{anime_id}/hide")
+async def hide_unmatched(anime_id: int, session: Session) -> dict[str, Any]:
+    """Permanent, like a dismissal: every provider's row for this anime is marked."""
+    anime = await _load_anime(session, anime_id)
+    for member in anime.members:
+        await session.execute(
+            text("update anime_entry set manga_dismissed_at = now() where id = :id"),
+            {"id": member.row_id},
+        )
+    await session.commit()
+    return {"ok": True, "hidden": len(anime.members)}
