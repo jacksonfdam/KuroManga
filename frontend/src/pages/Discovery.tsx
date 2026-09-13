@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 
-import { api, ListStatusValue, Suggestion } from '../api'
+import { api, ListStatusValue, Suggestion, SuggestionSource } from '../api'
 import { useJobEvents } from '../useEvents'
 
 const STATUSES: { value: ListStatusValue; label: string }[] = [
@@ -25,6 +25,22 @@ function reasonOf(suggestion: Suggestion): string {
   const chapters = suggestion.total_chapters
   const beyond = chapters ? ` — manga goes up to chapter ${chapters}` : ''
   return `from ${origin_title}, ${watched}${beyond}`
+}
+
+// The chips answer "where can I read this", so they are one per site, not one
+// per candidate: a title with several MangaDex hits must not repeat the chip.
+function uniqueSources(item: Suggestion): SuggestionSource[] {
+  const bestBySite = new Map<string, SuggestionSource>()
+  for (const source of item.sources) {
+    const current = bestBySite.get(source.site)
+    if (!current || source.score > current.score) bestBySite.set(source.site, source)
+  }
+  const preferredSite = item.best_source?.site
+  return [...bestBySite.values()].sort((a, b) => {
+    if (a.site === preferredSite) return -1
+    if (b.site === preferredSite) return 1
+    return b.score - a.score
+  })
 }
 
 function whenOf(at?: string): string {
@@ -139,7 +155,7 @@ export function Discovery({ onChanged }: { onChanged: () => void }) {
             <h2>{item.title}</h2>
             <p className="reason">{reasonOf(item)}</p>
             <p className="sources">
-              {item.sources.map((source) => (
+              {uniqueSources(item).map((source) => (
                 <span
                   key={source.site}
                   className={source.site === item.best_source?.site ? 'chip chip-best' : 'chip'}
