@@ -5,13 +5,15 @@ import { useAsyncData } from '../../lib/useAsyncData'
 import { useJobEvents } from '../../lib/useEvents'
 import { useNotice } from '../../lib/useNotice'
 
-// Chapter jobs read as "Series · Ch.N"; everything else (list_sync,
-// komga_scan, ...) has no chapter of its own, so it falls back to the job type.
-export function jobLabel(job: Job): string {
+// Chapter jobs read as "Series · Ch.N". Everything else (list_sync,
+// komga_scan, ...) has neither, and gets no label at all: JobRow renders the
+// job type right beside this, so falling back to it printed "list_sync
+// list_sync" on one line.
+export function jobLabel(job: Job): string | null {
   if (job.chapter_number !== null) {
     return `${job.series_title ?? 'unknown'} · Ch.${job.chapter_number}`
   }
-  return job.series_title ?? job.type
+  return job.series_title
 }
 
 interface Queue {

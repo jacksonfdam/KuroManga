@@ -61,6 +61,7 @@ export function JobRow({
   // plus aria-controls is what tells assistive tech this button is a
   // disclosure and which region it opens.
   const logId = `job-${job.id}-log`
+  const label = jobLabel(job)
 
   return (
     <div className="rounded-xl bg-surface-container-low p-4 shadow-card">
@@ -74,7 +75,7 @@ export function JobRow({
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <JobStateBadge state={job.state} />
-            <span className="truncate text-body-md font-bold text-on-surface">{jobLabel(job)}</span>
+            {label && <span className="truncate text-body-md font-bold text-on-surface">{label}</span>}
             {/* jobLabel() never names the handler — a chapter number doesn't
                 say whether it's a download, a discover pass or a list sync,
                 so two different job types can otherwise read identically. */}
