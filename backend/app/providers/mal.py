@@ -12,7 +12,14 @@ import httpx
 from app.config import get_settings
 from app.discovery.status_sync import mal_status
 from app.enums import ListStatus, Provider
-from app.providers.base import AnimeEntryDTO, ListEntryDTO, ListSource, TokenSet
+from app.providers.base import (
+    MANGA_FORMATS,
+    AnimeEntryDTO,
+    ListEntryDTO,
+    ListSource,
+    MangaMeta,
+    TokenSet,
+)
 
 API_BASE = "https://api.myanimelist.net/v2"
 AUTHORIZE_URL = "https://myanimelist.net/v1/oauth2/authorize"
@@ -34,6 +41,38 @@ STATUS_MAP = {
 
 ANIME_LIST_FIELDS = "list_status,alternative_titles,num_episodes,main_picture,title"
 
+# `media_type` is what keeps light novels out: MyAnimeList indexes them under
+# /manga like AniList does, and asking for the field is the only way to tell.
+SEARCH_FIELDS = (
+    "id,title,alternative_titles,num_chapters,main_picture,start_date,status,media_type"
+)
+SEARCH_LIMIT = 10
+
+# MyAnimeList's own vocabulary, translated into AniList's so one filter and one
+# badge serve both. It splits what AniList calls NOVEL into two, and everything
+# it names outside MANGA_FORMATS is dropped either way.
+MEDIA_TYPE_MAP = {
+    "manga": "MANGA",
+    "manhwa": "MANHWA",
+    "manhua": "MANHUA",
+    "oel": "OEL",
+    "one_shot": "ONE_SHOT",
+    "doujinshi": "DOUJINSHI",
+    "novel": "NOVEL",
+    "light_novel": "NOVEL",
+}
+
+# The two providers spell the same publishing state differently and a merged
+# candidate carries one badge, so MyAnimeList is translated into AniList's
+# vocabulary - the one rank_score and the suggestion cards already read.
+PUBLISHING_STATUS_MAP = {
+    "finished": "FINISHED",
+    "currently_publishing": "RELEASING",
+    "not_yet_published": "NOT_YET_RELEASED",
+    "on_hiatus": "HIATUS",
+    "discontinued": "CANCELLED",
+}
+
 ANIME_STATUS_MAP = {
     "watching": ListStatus.READING,
     "plan_to_watch": ListStatus.PLAN_TO_READ,
@@ -45,6 +84,7 @@ ANIME_STATUS_MAP = {
 
 class MyAnimeListSource(ListSource):
     provider = Provider.MAL
+    can_search = True
 
     def __init__(self, client: httpx.AsyncClient | None = None) -> None:
         self._client = client
@@ -88,6 +128,17 @@ class MyAnimeListSource(ListSource):
             url = (page.get("paging") or {}).get("next")
             params = None
         return entries
+
+    async def search_manga(
+        self, access_token: str, title: str, limit: int = SEARCH_LIMIT
+    ) -> list[MangaMeta]:
+        """One page, one user action: nothing here loops or follows `paging.next`."""
+        page = await self._get(
+            access_token,
+            f"{API_BASE}/manga",
+            {"q": title, "limit": limit, "fields": SEARCH_FIELDS, "nsfw": "true"},
+        )
+        return parse_manga_search(page)
 
     async def push_progress(self, access_token: str, media_id: str, chapter: int) -> None:
         headers = {"Authorization": f"Bearer {access_token}"}
@@ -227,3 +278,39 @@ def parse_anime_page(page: dict[str, Any]) -> list[AnimeEntryDTO]:
             )
         )
     return entries
+
+
+def parse_manga_search(page: dict[str, Any]) -> list[MangaMeta]:
+    """Pure parser for a manga title search, in the order MyAnimeList ranked it.
+
+    Formats are filtered the way AniList's are, for the same reason: a search for
+    an anime's title surfaces the light novel it was adapted from first. But a
+    `media_type` the map does not know is not a claim that the result is a
+    novel - it is the map's gap, not MyAnimeList's - so only a `media_type` that
+    resolves to a known non-manga format is dropped; an unmapped or missing one
+    is kept with `format` unset for the user to judge.
+    """
+    results: list[MangaMeta] = []
+    for item in page.get("data", []) or []:
+        node = item.get("node") or {}
+        if not node.get("id"):
+            continue
+        media_format = MEDIA_TYPE_MAP.get(node.get("media_type") or "")
+        if media_format is not None and media_format not in MANGA_FORMATS:
+            continue
+        alt = node.get("alternative_titles") or {}
+        # `en` comes back as an empty string far more often than it comes back
+        # absent, and an empty title is worse than the romaji one it replaces.
+        start_date = node.get("start_date") or ""
+        results.append(
+            MangaMeta(
+                media_id=str(node["id"]),
+                title=alt.get("en") or node.get("title") or "",
+                cover_url=(node.get("main_picture") or {}).get("large"),
+                total_chapters=node.get("num_chapters") or None,
+                year=int(start_date[:4]) if start_date[:4].isdigit() else None,
+                publishing_status=PUBLISHING_STATUS_MAP.get(node.get("status") or ""),
+                format=media_format,
+            )
+        )
+    return results

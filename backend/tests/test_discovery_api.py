@@ -82,6 +82,10 @@ async def test_the_screen_lists_new_suggestions_best_first(client, suggestion_id
     assert body[0]["best_source"]["site"] == "mangadex"
 
 
+async def test_a_negative_limit_is_refused_rather_than_slicing_from_the_end(client, suggestion_id):
+    assert (await client.get("/api/suggestions?limit=-5")).status_code == 422
+
+
 async def test_approving_creates_the_series_and_the_local_list_entries(client, suggestion_id):
     body = (
         await client.post(

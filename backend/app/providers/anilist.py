@@ -9,6 +9,7 @@ from app.config import get_settings
 from app.discovery.status_sync import anilist_status
 from app.enums import ListStatus, Provider
 from app.providers.base import (
+    MANGA_FORMATS,
     AnimeEntryDTO,
     ListEntryDTO,
     ListSource,
@@ -25,11 +26,33 @@ TOKEN_URL = "https://anilist.co/api/v2/oauth/token"
 # rebuild well under that instead of one request per candidate.
 META_PAGE = 50
 
+# A search is a human picking from a list, not a ranking: past the first handful
+# the results stop resembling what was asked for.
+SEARCH_LIMIT = 10
+
 MANGA_META_QUERY = """
 query ($ids: [Int]) {
   Page(perPage: 50) {
     media(id_in: $ids, type: MANGA) {
       id
+      title { romaji english }
+      coverImage { large }
+      chapters
+      status
+      startDate { year }
+    }
+  }
+}
+"""
+
+# `type: MANGA` is not the filter it reads like: on AniList a light novel is a
+# MANGA too, and only `format` separates them.
+MANGA_SEARCH_QUERY = """
+query ($q: String, $perPage: Int) {
+  Page(perPage: $perPage) {
+    media(search: $q, type: MANGA) {
+      id
+      format
       title { romaji english }
       coverImage { large }
       chapters
@@ -82,9 +105,6 @@ ANIME_STATUS_MAP = {
     "DROPPED": ListStatus.DROPPED,
 }
 
-# Formats that can actually be read as a manga. NOVEL and ONE_SHOT are relations
-# too, and suggesting either would be suggesting something that does not exist.
-MANGA_FORMATS = {"MANGA", "MANHWA", "MANHUA", "OEL"}
 WANTED_RELATIONS = {"SOURCE", "ADAPTATION"}
 
 ANIME_LIST_QUERY = """
@@ -130,6 +150,7 @@ mutation ($mediaId: Int, $status: MediaListStatus) {
 
 class AniListSource(ListSource):
     provider = Provider.ANILIST
+    can_search = True
 
     def __init__(self, client: httpx.AsyncClient | None = None) -> None:
         self._client = client
@@ -172,6 +193,15 @@ class AniListSource(ListSource):
             )
             collected.update(parse_manga_meta(data))
         return collected
+
+    async def search_manga(
+        self, access_token: str, title: str, limit: int = SEARCH_LIMIT
+    ) -> list[MangaMeta]:
+        """One request, one user action. AniList's 90/minute is easy to exhaust."""
+        data = await self._post(
+            access_token, MANGA_SEARCH_QUERY, {"q": title, "perPage": limit}
+        )
+        return parse_manga_search(data)
 
     async def push_progress(self, access_token: str, media_id: str, chapter: int) -> None:
         await self._post(
@@ -276,6 +306,43 @@ def parse_manga_meta(data: dict[str, Any]) -> dict[str, MangaMeta]:
             publishing_status=media.get("status"),
         )
     return meta
+
+
+def parse_manga_search(data: dict[str, Any]) -> list[MangaMeta]:
+    """Pure parser: a title search, in the order AniList ranked it.
+
+    The order is kept because the caller re-scores against the anime's own titles,
+    and a stable input order is what makes that ranking reproducible.
+
+    Formats are filtered exactly as `parse_relations` filters them: a light novel
+    or one-shot is dropped, because the anime this search serves are
+    disproportionately light novel adaptations, where the novel is AniList's top
+    hit under the exact anime title. A *missing* format is not the same claim -
+    AniList returns `format: null` for entries it has not classified, and hiding
+    those with no trace is worse than showing them marked "format unknown" for
+    the user to judge, so only a format that is present and known-not-manga is
+    dropped.
+    """
+    results: list[MangaMeta] = []
+    for media in (data.get("Page") or {}).get("media", []) or []:
+        if not media.get("id"):
+            continue
+        media_format = media.get("format") or None
+        if media_format is not None and media_format not in MANGA_FORMATS:
+            continue
+        title = media.get("title") or {}
+        results.append(
+            MangaMeta(
+                media_id=str(media["id"]),
+                title=title.get("english") or title.get("romaji") or "",
+                cover_url=(media.get("coverImage") or {}).get("large"),
+                total_chapters=media.get("chapters"),
+                year=(media.get("startDate") or {}).get("year"),
+                publishing_status=media.get("status"),
+                format=media_format,
+            )
+        )
+    return results
 
 
 def parse_relations(media: dict[str, Any]) -> list[RelatedManga]:

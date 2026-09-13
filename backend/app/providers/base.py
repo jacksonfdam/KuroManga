@@ -10,6 +10,13 @@ from typing import Any
 
 from app.enums import ListStatus, Provider
 
+# Formats that can actually be read as a manga, in AniList's vocabulary, which
+# both providers are translated into. NOVEL and ONE_SHOT come back from a
+# relation and from a search alike, and offering either would be offering
+# something that does not exist: a light novel is not a manga the downloader can
+# ever find, and the user would be writing a status to a real account for it.
+MANGA_FORMATS = {"MANGA", "MANHWA", "MANHUA", "OEL"}
+
 
 @dataclass(frozen=True)
 class ListEntryDTO:
@@ -81,6 +88,9 @@ class MangaMeta:
     total_chapters: int | None = None
     year: int | None = None
     publishing_status: str | None = None
+    # In AniList's vocabulary whichever provider reported it, so a merged
+    # candidate carries one badge and the screen can say what a thing is.
+    format: str | None = None
 
 
 @dataclass(frozen=True)
@@ -110,6 +120,12 @@ class ListSource(ABC):
 
     #: False while a provider is read only. Nothing will be written to it.
     writable: bool = True
+
+    #: False for a provider whose `search_manga` is the base no-op below. The
+    #: title search route reads this instead of asking every provider for a
+    #: token just to learn it cannot search, so a provider that only reads a
+    #: library (MangaBaka) is never asked and never shows up as a failure.
+    can_search: bool = False
 
     @classmethod
     def static_credential(cls) -> str | None:
@@ -143,3 +159,9 @@ class ListSource(ABC):
     async def set_status(self, access_token: str, media_id: str, status: ListStatus) -> None:
         """Write the manga's list status, creating the entry when it is absent."""
         raise NotImplementedError
+
+    async def search_manga(
+        self, access_token: str, title: str, limit: int = 10
+    ) -> list["MangaMeta"]:
+        """Manga whose title resembles this one. Empty when the provider cannot search."""
+        return []
