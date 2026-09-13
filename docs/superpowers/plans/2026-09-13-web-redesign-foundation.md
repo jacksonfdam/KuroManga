@@ -13,6 +13,7 @@
 ## Global Constraints
 
 - Every string in the interface is English. The mockups are Portuguese; translate, never transcribe.
+- **Each screen is built to match its reference render.** Every folder in `.redesign/` holds a `screen.png` rendered from its own `code.html`; that image is the acceptance target, not a suggestion. Verification for a screen means screenshotting the built page at the reference's width, comparing section by section against the render, and iterating until the two read as the same screen. The comparison goes in the report, section by section. Three things still outrank the picture: every string is English, no element is kept alive by an invented number, and `DESIGN.md`'s responsive section governs the narrow widths the desktop renders say nothing about. `DESIGN.md`'s Components section carries the numbers the image only implies — hover lift, track height, badge tint opacity — and those come from the document rather than from eyeballing the pixels.
 - No hex colour, font size, radius or spacing value appears outside `frontend/tailwind.config.ts`.
 - Fonts and icons are bundled. No `fonts.googleapis.com`, no `cdn.tailwindcss.com`, no Material Symbols stylesheet. The interface must render completely with no outbound route.
 - The token map comes from the **front matter** of `.redesign/obsidian_vault/DESIGN.md`, not its prose. Where they disagree, front matter wins — it is what the mockups embed.
