@@ -553,6 +553,7 @@ async def search_unmatched(anime_id: int, session: Session) -> dict[str, Any]:
 
     found: list[tuple[Provider, MangaMeta]] = []
     errors: list[dict[str, str]] = []
+    queries: dict[str, str] = {}
     searchable = [provider for provider in Provider if get_source(provider).can_search]
     for provider in searchable:
         source = get_source(provider)
@@ -569,6 +570,10 @@ async def search_unmatched(anime_id: int, session: Session) -> dict[str, Any]:
                 {"provider": str(provider), "code": error_code(exc), "detail": str(exc)[:300]}
             )
             continue
+        # Recorded per provider rather than assumed to be the anime's own title:
+        # MyAnimeList sometimes answers a name the anime is also known by, or a
+        # trimmed prefix, and the one `query` below is the AniList one.
+        queries[str(provider)] = query
         found.extend((provider, meta) for meta in results if meta.title)
 
     # Nothing about the search is stored, but access_token_for renews an expiring
@@ -581,6 +586,7 @@ async def search_unmatched(anime_id: int, session: Session) -> dict[str, Any]:
     return {
         "anime": anime_payload(anime),
         "query": anime.search_title,
+        "queries": queries,
         "candidates": [candidate_payload(c, known) for c in candidates],
         "errors": errors,
     }

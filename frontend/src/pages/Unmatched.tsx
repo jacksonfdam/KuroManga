@@ -18,6 +18,18 @@ const PROVIDER_NAMES: Record<string, string> = { anilist: 'AniList', mal: 'MyAni
 
 const providerName = (provider: string) => PROVIDER_NAMES[provider] ?? provider
 
+const fold = (title: string) => title.trim().toLowerCase()
+
+/**
+ * Which providers actually searched for something other than the title the
+ * screen shows - MyAnimeList substitutes a name the anime is also known by,
+ * or a trimmed prefix, when the AniList spelling is a query it will refuse.
+ * Silent when nothing was substituted: a line that always fires is noise.
+ */
+function substitutedQueries(found: UnmatchedSearch): [string, string][] {
+  return Object.entries(found.queries).filter(([, query]) => fold(query) !== fold(found.query))
+}
+
 /**
  * The four codes ask the user for four different things — authorise, wait,
  * retry, nothing — which is the whole reason the API sends a code instead of a
@@ -337,6 +349,14 @@ export function Unmatched({
       {found.errors.map((failure) => (
         <p key={failure.provider} className="row-error" title={failure.detail}>
           {errorMessage(failure)}
+        </p>
+      ))}
+      {/* Quiet whenever every provider searched for the title already shown
+          above - only worth a line when one of them answered a different
+          question than the user was told was asked. */}
+      {substitutedQueries(found).map(([provider, query]) => (
+        <p key={provider} className="meta">
+          {providerName(provider)} searched for “{query}” instead.
         </p>
       ))}
       {found.candidates.length === 0 ? (

@@ -175,6 +175,13 @@ export interface SearchProviderError {
 export interface UnmatchedSearch {
   anime: UnmatchedAnime
   query: string
+  /**
+   * What each provider that answered was actually asked, keyed by provider.
+   * Usually `query` again - but MyAnimeList sometimes substitutes a name the
+   * anime is also known by, or a trimmed prefix, and `query` alone would hide
+   * that from the user.
+   */
+  queries: Record<string, string>
   candidates: SearchCandidate[]
   errors: SearchProviderError[]
 }

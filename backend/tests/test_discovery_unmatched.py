@@ -516,9 +516,12 @@ async def test_a_search_ranks_the_closest_title_first(client, providers_answer):
 async def test_a_search_asks_each_provider_once(client, providers_answer):
     """AniList's rate limit is the one the user has already hit today."""
     anime_id = await insert_anime("anilist", "21")
-    await client.post(f"/api/discovery/unmatched/{anime_id}/search")
+    body = (await client.post(f"/api/discovery/unmatched/{anime_id}/search")).json()
     assert providers_answer[Provider.ANILIST].queries == ["Vinland Saga"]
     assert providers_answer[Provider.MAL].queries == ["Vinland Saga"]
+    # Neither provider substituted anything, so both agree with `query` - the
+    # screen has nothing worth pointing out here.
+    assert body["queries"] == {"anilist": "Vinland Saga", "mal": "Vinland Saga"}
 
 
 async def test_a_search_persists_nothing(client, providers_answer):
@@ -632,6 +635,10 @@ async def test_a_two_character_title_is_asked_of_another_name_the_anime_goes_by(
     assert providers_answer[Provider.ANILIST].queries == ["86"]
     assert body["errors"] == []
     assert body["candidates"]
+    # The one `query` the screen shows is AniList's; MyAnimeList answered a
+    # different question, and the user is owed that difference.
+    assert body["query"] == "86"
+    assert body["queries"] == {"mal": "86 Eighty-Six", "anilist": "86"}
 
 
 async def test_a_query_a_provider_cannot_accept_is_not_an_error_to_retry(
@@ -661,6 +668,12 @@ async def test_an_over_long_title_is_trimmed_rather_than_refused(client, provide
         "Maou no Ore ga Dorei Elf wo Yome ni Shitanda ga, Dou Medereba"
     ]
     assert body["errors"] == []
+    # The trim is invisible in `query` - it is still the full romaji title -
+    # so `queries` is where the trimmed name MyAnimeList actually got shows up.
+    assert body["queries"]["mal"] == (
+        "Maou no Ore ga Dorei Elf wo Yome ni Shitanda ga, Dou Medereba"
+    )
+    assert body["query"] == "Maou no Ore ga Dorei Elf wo Yome ni Shitanda ga, Dou Medereba Ii?"
 
 
 async def test_the_light_novel_an_anime_was_adapted_from_is_never_offered(
