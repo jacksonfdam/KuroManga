@@ -285,19 +285,26 @@ async def test_a_franchise_sharing_a_synonym_stays_one_row_per_season(client):
     assert all(sorted(a["providers"]) == ["anilist", "mal"] for a in body["items"])
 
 
-def _row(row_id: int, provider: str, romaji: str, english: str, synonyms=()):
+def _row(row_id: int, provider: str, romaji: str, english: str, synonyms=(),
+         total_episodes=None, media_id=None):
     return SimpleNamespace(
         id=row_id,
         provider=provider,
-        provider_media_id=str(row_id),
+        provider_media_id=str(media_id if media_id is not None else row_id),
         title_romaji=romaji,
         title_english=english,
         synonyms=list(synonyms),
         status="completed",
         progress_episode=0,
-        total_episodes=None,
+        total_episodes=total_episodes,
         cover_url=None,
         manga_dismissed_at=None,
+    )
+
+
+def _grouping(rows) -> list[tuple[int, ...]]:
+    return sorted(
+        tuple(sorted(member.row_id for member in anime.members)) for anime in collapse_anime(rows)
     )
 
 
@@ -326,6 +333,97 @@ def test_the_fold_does_not_depend_on_the_order_the_rows_arrive_in():
     assert grouping(rows) == [(1, 3), (2, 4)]
     assert grouping(list(reversed(rows))) == [(1, 3), (2, 4)]
     assert grouping([rows[2], rows[1], rows[3], rows[0]]) == [(1, 3), (2, 4)]
+
+
+def test_kamisama_kiss_seasons_do_not_cross():
+    """Real ids, real episode counts. Both seasons use the identical string on
+    both providers, so own-title evidence ties and the id tie-break used to
+    decide - sync order, which means nothing - and it crossed the seasons:
+    mal 14713 (season 1) landed on anilist 20801 (season 2) and mal 25681
+    (season 2) landed on anilist 14713 (season 1).
+    """
+    rows = [
+        _row(354, "mal", "Kamisama Hajimemashita", "Kamisama Kiss",
+             total_episodes=13, media_id=14713),
+        _row(1853, "anilist", "Kamisama Hajimemashita", "Kamisama Kiss",
+             total_episodes=13, media_id=14713),
+        _row(355, "mal", "Kamisama Hajimemashita◎", "Kamisama Kiss Season 2",
+             total_episodes=12, media_id=25681),
+        _row(1582, "anilist", "Kamisama Hajimemashita◎", "Kamisama Kiss◎",
+             total_episodes=12, media_id=20801),
+    ]
+
+    assert _grouping(rows) == [(354, 1853), (355, 1582)]
+
+
+def test_magi_sinbad_tv_and_ova_do_not_cross():
+    """Real ids, real episode counts, real synonyms. The OVA (mal 22097, 5
+    episodes) and the TV series (anilist 21394, 13 episodes) carry the exact
+    same title on both providers, and a Japanese synonym every row in the
+    family shares ties them all together too - so nothing but episode count
+    tells them apart. The OVA's own AniList row (20609, 5 episodes) and the
+    TV's own MyAnimeList row (31741, 13 episodes) are what they actually
+    belong with.
+    """
+    jp = "マギ シンドバッドの冒険"
+    rows = [
+        _row(453, "mal", "Magi: Sinbad no Bouken", "Magi: Adventure of Sinbad",
+             synonyms=["Magi: Adventure of Sinbad OVA", jp], total_episodes=5, media_id=22097),
+        _row(1443, "anilist", "Magi: Sinbad no Bouken OVA", "Magi: Adventure of Sinbad (OVA)",
+             synonyms=["Magi: Adventure of Sinbad", f"{jp} OVA"], total_episodes=5, media_id=20609),
+        _row(454, "mal", "Magi: Sinbad no Bouken (TV)", "Magi: Adventure of Sinbad",
+             synonyms=[jp], total_episodes=13, media_id=31741),
+        _row(1860, "anilist", "Magi: Sinbad no Bouken", "Magi: Adventure of Sinbad",
+             synonyms=[jp], total_episodes=13, media_id=21394),
+    ]
+
+    assert _grouping(rows) == [(453, 1443), (454, 1860)]
+
+
+def test_kimetsu_mugen_ressha_movie_and_arc_do_not_cross():
+    """Real ids, real episode counts, real synonyms. The TV arc (mal 49926, 7
+    episodes) and the movie (anilist 112151, 1 episode) share a romaji title,
+    and a synonym the TV arc and the movie's own AniList row both carry ties
+    them tighter still - enough that without the episode count the fold paired
+    the wrong pair outright, leaving the MAL movie row (40456) and the AniList
+    TV row (129874) as orphan singletons.
+    """
+    rows = [
+        _row(390, "mal", "Kimetsu no Yaiba: Mugen Ressha-hen",
+             "Demon Slayer: Kimetsu no Yaiba Mugen Train Arc",
+             synonyms=["Kimetsu no Yaiba Movie: Mugen Ressha-hen (TV)", "鬼滅の刃 無限列車編"],
+             total_episodes=7, media_id=49926),
+        _row(1755, "anilist", "Kimetsu no Yaiba: Mugen Ressha-hen (TV)",
+             "Demon Slayer: Kimetsu no Yaiba Mugen Train Arc",
+             synonyms=["鬼滅の刃 無限列車編 (TV)"], total_episodes=7, media_id=129874),
+        _row(387, "mal", "Kimetsu no Yaiba Movie: Mugen Ressha-hen",
+             "Demon Slayer: Kimetsu no Yaiba - The Movie: Mugen Train",
+             synonyms=["Gekijouban Kimetsu no Yaiba: Mugen Ressha-hen", "劇場版 鬼滅の刃 無限列車編"],
+             total_episodes=1, media_id=40456),
+        _row(1918, "anilist", "Kimetsu no Yaiba: Mugen Ressha-hen",
+             "Demon Slayer -Kimetsu no Yaiba- The Movie: Mugen Train",
+             synonyms=["鬼滅の刃 無限列車編"], total_episodes=1, media_id=112151),
+    ]
+
+    assert _grouping(rows) == [(387, 1918), (390, 1755)]
+
+
+def test_a_legitimate_episode_disagreement_still_merges():
+    """Demoting a mismatched pair is not forbidding it: when nothing else
+    competes for either row, providers who simply count episodes differently
+    (mal 51179, 12 episodes; anilist 146065, 13) still have to merge - it is
+    the only candidate either row has.
+    """
+    rows = [
+        _row(530, "mal", "Mushoku Tensei II: Isekai Ittara Honki Dasu",
+             "Mushoku Tensei: Jobless Reincarnation Season 2",
+             total_episodes=12, media_id=51179),
+        _row(1631, "anilist", "Mushoku Tensei II: Isekai Ittara Honki Dasu",
+             "Mushoku Tensei: Jobless Reincarnation Season 2",
+             total_episodes=13, media_id=146065),
+    ]
+
+    assert _grouping(rows) == [(530, 1631)]
 
 
 async def test_one_provider_answering_settles_the_anime_for_both(client):

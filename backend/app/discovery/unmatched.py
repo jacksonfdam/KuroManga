@@ -151,9 +151,30 @@ def _same_anime(rows: list) -> list[list]:
     find every row already spoken for. Sorting the pairs by their evidence and
     then by id is also what makes the fold independent of the order rows arrive
     in - nothing here reads the list's own order.
+
+    Both guards only refuse a merge that competes with a stronger one - and a
+    franchise synonym shared by two *different* anime, each known to only one
+    provider (a spin-off AniList mirrors that MyAnimeList never listed, sharing
+    a name with one only MyAnimeList has), has no competing pair to be refused
+    by: nothing here reads the rows' own titles before merging on a synonym
+    alone, so that pair goes through unconditionally. No guard against this
+    exists today; it is latent rather than triggered because it takes two such
+    anime landing in the same sync, and the real library has not yet produced
+    one - but one sync could.
+
+    A pair whose episode counts disagree is demoted, not forbidden: it is tried
+    only after every pair with no such disagreement is settled. Two providers
+    occasionally use the identical string for two different entries of a
+    franchise - a season and the movie recut from it, a TV run and its OVA - and
+    when they do, own-title evidence ties and the row id tie-break decides
+    nothing, so the wrong pair can win outright. Demoting rather than forbidding
+    matters because providers also legitimately disagree about how many
+    episodes the same anime has; a pair like that must still merge when nothing
+    else competes for either row.
     """
     spellings = {r.id: _keys([r.title_romaji, r.title_english, *(r.synonyms or [])]) for r in rows}
     own = {r.id: set(_keys([r.title_romaji, r.title_english])) for r in rows}
+    episodes = {r.id: r.total_episodes for r in rows}
 
     sharing: dict[str, list] = {}
     for row in rows:
@@ -166,10 +187,11 @@ def _same_anime(rows: list) -> list[list]:
         if left.provider != right.provider
     }
 
-    def evidence(pair: tuple[int, int]) -> tuple[int, int, int, int]:
+    def evidence(pair: tuple[int, int]) -> tuple[int, int, int, int, int]:
         left, right = pair
         shared = set(spellings[left]) & set(spellings[right])
-        return (-len(shared & (own[left] | own[right])), -len(shared), left, right)
+        mismatch = 1 if (episodes[left] and episodes[right] and episodes[left] != episodes[right]) else 0
+        return (mismatch, -len(shared & (own[left] | own[right])), -len(shared), left, right)
 
     parent = {row.id: row.id for row in rows}
     providers = {row.id: {row.provider} for row in rows}
@@ -180,7 +202,7 @@ def _same_anime(rows: list) -> list[list]:
             row_id = parent[row_id]
         return row_id
 
-    for _, _, left, right in sorted(evidence(pair) for pair in pairs):
+    for _, _, _, left, right in sorted(evidence(pair) for pair in pairs):
         keeper, joining = root(left), root(right)
         if keeper == joining or providers[keeper] & providers[joining]:
             continue
