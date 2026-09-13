@@ -17,7 +17,10 @@ API_BASE = "https://api.myanimelist.net/v2"
 AUTHORIZE_URL = "https://myanimelist.net/v1/oauth2/authorize"
 TOKEN_URL = "https://myanimelist.net/v1/oauth2/token"
 
-LIST_FIELDS = "list_status,alternative_titles,num_chapters,main_picture,title"
+LIST_FIELDS = (
+    "list_status,alternative_titles,num_chapters,main_picture,title,"
+    "synopsis,genres,start_date,authors{first_name,last_name}"
+)
 PAGE_LIMIT = 1000
 
 STATUS_MAP = {

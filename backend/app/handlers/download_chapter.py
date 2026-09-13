@@ -83,6 +83,7 @@ async def build_comicinfo(session: AsyncSession, ctx_row: dict[str, Any]) -> Com
     genres: list[str] = []
     year = None
     total = None
+    writer = None
 
     for row in rows:
         raw = row.raw or {}
@@ -95,17 +96,46 @@ async def build_comicinfo(session: AsyncSession, ctx_row: dict[str, Any]) -> Com
         if not year and media.get("start_date"):
             year = str(media["start_date"])[:4]
         total = total or row.total_chapters
+        writer = writer or primary_author(media)
 
     return ComicInfo(
         series=ctx_row["canonical_title"],
         number=Decimal(str(ctx_row["number"])),
         title=ctx_row["title"],
         summary=_strip_markup(summary) if summary else None,
+        writer=writer,
         genres=genres[:10],
         year=int(year) if year and str(year).isdigit() else None,
         count=int(total) if total else None,
         web=ctx_row["source_url"],
     )
+
+
+def primary_author(media: dict[str, Any]) -> str | None:
+    """The story author, in whichever shape the provider returned it.
+
+    AniList nests staff edges with a role string; MyAnimeList returns a flat list
+    of authors with separate name parts.
+    """
+    edges = ((media.get("staff") or {}).get("edges")) or []
+    for edge in edges:
+        role = (edge.get("role") or "").casefold()
+        if "story" in role or "author" in role:
+            name = ((edge.get("node") or {}).get("name") or {}).get("full")
+            if name:
+                return name
+    for edge in edges:
+        name = ((edge.get("node") or {}).get("name") or {}).get("full")
+        if name:
+            return name
+
+    for author in media.get("authors") or []:
+        node = author.get("node") or author
+        parts = [node.get("first_name"), node.get("last_name")]
+        name = " ".join(part for part in parts if part).strip()
+        if name:
+            return name
+    return None
 
 
 def _strip_markup(value: str) -> str:

@@ -28,6 +28,13 @@ async def run_job(job: repo.LeasedJob) -> None:
 
     try:
         async with sessionmaker() as session:
+            if job.attempts > 1:
+                # Without this the live view keeps showing the previous attempt's
+                # failure until the handler happens to log something of its own.
+                await repo.log_event(
+                    session, job.id, f"retrying (attempt {job.attempts})", notify=True
+                )
+                await session.commit()
             await handler(JobContext(session=session, job=job))
             await repo.complete(session, job.id)
             await repo.notify_job(session, job.id, event="job.done", series_id=job.series_id)

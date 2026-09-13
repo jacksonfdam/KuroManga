@@ -9,9 +9,45 @@
             "media": {
               "id": 30013,
               "chapters": 40,
-              "synonyms": ["Alt Spelling"],
-              "title": {"romaji": "Tousou Kikou", "english": "Escape Machine", "native": "逃走機構"},
-              "coverImage": {"large": "https://example.test/cover.jpg"}
+              "synonyms": [
+                "Alt Spelling"
+              ],
+              "title": {
+                "romaji": "Tousou Kikou",
+                "english": "Escape Machine",
+                "native": "逃走機構"
+              },
+              "coverImage": {
+                "large": "https://example.test/cover.jpg"
+              },
+              "description": "A courier runs from <b>everything</b>.<br>Then she stops.",
+              "genres": [
+                "Action",
+                "Drama"
+              ],
+              "startDate": {
+                "year": 2019
+              },
+              "staff": {
+                "edges": [
+                  {
+                    "role": "Art",
+                    "node": {
+                      "name": {
+                        "full": "Ren Aoki"
+                      }
+                    }
+                  },
+                  {
+                    "role": "Story",
+                    "node": {
+                      "name": {
+                        "full": "Hana Morishita"
+                      }
+                    }
+                  }
+                ]
+              }
             }
           },
           {
@@ -21,7 +57,11 @@
               "id": 44,
               "chapters": null,
               "synonyms": [],
-              "title": {"romaji": "Shizuka na Umi", "english": null, "native": null},
+              "title": {
+                "romaji": "Shizuka na Umi",
+                "english": null,
+                "native": null
+              },
               "coverImage": null
             }
           }

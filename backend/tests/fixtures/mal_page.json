@@ -4,11 +4,43 @@
       "node": {
         "id": 7001,
         "title": "Tousou Kikou",
-        "main_picture": {"large": "https://example.test/mal.jpg"},
-        "alternative_titles": {"synonyms": ["Escape Mechanism"], "en": "Escape Machine", "ja": "逃走機構"},
-        "num_chapters": 40
+        "main_picture": {
+          "large": "https://example.test/mal.jpg"
+        },
+        "alternative_titles": {
+          "synonyms": [
+            "Escape Mechanism"
+          ],
+          "en": "Escape Machine",
+          "ja": "逃走機構"
+        },
+        "num_chapters": 40,
+        "synopsis": "A courier runs from everything.",
+        "genres": [
+          {
+            "id": 1,
+            "name": "Action"
+          },
+          {
+            "id": 8,
+            "name": "Drama"
+          }
+        ],
+        "start_date": "2019-04-01",
+        "authors": [
+          {
+            "node": {
+              "first_name": "Hana",
+              "last_name": "Morishita"
+            },
+            "role": "Story"
+          }
+        ]
       },
-      "list_status": {"status": "reading", "num_chapters_read": 9}
+      "list_status": {
+        "status": "reading",
+        "num_chapters_read": 9
+      }
     }
   ],
   "paging": {}

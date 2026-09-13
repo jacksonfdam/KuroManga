@@ -33,8 +33,12 @@ query ($userId: Int) {
           id
           chapters
           synonyms
+          description(asHtml: false)
+          genres
+          startDate { year }
           title { romaji english native }
           coverImage { large }
+          staff(perPage: 4) { edges { role node { name { full } } } }
         }
       }
     }
