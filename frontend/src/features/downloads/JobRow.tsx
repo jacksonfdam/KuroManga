@@ -57,9 +57,20 @@ export function JobRow({
   onToggle: () => void
   onRetry?: () => void
 }) {
+  // The chevron alone is a visual-only cue (and aria-hidden); aria-expanded
+  // plus aria-controls is what tells assistive tech this button is a
+  // disclosure and which region it opens.
+  const logId = `job-${job.id}-log`
+
   return (
     <div className="rounded-xl bg-surface-container-low p-4 shadow-card">
-      <button type="button" onClick={onToggle} className="flex w-full items-start justify-between gap-3 text-left">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={expanded}
+        aria-controls={logId}
+        className="flex w-full items-start justify-between gap-3 text-left"
+      >
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <JobStateBadge state={job.state} />
@@ -94,11 +105,11 @@ export function JobRow({
         </div>
       )}
 
-      {expanded && (
-        <div className="mt-3 border-t border-surface-container-highest/40 pt-3">
-          <JobEventLog events={events} />
-        </div>
-      )}
+      {/* Kept mounted (rather than unmounted when collapsed) so aria-controls
+          always resolves to a real element instead of a dangling id. */}
+      <div id={logId} hidden={!expanded} className="mt-3 border-t border-surface-container-highest/40 pt-3">
+        <JobEventLog events={events} />
+      </div>
     </div>
   )
 }
