@@ -42,7 +42,7 @@ export function QuickIncrement({
       disabled={busy}
       aria-label="Mark next chapter read"
       title="Mark next chapter read"
-      className={`flex h-8 w-8 items-center justify-center rounded-lg border border-white/15 bg-surface-container/85 text-on-surface backdrop-blur-sm transition-all active:scale-90 disabled:cursor-not-allowed ${
+      className={`flex h-8 w-8 items-center justify-center rounded-lg border border-white/15 bg-surface-container/85 text-on-surface backdrop-blur transition-all active:scale-90 disabled:cursor-not-allowed ${
         flash ? FLASH[flash] : 'hover:bg-primary hover:text-on-primary'
       }`}
     >

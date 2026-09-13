@@ -1,6 +1,6 @@
 import { Icon, StatusPill } from '../../ui'
 import type { Series } from '../../lib/api'
-import { formatChapter, formatSeriesFormat } from '../../lib/format'
+import { PROVIDER_LABEL, formatChapter, formatSeriesFormat } from '../../lib/format'
 import { totalChapters } from './useLibrary'
 
 // Markup reference: "Modo Tabela Rápida" in
@@ -59,7 +59,7 @@ export function SeriesTable({
                           key={provider}
                           className="rounded bg-primary/10 px-1.5 py-0.5 font-mono text-label-sm text-primary"
                         >
-                          {provider}
+                          {PROVIDER_LABEL[provider] ?? provider}
                         </span>
                       ))
                     )}
@@ -89,7 +89,7 @@ export function SeriesTable({
                       {total !== null && <span className="text-outline">/ {total}</span>}
                     </div>
                     <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-container-highest">
-                      <div className="h-full rounded-full bg-primary" style={{ width: `${pct}%` }} />
+                      <div className="h-full rounded-full bg-secondary" style={{ width: `${pct}%` }} />
                     </div>
                   </div>
                 </td>

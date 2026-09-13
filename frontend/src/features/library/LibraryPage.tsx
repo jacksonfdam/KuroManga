@@ -1,4 +1,5 @@
 import { EmptyState, Icon, SegmentedControl } from '../../ui'
+import { STATUS_LABEL } from '../../lib/format'
 import { ContinueReading } from './ContinueReading'
 import { SeriesGrid } from './SeriesGrid'
 import { SeriesTable } from './SeriesTable'
@@ -32,30 +33,37 @@ export function LibraryPage() {
             onChange={setView}
           />
         </div>
-        <div className="relative w-full sm:w-80">
-          <span className="pointer-events-none absolute left-3 top-2.5 text-outline">
-            <Icon name="search" className="h-4 w-4" />
-          </span>
-          <input
-            name="library-filter"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Filter by title..."
-            className="w-full rounded-lg bg-surface-container-low py-2 pl-9 pr-4 text-body-sm text-on-surface placeholder:text-outline focus:bg-surface-container focus:outline-none"
-          />
+        <div className="rounded-xl bg-surface-container/60 p-3.5 backdrop-blur-md">
+          <div className="relative w-full sm:w-72">
+            <span className="pointer-events-none absolute left-3 top-2.5 text-outline">
+              <Icon name="search" className="h-4 w-4" />
+            </span>
+            <input
+              name="library-filter"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Filter by title..."
+              className="w-full rounded-lg bg-surface-container-low py-2 pl-9 pr-4 text-body-sm text-on-surface placeholder:text-outline focus:bg-surface-container focus:outline-none"
+            />
+          </div>
         </div>
       </section>
 
       <ContinueReading series={continueReading} onIncrement={increment} />
 
       <section className="flex flex-col gap-space-md">
-        <div className="flex items-baseline gap-space-sm">
-          <h2 className="text-headline-md font-extrabold tracking-tight text-on-surface">
-            {status === 'all' ? 'All series' : 'Active reading'}
-          </h2>
-          <span className="font-mono text-label-md text-outline">
-            Showing {series.length} of {all.length} series
-          </span>
+        <div className="flex flex-wrap items-baseline justify-between gap-space-sm">
+          <div className="flex items-baseline gap-space-sm">
+            <h2 className="text-headline-md font-extrabold tracking-tight text-on-surface">
+              {status === 'all' ? 'All series' : status === 'reading' ? 'Active reading' : `${STATUS_LABEL[status]} series`}
+            </h2>
+            <span className="font-mono text-label-md text-outline">
+              Showing {series.length} of {all.length} series
+            </span>
+          </div>
+          {view === 'grid' && (
+            <span className="font-mono text-label-sm uppercase tracking-wider text-outline">Auto-fill grid</span>
+          )}
         </div>
         {series.length === 0 ? (
           <EmptyState

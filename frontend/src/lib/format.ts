@@ -32,6 +32,20 @@ export function formatSeriesFormat(value: string | null): string | null {
     .join(' ')
 }
 
+// The API reports the provider by its internal slug (`mal`, `anilist`, ...);
+// the library screen's sync badges need the name a reader actually recognises.
+export const PROVIDER_LABEL: Record<string, string> = {
+  mal: 'MAL',
+  anilist: 'AniList',
+  mangadex: 'MangaDex',
+  comick: 'Comick',
+  komga: 'Komga',
+}
+
+export function formatProviders(providers: string[]): string {
+  return providers.map((provider) => PROVIDER_LABEL[provider] ?? provider).join(' / ')
+}
+
 export function relativeTime(iso: string): string {
   const seconds = Math.round((Date.now() - new Date(iso).getTime()) / 1000)
   const units: [Intl.RelativeTimeFormatUnit, number][] = [
