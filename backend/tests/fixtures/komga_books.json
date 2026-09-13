@@ -1,0 +1,28 @@
+{
+  "content": [
+    {
+      "id": "book-1",
+      "seriesId": "series-1",
+      "name": "escape-machine - Ch.0001",
+      "url": "/manga/escape-machine/escape-machine - Ch.0001.cbz",
+      "number": 1,
+      "readProgress": {"page": 20, "completed": true}
+    },
+    {
+      "id": "book-2",
+      "seriesId": "series-1",
+      "name": "escape-machine - Ch.0002",
+      "url": "/manga/escape-machine/escape-machine - Ch.0002.cbz",
+      "number": 2,
+      "readProgress": {"page": 5, "completed": false}
+    },
+    {
+      "id": "book-3",
+      "seriesId": "series-1",
+      "name": "escape-machine - Ch.0003",
+      "url": "/manga/escape-machine/escape-machine - Ch.0003.cbz",
+      "number": 3,
+      "readProgress": null
+    }
+  ]
+}

@@ -40,6 +40,7 @@ services:
       ANILIST_CLIENT_ID: ${ANILIST_CLIENT_ID:-}
       ANILIST_CLIENT_SECRET: ${ANILIST_CLIENT_SECRET:-}
       KOMGA_URL: ${KOMGA_URL:-http://komga:25600}
+      KOMGA_API_KEY: ${KOMGA_API_KEY:-}
       KOMGA_USER: ${KOMGA_USER:-}
       KOMGA_PASS: ${KOMGA_PASS:-}
       KOMGA_LIBRARY_NAME: ${KOMGA_LIBRARY_NAME:-Manga}
@@ -70,6 +71,7 @@ services:
       ANILIST_CLIENT_ID: ${ANILIST_CLIENT_ID:-}
       ANILIST_CLIENT_SECRET: ${ANILIST_CLIENT_SECRET:-}
       KOMGA_URL: ${KOMGA_URL:-http://komga:25600}
+      KOMGA_API_KEY: ${KOMGA_API_KEY:-}
       KOMGA_USER: ${KOMGA_USER:-}
       KOMGA_PASS: ${KOMGA_PASS:-}
       KOMGA_LIBRARY_NAME: ${KOMGA_LIBRARY_NAME:-Manga}
@@ -94,12 +96,30 @@ services:
       - api
     logging: *logging
 
+  bootstrap:
+    build: ./backend
+    restart: "no"
+    environment:
+      LIBRARY_PATH: ${LIBRARY_PATH:-/manga}
+      KOMGA_URL: ${KOMGA_URL:-http://komga:25600}
+      KOMGA_API_KEY: ${KOMGA_API_KEY:-}
+      KOMGA_USER: ${KOMGA_USER:-}
+      KOMGA_PASS: ${KOMGA_PASS:-}
+      KOMGA_LIBRARY_NAME: ${KOMGA_LIBRARY_NAME:-Manga}
+    command: python -m app.komga.bootstrap
+    depends_on:
+      komga:
+        condition: service_started
+    logging: *logging
+
   komga:
     image: gotson/komga:latest
     restart: unless-stopped
     environment:
       - TZ=${TZ:-Europe/Lisbon}
-    user: "${PUID:-1000}:${PGID:-1000}"
+    # Runs as the image's own user. Overriding it breaks /config, which komga
+    # owns and writes; the library it only reads, so world-readable files from
+    # the worker are enough.
     volumes:
       - komga_config:/config
       - ${LIBRARY_PATH_HOST:-./data/manga}:/manga:ro

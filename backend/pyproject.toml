@@ -31,3 +31,8 @@ testpaths = ["tests"]
 
 [tool.ruff]
 line-length = 100
+
+[tool.ruff.lint.per-file-ignores]
+# Decimal("12") states the intent of a decimal literal; the numeric form does not.
+# Tests also reach for module internals on purpose.
+"tests/*" = ["FURB157", "PLR0402", "SLF001"]
