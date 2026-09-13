@@ -954,14 +954,17 @@ class ProgressIn(BaseModel):
 
 @router.post("/{series_id}/progress")
 async def set_progress(series_id: int, body: ProgressIn, session: Session) -> dict[str, Any]:
+    # min, not max: a series can sit at different chapters on each provider, and
+    # a write that advances the lagging one is legitimate. Refuse only when it
+    # would be a no-op everywhere. The handler still guards each entry.
     result = await session.execute(
-        text("select coalesce(max(user_progress_chapter), 0) as current from list_entry where series_id = :id"),
+        text("select coalesce(min(user_progress_chapter), 0) as current from list_entry where series_id = :id"),
         {"id": series_id},
     )
     row = result.first()
     if row is None:
         raise HTTPException(status_code=404, detail="series not found")
-    if body.chapter <= row.current:
+    if forward_only(row.current, body.chapter) is None:
         raise HTTPException(status_code=409, detail="progress cannot move backwards")
 
     await repo.enqueue(
