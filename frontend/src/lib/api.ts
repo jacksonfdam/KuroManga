@@ -109,6 +109,19 @@ export interface Integration {
   detail: string | null
 }
 
+// Callers that need to tell "the thing you asked for doesn't exist" apart
+// from "the request failed" (and show one, not the other) need the status
+// code — a plain Error only carries a message a caller would have to
+// string-match against.
+export class ApiError extends Error {
+  status: number
+
+  constructor(message: string, status: number) {
+    super(message)
+    this.status = status
+  }
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
     headers: { 'Content-Type': 'application/json' },
@@ -116,7 +129,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   })
   if (!response.ok) {
     const detail = await response.text()
-    throw new Error(detail || `${response.status} ${response.statusText}`)
+    throw new ApiError(detail || `${response.status} ${response.statusText}`, response.status)
   }
   return response.json() as Promise<T>
 }
