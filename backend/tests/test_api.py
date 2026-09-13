@@ -4,9 +4,6 @@ These exist because a parameter binding that Postgres cannot type, or a column
 that does not exist, only fails at query time. Neither shows up in a unit test.
 """
 
-import subprocess
-import sys
-
 import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
@@ -16,13 +13,6 @@ from app.db import get_sessionmaker
 from app.enums import Provider
 
 pytestmark = pytest.mark.asyncio
-
-
-@pytest.fixture(scope="session", autouse=True)
-def schema():
-    subprocess.run(
-        [sys.executable, "-m", "alembic", "upgrade", "head"], check=True, capture_output=True
-    )
 
 
 @pytest.fixture
