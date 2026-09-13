@@ -96,6 +96,7 @@ async def handle(ctx: JobContext) -> None:
         return
 
     failures: list[str] = []
+    disconnected: list[str] = []
     for target, media_id in pending:
         try:
             if target == "mangadex":
@@ -107,10 +108,12 @@ async def handle(ctx: JobContext) -> None:
         except NotConnected as exc:
             await record_result(ctx.session, suggestion_id, target, ok=False, error=str(exc))
             await ctx.session.commit()
-            # A disconnected account will not become connected on a retry, so this
-            # stops the whole job here rather than burning attempts against it; the
-            # other targets stay pending and are picked up once it is reconnected.
-            raise PermanentError(f"{target} is not connected") from exc
+            # The three lists are independent: a disconnected AniList must not keep
+            # the status off MyAnimeList and MangaDex. Whether retrying can help is
+            # decided once the loop has given every target its turn.
+            disconnected.append(target)
+            await ctx.log(f"{target} is not connected: {exc}", level="warning")
+            continue
         except Exception as exc:  # noqa: BLE001 - one target's failure is not the others'
             await record_result(ctx.session, suggestion_id, target, ok=False, error=str(exc)[:300])
             await ctx.session.commit()
@@ -123,4 +126,11 @@ async def handle(ctx: JobContext) -> None:
 
     if failures:
         raise RuntimeError("; ".join(failures)[:500])
+    if len(disconnected) == len(pending):
+        # Nothing was written and nothing can be: an account does not reconnect
+        # itself, so burning the remaining attempts against it buys nothing.
+        raise PermanentError(f"not connected: {', '.join(disconnected)}")
+    if disconnected:
+        await ctx.log(f"written, except on {', '.join(disconnected)}", pct=100)
+        return
     await ctx.log("status written everywhere", pct=100)

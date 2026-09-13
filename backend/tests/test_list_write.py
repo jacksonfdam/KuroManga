@@ -9,6 +9,7 @@ from app.db import get_sessionmaker
 from app.enums import JobType
 from app.handlers.base import JobContext, PermanentError
 from app.handlers.list_write import handle, pending_targets, record_result, targets_for
+from app.providers.tokens import NotConnected
 from app.queue import repo
 
 pytestmark = pytest.mark.asyncio
@@ -91,7 +92,7 @@ async def write_results_of(suggestion_id: int) -> dict:
     return {r["target"]: r for r in meta.get("write_results", [])}
 
 
-async def test_a_disconnected_target_stops_the_job_but_its_failure_still_lands():
+async def test_every_target_disconnected_retires_the_job_and_its_failure_still_lands():
     """No provider_token row means access_token_for raises NotConnected for real."""
     async with get_sessionmaker()() as session:
         suggestion_id = await insert_suggestion(session)
@@ -101,6 +102,43 @@ async def test_a_disconnected_target_stops_the_job_but_its_failure_still_lands()
 
     results = await write_results_of(suggestion_id)
     assert results["anilist"]["ok"] is False
+
+
+async def test_a_disconnected_first_target_does_not_block_the_others(monkeypatch):
+    """Acceptance criterion 7: the three lists fail independently."""
+    written = []
+
+    class FakeMangaDexSource:
+        async def set_reading_status(self, media_id, status):
+            written.append(("mangadex", media_id))
+
+    async def only_mal_is_connected(session, provider):
+        if str(provider) == "mal":
+            return "token"
+        raise NotConnected("anilist is not connected")
+
+    class FakeProviderSource:
+        async def set_status(self, token, media_id, status):
+            written.append(("mal", media_id))
+
+    monkeypatch.setattr("app.handlers.list_write.access_token_for", only_mal_is_connected)
+    monkeypatch.setattr(
+        "app.handlers.list_write.get_source", lambda provider: FakeProviderSource()
+    )
+    monkeypatch.setattr("app.handlers.list_write.get_site", lambda site: FakeMangaDexSource())
+
+    async with get_sessionmaker()() as session:
+        suggestion_id = await insert_suggestion(
+            session, alt_ids={"mal": "500"}, meta={"mangadex_uuid": "uuid-1"}
+        )
+        job = await lease_write_job(session, suggestion_id)
+        await handle(JobContext(session=session, job=job))
+
+    assert written == [("mal", "500"), ("mangadex", "uuid-1")]
+    results = await write_results_of(suggestion_id)
+    assert results["anilist"]["ok"] is False
+    assert results["mal"]["ok"] is True
+    assert results["mangadex"]["ok"] is True
 
 
 async def test_earlier_successes_survive_a_later_targets_aggregate_failure(monkeypatch):
