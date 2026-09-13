@@ -177,6 +177,15 @@ async def handle(ctx: JobContext) -> None:
     await mark_downloaded(ctx.session, chapter_id, destination)
     await ctx.log(f"saved {destination.name}", pct=100)
 
+    # One scan per series, not one per chapter: the dedupe key collapses a burst
+    # of finished downloads into a single indexing pass.
+    await ctx.enqueue(
+        JobType.KOMGA_SCAN,
+        {"series_id": row["series_id"]},
+        series_id=row["series_id"],
+        dedupe_key=f"komga_scan:{row['series_id']}",
+    )
+
 
 async def mark_downloaded(session: AsyncSession, chapter_id: int, path: Path) -> None:
     await session.execute(

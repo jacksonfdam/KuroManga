@@ -12,9 +12,10 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
-from app.downloader.paths import chapter_path
+from app.downloader.paths import chapter_path, number_from_filename
 from app.enums import JobType
 from app.handlers.base import JobContext, PermanentError, register
+from app.komga import from_settings
 from app.sources import ChapterRef, source_for_url
 
 
@@ -61,8 +62,58 @@ async def upsert_chapters(
         )
 
 
+async def reconcile_with_komga(session: AsyncSession, series_id: int, slug: str) -> int:
+    """Ask Komga what it holds, and trust that over the filesystem.
+
+    Komga is the record of the library, so a file moved or renamed outside the
+    pipeline still counts as present and is not downloaded again. When Komga is
+    unreachable or has not indexed the series yet, the caller falls back to disk.
+    """
+    client = from_settings()
+    if not client.has_credentials:
+        return 0
+
+    result = await session.execute(
+        text("select komga_series_id from series where id = :id"), {"id": series_id}
+    )
+    row = result.first()
+    komga_series_id = row.komga_series_id if row else None
+    if not komga_series_id:
+        komga_series_id = await client.find_series(str(get_settings().library_path), slug)
+        if not komga_series_id:
+            return 0
+        await session.execute(
+            text("update series set komga_series_id = :kid where id = :id"),
+            {"kid": komga_series_id, "id": series_id},
+        )
+
+    books = await client.books_of_series(komga_series_id)
+    reconciled = 0
+    for book in books:
+        updated = await session.execute(
+            text(
+                """
+                update chapter
+                   set state = 'downloaded', file_path = :path, komga_book_id = :book_id
+                 where series_id = :series_id
+                   and (file_path = :path or file_path like :suffix
+                        or (file_path is null and :number = number))
+                """
+            ),
+            {
+                "path": book.path,
+                "book_id": book.id,
+                "suffix": f"%/{book.filename}",
+                "series_id": series_id,
+                "number": number_from_filename(book.filename),
+            },
+        )
+        reconciled += updated.rowcount or 0
+    return reconciled
+
+
 async def reconcile_with_disk(session: AsyncSession, series_id: int, slug: str) -> int:
-    """Mark as downloaded whatever is already sitting in the library."""
+    """Fallback when Komga cannot answer: mark whatever is already on disk."""
     library_root = Path(get_settings().library_path)
     result = await session.execute(
         text(
@@ -130,9 +181,21 @@ async def handle(ctx: JobContext) -> None:
     await ctx.log(f"{len(chapters)} chapters published", pct=40)
 
     await upsert_chapters(ctx.session, series_id, chapters)
-    reconciled = await reconcile_with_disk(ctx.session, series_id, slug)
+
+    try:
+        reconciled = await reconcile_with_komga(ctx.session, series_id, slug)
+        source_of_truth = "komga"
+    except Exception as exc:  # noqa: BLE001 - a missing Komga must not stop discovery
+        await ctx.log(f"komga unavailable, falling back to disk: {exc}", level="warning")
+        reconciled = 0
+        source_of_truth = "disk"
+
+    if reconciled == 0:
+        reconciled = await reconcile_with_disk(ctx.session, series_id, slug)
+        source_of_truth = "disk" if reconciled else source_of_truth
+
     if reconciled:
-        await ctx.log(f"{reconciled} already in the library", pct=70)
+        await ctx.log(f"{reconciled} already in the library (per {source_of_truth})", pct=70)
 
     queued = await queue_missing(ctx, series_id)
     await ctx.log(f"queued {queued} missing chapters", pct=100)

@@ -47,3 +47,12 @@ def chapter_path(
     library_root: Path, series_slug: str, number: Decimal, title: str | None = None
 ) -> Path:
     return series_dir(library_root, series_slug) / chapter_filename(series_slug, number, title)
+
+
+_NUMBER_IN_NAME = re.compile(r"\bCh\.(\d+(?:\.\d+)?)")
+
+
+def number_from_filename(filename: str) -> Decimal | None:
+    """Inverse of the naming rule, for files Komga reports that we did not place."""
+    match = _NUMBER_IN_NAME.search(filename)
+    return Decimal(match.group(1)) if match else None
