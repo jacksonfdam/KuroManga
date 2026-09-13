@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import db_session
 from app.enums import JobType
 from app.handlers.batching import queue_batches
+from app.handlers.progress_write import forward_only
 from app.queue import repo
 from app.sources import source_for_url
 
@@ -342,15 +343,21 @@ async def set_progress(series_id: int, body: ProgressIn, session: Session) -> di
     # when the series has no list_entry yet — so this alone cannot tell "no
     # rows" apart from "genuinely at chapter 0", which is why existence is
     # checked separately above.
+    #
+    # min(), not max(): a series with two providers at different chapters (say
+    # AniList 140, MyAnimeList 100) must still accept a write of 120 — it moves
+    # MyAnimeList forward and the handler leaves AniList alone. Comparing
+    # against the furthest-along provider would refuse a write the handler
+    # would have partially, correctly, applied.
     result = await session.execute(
         text(
-            "select coalesce(max(user_progress_chapter), 0) as current"
+            "select coalesce(min(user_progress_chapter), 0) as current"
             " from list_entry where series_id = :id"
         ),
         {"id": series_id},
     )
     current = result.scalar_one()
-    if body.chapter <= current:
+    if forward_only(current, body.chapter) is None:
         raise HTTPException(status_code=409, detail="progress cannot move backwards")
 
     await repo.enqueue(

@@ -208,3 +208,43 @@ async def test_progress_cannot_move_backwards(client):
     response = await client.post("/api/series/1/progress", json={"chapter": 3})
     assert response.status_code == 409
     assert (await client.get("/api/series")).json()[0]["progress"] == 140
+
+
+async def test_progress_advances_whichever_provider_is_behind(client):
+    """A series can sit at different chapters on each provider.
+
+    The pre-check must refuse only a write that would be a no-op everywhere,
+    not one that would still move the provider that lags behind.
+    """
+    async with get_sessionmaker()() as session:
+        await session.execute(
+            text(
+                """
+                insert into series (canonical_title, slug, needs_review, meta)
+                values ('One Piece', 'one-piece', false, '{}'::jsonb)
+                """
+            )
+        )
+        await session.execute(
+            text(
+                """
+                insert into list_entry
+                       (provider, provider_media_id, series_id, status, user_progress_chapter, synonyms, raw)
+                values ('anilist', '3', 1, 'reading', 140, '[]'::jsonb, '{}'::jsonb)
+                """
+            )
+        )
+        await session.execute(
+            text(
+                """
+                insert into list_entry
+                       (provider, provider_media_id, series_id, status, user_progress_chapter, synonyms, raw)
+                values ('mal', '3', 1, 'reading', 100, '[]'::jsonb, '{}'::jsonb)
+                """
+            )
+        )
+        await session.commit()
+
+    response = await client.post("/api/series/1/progress", json={"chapter": 120})
+    assert response.status_code == 200
+    assert response.json() == {"progress": 120, "queued": True}
