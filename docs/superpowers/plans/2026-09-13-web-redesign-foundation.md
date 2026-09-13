@@ -745,6 +745,8 @@ Closes #8.
 - Consumes: nothing.
 - Produces:
   - `GET /api/series` gains `status: str | null`, `progress: int`, `score: float | null`, `genres: list[str]`, `format: str | null`, `updated_at: str | null`.
+  - `score` is on a ten-point scale with one decimal, whichever provider it came from. AniList reports 0–100 and MyAnimeList 0–10, so AniList's is divided by ten at extraction. Normalising here rather than in the view keeps the units error legible as a bug: once a screen renders `82` beside `8.9`, it starts reading as a design choice. Absent is not zero — both providers omit the score for titles too few people have rated, and that stays `null`.
+  - Both providers' list queries must actually request the score and format fields. Extraction is correct and useless if the query never asks.
   - `POST /api/series/{id}/progress` with body `{"chapter": int}` returning `{"progress": int, "queued": bool}`.
   - `JobType.PROGRESS_WRITE` with payload `{"series_id": int, "chapter": int}`.
 
