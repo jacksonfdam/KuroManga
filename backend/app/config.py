@@ -31,12 +31,21 @@ class Settings(BaseSettings):
 
     # MangaDex personal client. Optional: search and chapter feeds work anonymously,
     # and MangaDex caches anonymous responses but not authenticated ones.
+    # MangaBaka API key. Full account access, so it stays in .env and is never
+    # written to the database.
+    mangabaka_token: str = ""
+
     mangadex_client_id: str = ""
     mangadex_client_secret: str = ""
     mangadex_username: str = ""
     mangadex_password: str = ""
 
     downloader_binary: str = "manga-downloader"
+
+    # Self-hosted comick-source-api. It scrapes search results and chapter
+    # lists for sites the download binary already covers, but has no endpoint
+    # for page images, so it never touches downloading itself.
+    comick_api_url: str = "http://comick:3000"
 
     @property
     def database_url(self) -> str:

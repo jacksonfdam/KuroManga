@@ -1,0 +1,25 @@
+{
+  "data": [
+    {
+      "node": {
+        "id": 21,
+        "title": "Vinland Saga",
+        "main_picture": {"large": "https://img/vs-mal.jpg"},
+        "alternative_titles": {"en": "Vinland Saga", "ja": "ヴィンランド・サガ", "synonyms": ["VS"]},
+        "num_episodes": 24
+      },
+      "list_status": {"status": "completed", "num_episodes_watched": 24}
+    },
+    {
+      "node": {
+        "id": 99,
+        "title": "Kaijuu 8-gou",
+        "main_picture": {"large": "https://img/k8.jpg"},
+        "alternative_titles": {"en": "Kaiju No. 8", "ja": "怪獣8号", "synonyms": []},
+        "num_episodes": 12
+      },
+      "list_status": {"status": "watching", "num_episodes_watched": 7}
+    }
+  ],
+  "paging": {}
+}

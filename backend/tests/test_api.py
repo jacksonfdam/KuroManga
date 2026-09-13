@@ -4,25 +4,16 @@ These exist because a parameter binding that Postgres cannot type, or a column
 that does not exist, only fails at query time. Neither shows up in a unit test.
 """
 
-import subprocess
-import sys
-
 import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
 
 from app.api.main import app
 from app.db import get_sessionmaker
+from app.enums import Provider
 from app.sources import mangadex_auth
 
 pytestmark = pytest.mark.asyncio
-
-
-@pytest.fixture(scope="session", autouse=True)
-def schema():
-    subprocess.run(
-        [sys.executable, "-m", "alembic", "upgrade", "head"], check=True, capture_output=True
-    )
 
 
 @pytest.fixture
@@ -89,7 +80,7 @@ async def test_series_list_accepts_a_state_filter(client):
 async def test_settings_expose_defaults_and_provider_status(client):
     body = (await client.get("/api/settings")).json()
     assert body["values"]["download_concurrency"]
-    assert set(body["providers"]) == {"mal", "anilist"}
+    assert set(body["providers"]) == {str(provider) for provider in Provider}
 
 
 async def test_settings_reject_unknown_keys_instead_of_storing_them(client):
@@ -296,7 +287,7 @@ async def test_a_second_progress_request_raises_the_queued_job_instead_of_adding
 
 async def test_settings_expose_the_new_pipeline_keys(client):
     values = (await client.get("/api/settings")).json()["values"]
-    assert values["cron_anime_sync"] == "0 */12 * * *"
+    assert values["cron_anime_list_sync"] == "0 */12 * * *"
     assert values["reading_minutes_per_chapter"] == "8"
     assert "comick_url" in values
     assert values["comick_enabled"] == "false"

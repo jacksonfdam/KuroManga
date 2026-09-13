@@ -11,7 +11,7 @@ const DEFAULT_VALUES: Record<string, string> = {
   cron_list_sync: '0 */6 * * *',
   cron_chapter_discover: '0 */2 * * *',
   cron_progress_push: '30 * * * *',
-  cron_anime_sync: '0 */12 * * *',
+  cron_anime_list_sync: '0 */12 * * *',
   download_concurrency: '3',
   per_source_concurrency: '2',
   download_batch_size: '20',

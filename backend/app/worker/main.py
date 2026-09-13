@@ -15,14 +15,17 @@ from app.enums import JobType, Provider
 
 # Importing the handler modules is what registers them.
 from app.handlers import (  # noqa: F401
+    anime_list_sync,
     chapter_discover,
     download_batch,
     download_chapter,
     komga_scan,
     list_sync,
+    list_write,
     match_search,
     progress_push,
     progress_write,
+    suggest_build,
 )
 from app.queue import repo
 from app.worker.runner import reclaim_loop, work_loop
@@ -43,6 +46,20 @@ async def enqueue_list_sync() -> None:
             )
         await session.commit()
     log.info("cron: queued list sync")
+
+
+async def enqueue_anime_list_sync() -> None:
+    sessionmaker = get_sessionmaker()
+    async with sessionmaker() as session:
+        for provider in Provider:
+            await repo.enqueue(
+                session,
+                JobType.ANIME_LIST_SYNC,
+                {"provider": str(provider)},
+                dedupe_key=f"anime_list_sync:{provider}",
+            )
+        await session.commit()
+    log.info("cron: queued anime list sync")
 
 
 async def enqueue_chapter_discover() -> None:
@@ -106,6 +123,7 @@ async def main() -> None:
         cron_sync = await settings_store.get(session, settings_store.CRON_LIST_SYNC)
         cron_discover = await settings_store.get(session, settings_store.CRON_CHAPTER_DISCOVER)
         cron_progress = await settings_store.get(session, settings_store.CRON_PROGRESS_PUSH)
+        cron_anime = await settings_store.get(session, settings_store.CRON_ANIME_LIST_SYNC)
 
     scheduler = AsyncIOScheduler(timezone="UTC")
     scheduler.add_job(enqueue_list_sync, CronTrigger.from_crontab(cron_sync), id="list_sync")
@@ -114,6 +132,9 @@ async def main() -> None:
     )
     scheduler.add_job(
         enqueue_progress_push, CronTrigger.from_crontab(cron_progress), id="progress_push"
+    )
+    scheduler.add_job(
+        enqueue_anime_list_sync, CronTrigger.from_crontab(cron_anime), id="anime_list_sync"
     )
     scheduler.start()
 
@@ -124,11 +145,12 @@ async def main() -> None:
             loop.add_signal_handler(sig, stop.set)
 
     log.info(
-        "worker up: concurrency=%d sync='%s' discover='%s' progress='%s'",
+        "worker up: concurrency=%d sync='%s' discover='%s' progress='%s' anime='%s'",
         concurrency,
         cron_sync,
         cron_discover,
         cron_progress,
+        cron_anime,
     )
     await asyncio.gather(work_loop(concurrency, stop), reclaim_loop(stop))
     scheduler.shutdown(wait=False)

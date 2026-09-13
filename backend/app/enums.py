@@ -4,6 +4,7 @@ from enum import StrEnum
 class Provider(StrEnum):
     MAL = "mal"
     ANILIST = "anilist"
+    MANGABAKA = "mangabaka"
 
 
 class ListStatus(StrEnum):
@@ -39,3 +40,12 @@ class JobType(StrEnum):
     KOMGA_SCAN = "komga_scan"
     PROGRESS_PUSH = "progress_push"
     PROGRESS_WRITE = "progress_write"
+    ANIME_LIST_SYNC = "anime_list_sync"
+    SUGGEST_BUILD = "suggest_build"
+    LIST_WRITE = "list_write"
+
+
+class SuggestionState(StrEnum):
+    NEW = "new"
+    DISMISSED = "dismissed"
+    ADDED = "added"

@@ -171,15 +171,15 @@ export function PipelineFields({
       </FieldCard>
       <FieldCard
         label="Anime Sync (suggestions)"
-        hint={hoursHint(draft.cron_anime_sync ?? '')}
+        hint={hoursHint(draft.cron_anime_list_sync ?? '')}
         description={
           <>
             Cross-reference completed anime to suggest manga (
-            <code className="font-mono text-primary">cron_anime_sync</code>).
+            <code className="font-mono text-primary">cron_anime_list_sync</code>).
           </>
         }
       >
-        <CronInput settingKey="cron_anime_sync" label="Anime Sync (suggestions)" value={draft.cron_anime_sync ?? ''} onChange={(value) => onChange('cron_anime_sync', value)} />
+        <CronInput settingKey="cron_anime_list_sync" label="Anime Sync (suggestions)" value={draft.cron_anime_list_sync ?? ''} onChange={(value) => onChange('cron_anime_list_sync', value)} />
       </FieldCard>
     </div>
   )

@@ -1,0 +1,65 @@
+{
+  "status": 200,
+  "pagination": {
+    "count": 3,
+    "next": "https://api.mangabaka.org/v1/my/library?page=2",
+    "previous": null,
+    "page": 1,
+    "limit": 2
+  },
+  "data": [
+    {
+      "id": 2220985,
+      "series_id": 1238,
+      "user_id": "u-1",
+      "state": "reading",
+      "progress_chapter": 12,
+      "progress_volume": null,
+      "rating": null,
+      "note": null,
+      "read_link": null,
+      "priority": 0,
+      "is_private": false,
+      "number_of_rereads": null,
+      "start_date": "2026-01-04",
+      "finish_date": null,
+      "Entries": [],
+      "Series": {
+        "id": 1238,
+        "title": "Escape Machine",
+        "native_title": "逃走機構",
+        "romanized_title": "Tousou Kikou",
+        "secondary_titles": {"en": [{"title": "Escape Mechanism"}]},
+        "total_chapters": "40",
+        "status": "completed",
+        "cover": {"raw": {"url": "https://images.example.test/raw.jpg"}},
+        "source": {"my_anime_list": {"id": 7001}, "anilist": {"id": 30013}}
+      }
+    },
+    {
+      "id": 2220986,
+      "series_id": 99,
+      "user_id": "u-1",
+      "state": "plan_to_read",
+      "progress_chapter": 0,
+      "Series": {
+        "id": 99,
+        "title": "Quiet Sea",
+        "native_title": null,
+        "romanized_title": null,
+        "secondary_titles": {},
+        "total_chapters": "",
+        "cover": {},
+        "source": {}
+      }
+    },
+    {
+      "id": 2220987,
+      "series_id": 1000,
+      "user_id": "u-1",
+      "state": "some_future_state",
+      "progress_chapter": 3,
+      "Series": {"id": 1000, "title": "Third Work", "total_chapters": null, "cover": null}
+    }
+  ]
+}

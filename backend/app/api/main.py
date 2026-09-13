@@ -6,7 +6,14 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from sse_starlette.sse import EventSourceResponse
 
-from app.api import routes_auth, routes_health, routes_jobs, routes_series, routes_settings
+from app.api import (
+    routes_auth,
+    routes_discovery,
+    routes_health,
+    routes_jobs,
+    routes_series,
+    routes_settings,
+)
 from app.api.events import broker, event_stream
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
@@ -21,6 +28,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="KuroManga", lifespan=lifespan)
 app.include_router(routes_series.router)
+app.include_router(routes_discovery.router)
 app.include_router(routes_jobs.router)
 app.include_router(routes_settings.router)
 app.include_router(routes_auth.router)

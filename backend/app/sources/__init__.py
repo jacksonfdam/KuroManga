@@ -1,9 +1,10 @@
 """Source sites. Importing a module is what registers it."""
 
-from app.sources import mangadex  # noqa: F401
+from app.sources import comick, mangadex  # noqa: F401
 from app.sources.base import (
     Candidate,
     ChapterRef,
+    NotConfigured,
     Source,
     all_sources,
     get_source,
@@ -13,6 +14,7 @@ from app.sources.base import (
 __all__ = [
     "Candidate",
     "ChapterRef",
+    "NotConfigured",
     "Source",
     "all_sources",
     "get_source",

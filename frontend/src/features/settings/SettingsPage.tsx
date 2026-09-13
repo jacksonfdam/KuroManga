@@ -63,6 +63,13 @@ export function SettingsPage() {
   const anilist = integration('anilist')
   const mangadex = integration('mangadex')
   const comick = integration('comick')
+  // `sources` answers in two shapes: MangaDex carries an account, comick has
+  // none and only reports whether it answers. Narrowing rather than reaching
+  // for `.username` keeps a comick-shaped answer from reading as a MangaDex
+  // that is merely signed out.
+  const mangadexSource = data.sources.mangadex
+  const mangadexUser =
+    mangadexSource && 'username' in mangadexSource ? mangadexSource.username : null
   const komga = integration('komga')
 
   const activeConnections = [mal, anilist].filter((item) => item?.state === 'ok').length
@@ -142,7 +149,7 @@ export function SettingsPage() {
             tone={mangadex?.state === 'ok' ? 'ok' : 'neutral'}
             statusLabel={
               mangadex?.state === 'ok'
-                ? `Authenticated${data.sources.mangadex.username ? ` as ${data.sources.mangadex.username}` : ''}`
+                ? `Authenticated${mangadexUser ? ` as ${mangadexUser}` : ''}`
                 : 'Anonymous mode'
             }
           >

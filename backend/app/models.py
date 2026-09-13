@@ -19,7 +19,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
-from app.enums import ChapterState, JobState, JobType, ListStatus, Provider
+from app.enums import ChapterState, JobState, JobType, ListStatus, Provider, SuggestionState
 
 
 class Base(DeclarativeBase):
@@ -204,3 +204,59 @@ class Setting(Base):
 
     key: Mapped[str] = mapped_column(String(100), primary_key=True)
     value: Mapped[str] = mapped_column(Text, nullable=False)
+
+
+class AnimeEntry(Base):
+    """One anime as it exists on a remote list provider, relations included."""
+
+    __tablename__ = "anime_entry"
+    __table_args__ = (
+        UniqueConstraint("provider", "provider_media_id", name="uq_anime_entry_provider_media"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    provider: Mapped[Provider] = mapped_column(String(20), nullable=False)
+    provider_media_id: Mapped[str] = mapped_column(String(50), nullable=False)
+    title_romaji: Mapped[str | None] = mapped_column(String(500))
+    title_english: Mapped[str | None] = mapped_column(String(500))
+    synonyms: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
+    status: Mapped[ListStatus] = mapped_column(String(20), nullable=False)
+    progress_episode: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    total_episodes: Mapped[int | None] = mapped_column(Integer)
+    cover_url: Mapped[str | None] = mapped_column(Text)
+    related_manga: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, nullable=False, default=list)
+    raw: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    manga_dismissed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+
+class Suggestion(Base):
+    """A manga worth reading because an anime on the list adapts it."""
+
+    __tablename__ = "suggestion"
+    __table_args__ = (
+        UniqueConstraint("provider", "provider_media_id", name="uq_suggestion_provider_media"),
+        Index("ix_suggestion_state_rank", "state", "rank_score"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    provider: Mapped[Provider] = mapped_column(String(20), nullable=False)
+    provider_media_id: Mapped[str] = mapped_column(String(50), nullable=False)
+    alt_ids: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    title: Mapped[str] = mapped_column(String(500), nullable=False)
+    cover_url: Mapped[str | None] = mapped_column(Text)
+    total_chapters: Mapped[int | None] = mapped_column(Integer)
+    year: Mapped[int | None] = mapped_column(Integer)
+    publishing_status: Mapped[str | None] = mapped_column(String(20))
+    state: Mapped[SuggestionState] = mapped_column(
+        String(20), nullable=False, default=SuggestionState.NEW
+    )
+    rank_score: Mapped[float] = mapped_column(Numeric(5, 4), nullable=False, default=0)
+    series_id: Mapped[int | None] = mapped_column(ForeignKey("series.id", ondelete="SET NULL"))
+    meta: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    created_at: Mapped[datetime] = _now()
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )

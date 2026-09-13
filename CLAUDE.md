@@ -173,6 +173,19 @@ Micro commits: one focused change each, self-contained and buildable. The subjec
 scoped (`feat(queue):`, `fix(api):`, `docs:`, `chore:`). The body says *why*, never what the diff
 already shows. No trailers of any kind.
 
+That last rule is enforced rather than trusted. Enable the hook once per clone:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+`.githooks/commit-msg` removes assistant attribution — `Co-Authored-By` naming an assistant,
+`Claude-Session`, generated-with footers — before the commit is written. A `Co-Authored-By` naming
+a person survives, because that is a real credit. The hook exists because several assistants append
+those lines on their own, without being asked, and three such commits reached `main` before anyone
+noticed; by then, removing them would have meant rewriting the default branch under twelve
+dependent branches.
+
 ### Every feature
 
 1. Open a GitHub issue describing the change, with labels, assigned to `jacksonfdam`.

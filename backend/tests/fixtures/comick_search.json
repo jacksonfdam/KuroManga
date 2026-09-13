@@ -1,0 +1,29 @@
+{
+  "results": [
+    {
+      "id": "01J76XY7KWP8KX5RFGVZY5TR95",
+      "title": "Attack on Titan",
+      "url": "https://weebcentral.com/series/01J76XY7KWP8KX5RFGVZY5TR95/Shingeki-No-Kyojin",
+      "coverImage": "https://temp.compsci88.com/cover/fallback/01J76XY7KWP8KX5RFGVZY5TR95.jpg",
+      "latestChapter": 139,
+      "lastUpdated": ""
+    },
+    {
+      "id": "01J76XY96VAMB0N3PKBY7N4P84",
+      "title": "Attack on Titan - Before the Fall",
+      "url": "https://weebcentral.com/series/01J76XY96VAMB0N3PKBY7N4P84/Shingeki-No-Kyojin-Before-The-Fall",
+      "coverImage": "https://temp.compsci88.com/cover/fallback/01J76XY96VAMB0N3PKBY7N4P84.jpg",
+      "latestChapter": 65,
+      "lastUpdated": ""
+    },
+    {
+      "id": "01J76XY9V5RF61F56F8SCNYZAE",
+      "title": "Attack on Titan - No Regrets",
+      "url": "https://weebcentral.com/series/01J76XY9V5RF61F56F8SCNYZAE/Shingeki-No-Kyojin-Birth-Of-Levi",
+      "coverImage": "https://temp.compsci88.com/cover/fallback/01J76XY9V5RF61F56F8SCNYZAE.jpg",
+      "latestChapter": 8,
+      "lastUpdated": ""
+    }
+  ],
+  "source": "WeebCentral"
+}

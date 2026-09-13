@@ -9,7 +9,9 @@ from typing import Any
 
 import httpx
 
-from app.sources.base import Candidate, ChapterRef, Source, register
+from app.discovery.status_sync import mangadex_status
+from app.enums import ListStatus
+from app.sources.base import Candidate, ChapterRef, NotConfigured, Source, register
 from app.sources.mangadex_auth import tokens
 from app.text_utils import best_similarity
 
@@ -106,6 +108,16 @@ def manga_id_from_url(url: str) -> str:
     raise ValueError(f"not a mangadex title url: {url}")
 
 
+def manga_id_from_candidate(candidate: Candidate) -> str | None:
+    """The uuid behind a MangaDex candidate, or None for any other site."""
+    if candidate.source_site != SITE:
+        return None
+    try:
+        return manga_id_from_url(candidate.source_url)
+    except ValueError:
+        return None
+
+
 class MangaDexSource(Source):
     site = SITE
     domains = ("mangadex.org",)
@@ -163,6 +175,21 @@ class MangaDexSource(Source):
             if offset >= total or not payload.get("data"):
                 break
         return deduplicate(chapters)
+
+    async def set_reading_status(self, manga_id: str, status: ListStatus) -> None:
+        """Follow-list status. This is one of the few endpoints that needs the login."""
+        token = await tokens.token(self._client)
+        if not token:
+            raise NotConfigured("mangadex credentials are not configured")
+        headers = {"Authorization": f"Bearer {token}"}
+        body = {"status": mangadex_status(status)}
+        url = f"{API_BASE}/manga/{manga_id}/status"
+        if self._client is not None:
+            response = await self._client.post(url, json=body, headers=headers)
+        else:
+            async with httpx.AsyncClient(timeout=30) as client:
+                response = await client.post(url, json=body, headers=headers)
+        response.raise_for_status()
 
 
 def deduplicate(chapters: list[ChapterRef]) -> list[ChapterRef]:

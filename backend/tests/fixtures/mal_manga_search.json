@@ -1,0 +1,69 @@
+{
+  "data": [
+    {
+      "node": {
+        "id": 642,
+        "title": "Vinland Saga",
+        "main_picture": {
+          "medium": "https://cdn.myanimelist.net/images/manga/2/188925.jpg",
+          "large": "https://cdn.myanimelist.net/images/manga/2/188925l.jpg"
+        },
+        "alternative_titles": {
+          "synonyms": [
+            "Sayounara ga Chikai node",
+            "For Our Farewell Is Near",
+            "Because Goodbyes Are Coming Soon",
+            "\"Assasin's Creed Valhalla\" Collab Bangai-hen",
+            "Assassin's Creed x Vinland Saga",
+            "Assassin's Creed Valhalla x Vinland Saga"
+          ],
+          "en": "Vinland Saga",
+          "ja": "ヴィンランド・サガ"
+        },
+        "num_chapters": 224,
+        "start_date": "2005-04-13",
+        "status": "finished",
+        "media_type": "manga"
+      }
+    },
+    {
+      "node": {
+        "id": 131084,
+        "title": "Assassin's Creed Valhalla x Vinland Saga",
+        "main_picture": {
+          "medium": "https://cdn.myanimelist.net/images/manga/1/242607.webp",
+          "large": "https://cdn.myanimelist.net/images/manga/1/242607l.webp"
+        },
+        "alternative_titles": {
+          "synonyms": [],
+          "en": "",
+          "ja": "『アサシンクリード ヴァルハラ』×『ヴィンランド・サガ』"
+        },
+        "num_chapters": 1,
+        "start_date": "2020-10-24",
+        "status": "finished",
+        "media_type": "one_shot"
+      }
+    },
+    {
+      "node": {
+        "id": 98614,
+        "title": "Finland Saga",
+        "main_picture": {
+          "medium": "https://cdn.myanimelist.net/images/manga/1/288372.jpg",
+          "large": "https://cdn.myanimelist.net/images/manga/1/288372l.jpg"
+        },
+        "alternative_titles": {
+          "synonyms": [],
+          "en": "",
+          "ja": "フィンランド・サガ（性）"
+        },
+        "num_chapters": 39,
+        "start_date": "2009-02-21",
+        "status": "finished",
+        "media_type": "manga"
+      }
+    }
+  ],
+  "paging": {}
+}

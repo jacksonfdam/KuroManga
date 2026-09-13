@@ -1,0 +1,166 @@
+{
+  "Page": {
+    "media": [
+      {
+        "id": 85934,
+        "format": "MANGA",
+        "title": {
+          "romaji": "Overlord",
+          "english": "Overlord"
+        },
+        "coverImage": {
+          "large": "https://s4.anilist.co/file/anilistcdn/media/manga/cover/medium/bx85934-QbxLx34J8D4o.png"
+        },
+        "chapters": 83,
+        "status": "FINISHED",
+        "startDate": {
+          "year": 2014
+        }
+      },
+      {
+        "id": 85976,
+        "format": "NOVEL",
+        "title": {
+          "romaji": "Overlord",
+          "english": "Overlord"
+        },
+        "coverImage": {
+          "large": "https://s4.anilist.co/file/anilistcdn/media/manga/cover/medium/bx85976-hVr99G1kD1M5.png"
+        },
+        "chapters": null,
+        "status": "RELEASING",
+        "startDate": {
+          "year": 2012
+        }
+      },
+      {
+        "id": 101951,
+        "format": "MANGA",
+        "title": {
+          "romaji": "Overlord Fushisha no Oh!",
+          "english": "Overlord: The Undead King Oh!"
+        },
+        "coverImage": {
+          "large": "https://s4.anilist.co/file/anilistcdn/media/manga/cover/medium/nx101951-rIGK3S85N7Dc.jpg"
+        },
+        "chapters": null,
+        "status": "RELEASING",
+        "startDate": {
+          "year": 2017
+        }
+      },
+      {
+        "id": 197841,
+        "format": "MANGA",
+        "title": {
+          "romaji": "Paewangyeongae",
+          "english": "Lady Overlord"
+        },
+        "coverImage": {
+          "large": "https://s4.anilist.co/file/anilistcdn/media/manga/cover/medium/bx197841-8VEd0GI3sUdK.png"
+        },
+        "chapters": null,
+        "status": "RELEASING",
+        "startDate": {
+          "year": 2025
+        }
+      },
+      {
+        "id": 205773,
+        "format": "MANGA",
+        "title": {
+          "romaji": "Sacheonpaewang",
+          "english": "The Iron Overlord of Sichuan"
+        },
+        "coverImage": {
+          "large": "https://s4.anilist.co/file/anilistcdn/media/manga/cover/medium/bx205773-YcYBukJSDnLT.jpg"
+        },
+        "chapters": null,
+        "status": "RELEASING",
+        "startDate": {
+          "year": 2026
+        }
+      },
+      {
+        "id": 182280,
+        "format": "MANGA",
+        "title": {
+          "romaji": "Etrange Overlord",
+          "english": null
+        },
+        "coverImage": {
+          "large": "https://s4.anilist.co/file/anilistcdn/media/manga/cover/medium/bx182280-LVxsme12sb2h.jpg"
+        },
+        "chapters": null,
+        "status": "RELEASING",
+        "startDate": {
+          "year": 2024
+        }
+      },
+      {
+        "id": 121113,
+        "format": "MANGA",
+        "title": {
+          "romaji": "Yoimachi Overlord",
+          "english": null
+        },
+        "coverImage": {
+          "large": "https://s4.anilist.co/file/anilistcdn/media/manga/cover/medium/bx121113-pLXKdbn1dpRI.jpg"
+        },
+        "chapters": 17,
+        "status": "FINISHED",
+        "startDate": {
+          "year": 2014
+        }
+      },
+      {
+        "id": 146188,
+        "format": "MANGA",
+        "title": {
+          "romaji": "Paewangui Byeol",
+          "english": "Star of the Overlord"
+        },
+        "coverImage": {
+          "large": "https://s4.anilist.co/file/anilistcdn/media/manga/cover/medium/bx146188-h57IyxxSynNc.jpg"
+        },
+        "chapters": null,
+        "status": "RELEASING",
+        "startDate": {
+          "year": 2022
+        }
+      },
+      {
+        "id": 179185,
+        "format": "MANGA",
+        "title": {
+          "romaji": "Chongzu Zhuzai: Wo Wan De Jiu Shì Tianzai",
+          "english": "Supreme Zerg Lord: the Catastrophe"
+        },
+        "coverImage": {
+          "large": "https://s4.anilist.co/file/anilistcdn/media/manga/cover/medium/bx179185-IcUNBMIuie6W.jpg"
+        },
+        "chapters": null,
+        "status": "RELEASING",
+        "startDate": {
+          "year": 2024
+        }
+      },
+      {
+        "id": 128595,
+        "format": "MANGA",
+        "title": {
+          "romaji": "Wo Bushi Da Mowang",
+          "english": "I'm Not the Overlord!"
+        },
+        "coverImage": {
+          "large": "https://s4.anilist.co/file/anilistcdn/media/manga/cover/medium/bx128595-oH4qOegzupLu.png"
+        },
+        "chapters": 228,
+        "status": "FINISHED",
+        "startDate": {
+          "year": 2020
+        }
+      }
+    ]
+  }
+}
