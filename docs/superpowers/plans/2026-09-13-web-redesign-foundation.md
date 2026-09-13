@@ -542,11 +542,26 @@ export function StatusPill({ status }: { status: ListStatus }) {
 `frontend/src/ui/ProgressBar.tsx` — clamps rather than trusting its inputs, because a provider that reports progress past a stale total would otherwise paint outside its track.
 
 ```tsx
-export function ProgressBar({ value, max, tone = 'secondary' }: { value: number; max: number; tone?: string }) {
+type Tone = 'primary' | 'secondary' | 'tertiary' | 'warning' | 'error'
+
+/**
+ * Tailwind reads source files as text and never evaluates an expression, so a
+ * class built by interpolation generates no rule and the bar renders
+ * uncoloured with the build still passing. The map keeps every class literal.
+ */
+const FILL: Record<Tone, string> = {
+  primary: 'bg-primary',
+  secondary: 'bg-secondary',
+  tertiary: 'bg-tertiary',
+  warning: 'bg-warning',
+  error: 'bg-error',
+}
+
+export function ProgressBar({ value, max, tone = 'secondary' }: { value: number; max: number; tone?: Tone }) {
   const pct = max > 0 ? Math.min(100, Math.max(0, (value / max) * 100)) : 0
   return (
     <div className="h-1 w-full overflow-hidden rounded-full bg-surface-container-highest">
-      <div className={`h-full rounded-full bg-${tone} transition-[width] duration-300`} style={{ width: `${pct}%` }} />
+      <div className={`h-full rounded-full ${FILL[tone]} transition-[width] duration-300`} style={{ width: `${pct}%` }} />
     </div>
   )
 }
