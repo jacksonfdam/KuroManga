@@ -31,6 +31,10 @@ class AutoDownloadIn(BaseModel):
     enabled: bool
 
 
+class ProgressIn(BaseModel):
+    chapter: int
+
+
 LIST_SQL = """
 select s.id, s.canonical_title, s.slug, s.needs_review, s.meta, s.komga_series_id,
        s.auto_download,
@@ -41,7 +45,11 @@ select s.id, s.canonical_title, s.slug, s.needs_review, s.meta, s.komga_series_i
        count(c.id) filter (where c.state in ('queued', 'downloading')) as in_flight,
        count(c.id) filter (where c.state = 'failed') as failed,
        array_remove(array_agg(distinct e.provider), null) as providers,
-       max(e.total_chapters) as total_chapters
+       max(e.total_chapters) as total_chapters,
+       (array_agg(e.status order by e.updated_at desc))[1] as status,
+       coalesce(max(e.user_progress_chapter), 0) as progress,
+       max(e.updated_at) as updated_at,
+       (array_agg(e.raw order by e.updated_at desc))[1] as raw
   from series s
   left join source_mapping m on m.series_id = s.id and m.active
   left join chapter c on c.series_id = s.id
@@ -59,6 +67,43 @@ def _state_of(row: Any) -> str:
     if not row.source_url:
         return "needs_review"
     return "mapped"
+
+
+def _display_fields(raw: dict[str, Any] | None) -> dict[str, Any]:
+    """Score, genres and format are display-only.
+
+    They live in the payload the provider already sent, not in a column of
+    their own — one more column to keep in sync would buy no new behaviour.
+    AniList and MyAnimeList nest the media object under a different key each
+    (`media` vs `node`) and spell genres differently (a plain string list vs a
+    list of {"id", "name"} objects), so each shape is read explicitly instead
+    of guessed at with a chain of `or`.
+    """
+    raw = raw or {}
+    if "node" in raw:  # MyAnimeList: {"node": {...}, "list_status": {...}}
+        node = raw["node"]
+        score = node.get("mean")
+        genres = [g["name"] for g in node.get("genres") or [] if isinstance(g, dict)]
+        media_format = node.get("media_type")
+    elif "media" in raw:  # AniList: {"status": ..., "progress": ..., "media": {...}}
+        node = raw["media"]
+        score = node.get("averageScore")
+        genres = [g for g in node.get("genres") or [] if isinstance(g, str)]
+        media_format = node.get("format")
+    else:
+        # Neither wrapper: a hand-built fixture, or a payload already flattened
+        # to the fields this endpoint cares about.
+        score = raw.get("averageScore") or raw.get("mean")
+        genres = [g["name"] for g in raw.get("genres") or [] if isinstance(g, dict)] or [
+            g for g in raw.get("genres") or [] if isinstance(g, str)
+        ]
+        media_format = raw.get("format") or raw.get("media_type")
+
+    return {
+        "score": float(score) if score is not None else None,
+        "genres": genres,
+        "format": media_format,
+    }
 
 
 @router.get("")
@@ -84,6 +129,10 @@ async def list_series(
             "total_chapters": row.total_chapters,
             "auto_download": row.auto_download,
             "state": _state_of(row),
+            "status": row.status,
+            "progress": row.progress,
+            "updated_at": row.updated_at.isoformat() if row.updated_at else None,
+            **_display_fields(row.raw),
         }
         if state is None or item["state"] == state:
             series.append(item)
@@ -273,3 +322,43 @@ async def research(series_id: int, session: Session) -> dict[str, Any]:
     )
     await session.commit()
     return {"ok": True, "job_id": job_id}
+
+
+@router.post("/{series_id}/progress")
+async def set_progress(series_id: int, body: ProgressIn, session: Session) -> dict[str, Any]:
+    """The forward-only guard is enforced here too, not only in the handler.
+
+    Rejecting a backward chapter before it is even queued means the library
+    screen learns of the refusal immediately, instead of finding out later
+    from a job that failed.
+    """
+    exists = await session.execute(
+        text("select 1 from series where id = :id"), {"id": series_id}
+    )
+    if exists.first() is None:
+        raise HTTPException(status_code=404, detail="series not found")
+
+    # An aggregate with no group-by always returns one row, coalesced to 0, even
+    # when the series has no list_entry yet — so this alone cannot tell "no
+    # rows" apart from "genuinely at chapter 0", which is why existence is
+    # checked separately above.
+    result = await session.execute(
+        text(
+            "select coalesce(max(user_progress_chapter), 0) as current"
+            " from list_entry where series_id = :id"
+        ),
+        {"id": series_id},
+    )
+    current = result.scalar_one()
+    if body.chapter <= current:
+        raise HTTPException(status_code=409, detail="progress cannot move backwards")
+
+    await repo.enqueue(
+        session,
+        JobType.PROGRESS_WRITE,
+        {"series_id": series_id, "chapter": body.chapter},
+        priority=0,
+        series_id=series_id,
+    )
+    await session.commit()
+    return {"progress": body.chapter, "queued": True}

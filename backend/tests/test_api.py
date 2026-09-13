@@ -151,3 +151,60 @@ async def test_integration_health_reports_unauthenticated_for_an_unrefreshable_e
     body = (await client.get("/api/health/integrations")).json()
     states = {item["name"]: item["state"] for item in body["integrations"]}
     assert states["mal"] == "unauthenticated"
+
+
+async def test_series_rows_carry_status_and_progress(client):
+    async with get_sessionmaker()() as session:
+        await session.execute(
+            text(
+                """
+                insert into series (canonical_title, slug, needs_review, meta)
+                values ('Sakamoto Days', 'sakamoto-days', false, '{}'::jsonb)
+                """
+            )
+        )
+        await session.execute(
+            text(
+                """
+                insert into list_entry
+                       (provider, provider_media_id, series_id, status, user_progress_chapter,
+                        total_chapters, synonyms, raw)
+                values ('anilist', '1', 1, 'reading', 164, 200, '[]'::jsonb,
+                        '{"averageScore": 82, "genres": ["Action"], "format": "MANGA"}'::jsonb)
+                """
+            )
+        )
+        await session.commit()
+
+    row = (await client.get("/api/series")).json()[0]
+    assert row["status"] == "reading"
+    assert row["progress"] == 164
+    assert row["score"] == 82
+    assert row["genres"] == ["Action"]
+    assert row["format"] == "MANGA"
+
+
+async def test_progress_cannot_move_backwards(client):
+    async with get_sessionmaker()() as session:
+        await session.execute(
+            text(
+                """
+                insert into series (canonical_title, slug, needs_review, meta)
+                values ('Dandadan', 'dandadan', false, '{}'::jsonb)
+                """
+            )
+        )
+        await session.execute(
+            text(
+                """
+                insert into list_entry
+                       (provider, provider_media_id, series_id, status, user_progress_chapter, synonyms, raw)
+                values ('anilist', '2', 1, 'reading', 140, '[]'::jsonb, '{}'::jsonb)
+                """
+            )
+        )
+        await session.commit()
+
+    response = await client.post("/api/series/1/progress", json={"chapter": 3})
+    assert response.status_code == 409
+    assert (await client.get("/api/series")).json()[0]["progress"] == 140
