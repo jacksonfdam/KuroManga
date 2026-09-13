@@ -1,7 +1,10 @@
 # The downloader is a Go program invoked as a subprocess, so it is built once
 # here and copied into the runtime image.
-FROM golang:1.26-alpine AS downloader
-RUN apk add --no-cache git
+# Same libc family as the runtime image. A musl-built binary copied onto glibc
+# execs into a loader that is not there and reports itself as "not found",
+# despite being present and executable. CGO off keeps it static regardless.
+FROM golang:1.26-bookworm AS downloader
+ENV CGO_ENABLED=0
 RUN go install github.com/elboletaire/manga-downloader@latest
 
 FROM python:3.12-slim
