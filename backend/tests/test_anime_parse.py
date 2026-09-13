@@ -55,9 +55,52 @@ def test_mal_keeps_english_and_synonym_spellings(fixture):
     assert "ヴィンランド・サガ" in entry.synonyms
 
 
-def test_only_the_source_relation_becomes_a_manga_candidate(fixture):
+def test_only_a_source_or_an_adaptation_becomes_a_manga_candidate(fixture):
     """A side story is a different book, and suggesting it is suggesting the wrong one."""
     related = parse_related_manga(fixture("mal_anime_detail.json"))
-    assert [r.media_id for r in related] == ["122763"]
+    assert [r.media_id for r in related] == ["122763", "160000"]
     assert related[0].provider is Provider.MAL
     assert related[0].title == "Kaijuu 8-gou"
+
+
+def test_an_adaptation_is_wanted_as_much_as_a_source(fixture):
+    """An anime original whose manga came second is still a manga to read."""
+    related = parse_related_manga(fixture("mal_anime_detail.json"))
+    assert related[1].relation == "ADAPTATION"
+    assert related[1].title == "Kaijuu 8-gou: Kouhen"
+
+
+def test_an_entry_without_an_id_never_becomes_the_string_none():
+    """"None" would travel as far as PATCH /manga/None/my_list_status before failing."""
+    data = {
+        "MediaListCollection": {
+            "lists": [
+                {
+                    "entries": [
+                        {"status": "COMPLETED", "media": {"id": None,
+                                                          "title": {"romaji": "Ghost"}}},
+                        {
+                            "status": "COMPLETED",
+                            "media": {
+                                "id": 21,
+                                "title": {"romaji": "Vinland Saga"},
+                                "relations": {
+                                    "edges": [
+                                        {
+                                            "relationType": "SOURCE",
+                                            "node": {"id": None, "type": "MANGA",
+                                                     "format": "MANGA",
+                                                     "title": {"romaji": "Ghost Manga"}},
+                                        }
+                                    ]
+                                },
+                            },
+                        },
+                    ]
+                }
+            ]
+        }
+    }
+    entries = parse_anime_list(data)
+    assert [e.media_id for e in entries] == ["21"]
+    assert entries[0].related_manga == []

@@ -286,6 +286,10 @@ def parse_relations(media: dict[str, Any]) -> list[RelatedManga]:
             continue
         if node.get("type") != "MANGA" or node.get("format") not in MANGA_FORMATS:
             continue
+        # str(None) is the string "None", which would travel all the way to a
+        # PATCH /manga/None/my_list_status before anything noticed.
+        if not node.get("id"):
+            continue
         title = node.get("title") or {}
         related.append(
             RelatedManga(
@@ -305,6 +309,8 @@ def parse_anime_list(data: dict[str, Any]) -> list[AnimeEntryDTO]:
     for group in data.get("MediaListCollection", {}).get("lists", []) or []:
         for entry in group.get("entries", []) or []:
             media = entry.get("media") or {}
+            if not media.get("id"):
+                continue
             title = media.get("title") or {}
             synonyms = [s for s in (media.get("synonyms") or []) if s]
             native = title.get("native")
