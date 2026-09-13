@@ -13,6 +13,7 @@ from sqlalchemy import text
 
 from app.api.main import app
 from app.db import get_sessionmaker
+from app.enums import Provider
 
 pytestmark = pytest.mark.asyncio
 
@@ -83,7 +84,7 @@ async def test_series_list_accepts_a_state_filter(client):
 async def test_settings_expose_defaults_and_provider_status(client):
     body = (await client.get("/api/settings")).json()
     assert body["values"]["download_concurrency"]
-    assert set(body["providers"]) == {"mal", "anilist"}
+    assert set(body["providers"]) == {str(provider) for provider in Provider}
 
 
 async def test_settings_reject_unknown_keys_instead_of_storing_them(client):
