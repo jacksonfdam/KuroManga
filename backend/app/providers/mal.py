@@ -19,7 +19,7 @@ TOKEN_URL = "https://myanimelist.net/v1/oauth2/token"
 
 LIST_FIELDS = (
     "list_status,alternative_titles,num_chapters,main_picture,title,"
-    "synopsis,genres,start_date,authors{first_name,last_name}"
+    "synopsis,genres,start_date,authors{first_name,last_name},mean,media_type"
 )
 PAGE_LIMIT = 1000
 

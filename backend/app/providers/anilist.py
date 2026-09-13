@@ -35,6 +35,8 @@ query ($userId: Int) {
           synonyms
           description(asHtml: false)
           genres
+          averageScore
+          format
           startDate { year }
           title { romaji english native }
           coverImage { large }
