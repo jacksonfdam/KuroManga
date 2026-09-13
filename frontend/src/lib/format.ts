@@ -21,6 +21,17 @@ export function formatChapter(value: number): string {
   return Number.isInteger(value) ? String(value) : String(Number(value.toFixed(2)))
 }
 
+// Providers spell this in their own vocabulary (MANGA, ONE_SHOT, manhwa, ...).
+// The screen shows one consistent case regardless of which provider it came from.
+export function formatSeriesFormat(value: string | null): string | null {
+  if (!value) return null
+  return value
+    .toLowerCase()
+    .split('_')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
+}
+
 export function relativeTime(iso: string): string {
   const seconds = Math.round((Date.now() - new Date(iso).getTime()) / 1000)
   const units: [Intl.RelativeTimeFormatUnit, number][] = [

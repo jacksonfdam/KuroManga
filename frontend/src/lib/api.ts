@@ -1,3 +1,5 @@
+import type { ListStatus } from './format'
+
 export type SeriesState = 'mapped' | 'needs_review' | 'downloading' | 'failed'
 
 export interface Series {
@@ -15,6 +17,12 @@ export interface Series {
   total_chapters: number | null
   auto_download: boolean
   state: SeriesState
+  status: ListStatus | null
+  progress: number
+  score: number | null
+  genres: string[]
+  format: string | null
+  updated_at: string | null
 }
 
 export interface Candidate {
@@ -94,6 +102,11 @@ export const api = {
     }),
   research: (id: number) =>
     request<{ ok: boolean }>(`/api/series/${id}/search`, { method: 'POST' }),
+  setProgress: (id: number, chapter: number) =>
+    request<{ progress: number; queued: boolean }>(`/api/series/${id}/progress`, {
+      method: 'POST',
+      body: JSON.stringify({ chapter }),
+    }),
   setAutoDownload: (id: number, enabled: boolean) =>
     request<{ auto_download: boolean; queued: number }>(`/api/series/${id}/auto-download`, {
       method: 'POST',
