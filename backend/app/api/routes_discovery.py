@@ -3,6 +3,7 @@
 import json
 from typing import Annotated, Any
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy import text
@@ -28,7 +29,7 @@ from app.handlers.list_sync import (
 from app.handlers.suggest_build import upsert_suggestion
 from app.providers import get_source
 from app.providers.base import ListEntryDTO, MangaMeta
-from app.providers.tokens import access_token_for
+from app.providers.tokens import NotConnected, access_token_for
 from app.queue import repo
 from app.sources import source_for_url
 from app.text_utils import normalize
@@ -391,6 +392,20 @@ def candidate_payload(candidate: MangaCandidate) -> dict[str, Any]:
     }
 
 
+def error_code(exc: Exception) -> str:
+    """Which of the three things went wrong, as a word the screen can branch on.
+
+    The three ask for different things from the user - authorise the provider,
+    wait a minute, try later - and `detail` is an English sentence from whichever
+    library raised, which no screen should ever have to pattern-match.
+    """
+    if isinstance(exc, NotConnected):
+        return "not_connected"
+    if isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code == 429:
+        return "rate_limited"
+    return "provider_error"
+
+
 async def collapsed_anime(session: AsyncSession) -> list[UnmatchedAnime]:
     return collapse_anime((await session.execute(text(ANIME_ROWS))).all())
 
@@ -450,7 +465,9 @@ async def search_unmatched(anime_id: int, session: Session) -> dict[str, Any]:
         except Exception as exc:  # noqa: BLE001 - one provider down is half an answer
             # Reported rather than swallowed: half a result set that looks whole
             # is how a user concludes a manga does not exist.
-            errors.append({"provider": str(provider), "detail": str(exc)[:300]})
+            errors.append(
+                {"provider": str(provider), "code": error_code(exc), "detail": str(exc)[:300]}
+            )
             continue
         found.extend((provider, meta) for meta in results if meta.title)
 

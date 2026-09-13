@@ -6,6 +6,7 @@ approving one of its results is allowed to decide on the user's behalf.
 
 import json
 
+import httpx
 import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
@@ -17,6 +18,7 @@ from app.enums import ListStatus, Provider
 from app.providers.anilist import parse_manga_search as parse_anilist_search
 from app.providers.base import AnimeEntryDTO, MangaMeta
 from app.providers.mal import parse_manga_search as parse_mal_search
+from app.providers.tokens import NotConnected
 
 pytestmark = pytest.mark.asyncio
 
@@ -264,7 +266,7 @@ async def test_a_provider_that_fails_is_reported_rather_than_silently_dropped(
 ):
     async def refuse(session, provider):
         if provider is Provider.ANILIST:
-            raise RuntimeError("429 Too Many Requests")
+            raise RuntimeError("something went wrong")
         return "token"
 
     monkeypatch.setattr("app.api.routes_discovery.access_token_for", refuse)
@@ -272,7 +274,52 @@ async def test_a_provider_that_fails_is_reported_rather_than_silently_dropped(
     body = (await client.post(f"/api/discovery/unmatched/{anime_id}/search")).json()
 
     assert [e["provider"] for e in body["errors"]] == ["anilist"]
+    assert body["errors"][0]["code"] == "provider_error"
     assert [c["provider"] for c in body["candidates"]] == ["mal", "mal"]
+
+
+async def test_a_disconnected_provider_says_so_and_the_other_still_answers(
+    client, monkeypatch, providers_answer
+):
+    """`not_connected` is a trip to Settings; the other two codes are not."""
+
+    async def refuse(session, provider):
+        if provider is Provider.ANILIST:
+            raise NotConnected("anilist is not connected; authorise it in Settings")
+        return "token"
+
+    monkeypatch.setattr("app.api.routes_discovery.access_token_for", refuse)
+    anime_id = await insert_anime("anilist", "21")
+    body = (await client.post(f"/api/discovery/unmatched/{anime_id}/search")).json()
+
+    assert body["errors"] == [
+        {
+            "provider": "anilist",
+            "code": "not_connected",
+            "detail": "anilist is not connected; authorise it in Settings",
+        }
+    ]
+    assert [c["provider"] for c in body["candidates"]] == ["mal", "mal"]
+
+
+async def test_a_rate_limited_provider_is_told_apart_from_a_broken_one(
+    client, monkeypatch, providers_answer
+):
+    """AniList's 90 a minute is the failure the user can simply wait out."""
+
+    async def refuse(session, provider):
+        if provider is Provider.ANILIST:
+            raise httpx.HTTPStatusError(
+                "429 Too Many Requests",
+                request=httpx.Request("POST", "https://graphql.anilist.co"),
+                response=httpx.Response(429),
+            )
+        return "token"
+
+    monkeypatch.setattr("app.api.routes_discovery.access_token_for", refuse)
+    anime_id = await insert_anime("anilist", "21")
+    body = (await client.post(f"/api/discovery/unmatched/{anime_id}/search")).json()
+    assert body["errors"][0]["code"] == "rate_limited"
 
 
 async def test_the_light_novel_an_anime_was_adapted_from_is_never_offered(
