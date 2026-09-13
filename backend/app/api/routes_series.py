@@ -440,6 +440,27 @@ async def research(series_id: int, session: Session) -> dict[str, Any]:
     return {"ok": True, "job_id": job_id}
 
 
+def chapter_ceiling(total_chapters: int | None, known: int | None) -> int | None:
+    """The highest chapter a progress write may claim, or None when nothing knows.
+
+    The forward-only guard stops progress moving backwards; nothing bounded it
+    upwards, so a mistyped number or a +1 on a stale page was pushed to
+    MyAnimeList and AniList, and no correction to this database takes that back.
+
+    Two numbers can bound it and neither is authoritative alone: the provider's
+    own total_chapters lags a release, and the discovered chapter count is
+    whatever the source had indexed the last time we looked. The higher of the
+    two is the ceiling, so a write is only refused when it is past both.
+
+    An unmapped series with a provider that never stated a total has neither,
+    and this returns None rather than inventing a bound: refusing every write
+    on a series nobody has counted would make the +1 button dead on exactly the
+    entries a user is most likely to be tracking by hand.
+    """
+    candidates = [value for value in (total_chapters, known) if value]
+    return max(candidates) if candidates else None
+
+
 @router.post("/{series_id}/progress")
 async def set_progress(series_id: int, body: ProgressIn, session: Session) -> dict[str, Any]:
     """The forward-only guard is enforced here too, not only in the handler.
@@ -466,14 +487,26 @@ async def set_progress(series_id: int, body: ProgressIn, session: Session) -> di
     # would have partially, correctly, applied.
     result = await session.execute(
         text(
-            "select coalesce(min(user_progress_chapter), 0) as current"
-            " from list_entry where series_id = :id"
+            """
+            select coalesce(min(e.user_progress_chapter), 0) as current,
+                   max(e.total_chapters) as total_chapters,
+                   (select count(*) from chapter where series_id = :id) as known
+              from list_entry e
+             where e.series_id = :id
+            """
         ),
         {"id": series_id},
     )
-    current = result.scalar_one()
-    if forward_only(current, body.chapter) is None:
+    row = result.one()
+    if forward_only(row.current, body.chapter) is None:
         raise HTTPException(status_code=409, detail="progress cannot move backwards")
+
+    ceiling = chapter_ceiling(row.total_chapters, row.known)
+    if ceiling is not None and body.chapter > ceiling:
+        raise HTTPException(
+            status_code=409,
+            detail=f"this series is only known to have {ceiling} chapters",
+        )
 
     queued = await repo.enqueue(
         session,

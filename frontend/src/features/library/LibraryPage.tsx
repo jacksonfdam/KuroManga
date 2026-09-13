@@ -7,7 +7,7 @@ import { StatusTabs } from './StatusTabs'
 import { useLibrary } from './useLibrary'
 
 export function LibraryPage() {
-  const { series, all, loaded, error, status, setStatus, view, setView, query, setQuery, increment, reload, continueReading } =
+  const { series, all, loaded, error, status, setStatus, view, setView, query, setQuery, increment, reload, continueReading, notice } =
     useLibrary()
 
   // Nothing has ever arrived and the request failed: an empty library and an
@@ -50,6 +50,7 @@ export function LibraryPage() {
   return (
     <div className="flex flex-col gap-space-xl">
       {error && <NoticeBar tone="error" text={`Couldn't refresh the library: ${error}`} onRetry={reload} />}
+      {notice && <NoticeBar tone={notice.tone} text={notice.text} />}
       <section className="flex flex-col gap-space-md">
         <div className="flex flex-wrap items-center justify-between gap-space-md rounded-2xl bg-surface-container-low p-2 shadow-card">
           <StatusTabs all={all} status={status} onChange={setStatus} />

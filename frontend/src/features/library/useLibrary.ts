@@ -4,6 +4,7 @@ import { api, type Series } from '../../lib/api'
 import type { ListStatus } from '../../lib/format'
 import { useAsyncData } from '../../lib/useAsyncData'
 import { useJobEvents } from '../../lib/useEvents'
+import { useNotice } from '../../lib/useNotice'
 
 export type View = 'grid' | 'table'
 
@@ -21,6 +22,7 @@ export function useLibrary() {
   const [status, setStatus] = useState<ListStatus | 'all'>('reading')
   const [view, setView] = useState<View>('grid')
   const [query, setQuery] = useState('')
+  const { notice, reportFailure, clear } = useNotice()
 
   const all = useMemo(() => data ?? [], [data])
 
@@ -43,6 +45,7 @@ export function useLibrary() {
       // click happened, discarding any refresh that landed while the request
       // was in flight.
       let previous: Series[] = []
+      clear()
       setData((rows) => {
         previous = rows ?? []
         return (rows ?? []).map((row) => (row.id === id ? { ...row, progress: next } : row))
@@ -51,11 +54,16 @@ export function useLibrary() {
         await api.setProgress(id, next)
       } catch (failure) {
         setData(previous)
+        // The 400ms red flash says the click was refused; it cannot say why.
+        // The refusals this can hit are a chapter past what the series is
+        // known to have and a number that would move a list backwards, and
+        // both read as the button being broken unless the reason is shown.
+        reportFailure(failure)
         throw failure
       }
       reload()
     },
-    [reload, setData],
+    [clear, reload, reportFailure, setData],
   )
 
   const visible = useMemo(
@@ -93,5 +101,6 @@ export function useLibrary() {
     increment,
     reload,
     continueReading,
+    notice,
   }
 }

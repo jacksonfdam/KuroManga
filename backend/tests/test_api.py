@@ -337,3 +337,107 @@ async def test_series_detail_for_a_missing_series_is_a_404(client):
     response = await client.get("/api/series/999999")
     assert response.status_code == 404
     assert response.json() == {"detail": "series not found"}
+
+
+async def _series_with_entry(
+    *,
+    title: str,
+    slug: str,
+    progress: int,
+    total_chapters: int | None,
+    chapters: int,
+) -> None:
+    """One series, one list entry, and `chapters` discovered chapter rows."""
+    async with get_sessionmaker()() as session:
+        await session.execute(
+            text(
+                """
+                insert into series (canonical_title, slug, needs_review, meta)
+                values (:title, :slug, false, '{}'::jsonb)
+                """
+            ),
+            {"title": title, "slug": slug},
+        )
+        await session.execute(
+            text(
+                """
+                insert into list_entry
+                       (provider, provider_media_id, series_id, status, user_progress_chapter,
+                        total_chapters, synonyms, raw)
+                values ('anilist', '9', 1, 'reading', :progress, :total, '[]'::jsonb, '{}'::jsonb)
+                """
+            ),
+            {"progress": progress, "total": total_chapters},
+        )
+        for number in range(1, chapters + 1):
+            await session.execute(
+                text(
+                    """
+                    insert into chapter (series_id, number, state)
+                    values (1, :number, 'known')
+                    """
+                ),
+                {"number": number},
+            )
+        await session.commit()
+
+
+async def _queued_progress_writes() -> int:
+    async with get_sessionmaker()() as session:
+        result = await session.execute(
+            text("select count(*) from job where type = 'progress_write'")
+        )
+        return result.scalar_one()
+
+
+async def test_progress_cannot_run_past_the_chapters_the_series_is_known_to_have(client):
+    """The refusal that matters: this write leaves for MyAnimeList and AniList.
+
+    A mistyped 999 on a 272-chapter series used to answer 200 and queue the
+    push, and nothing in this database can take a remote write back.
+    """
+    await _series_with_entry(
+        title="Chainsaw Man", slug="chainsaw-man", progress=100, total_chapters=190, chapters=272
+    )
+
+    response = await client.post("/api/series/1/progress", json={"chapter": 999})
+
+    assert response.status_code == 409
+    assert "272" in response.json()["detail"]
+    assert await _queued_progress_writes() == 0
+
+
+async def test_the_provider_total_bounds_progress_when_no_chapters_are_discovered_yet(client):
+    """A series whose source has not been indexed still has a stated length."""
+    await _series_with_entry(
+        title="Berserk", slug="berserk", progress=10, total_chapters=374, chapters=0
+    )
+
+    assert (await client.post("/api/series/1/progress", json={"chapter": 375})).status_code == 409
+    assert (await client.post("/api/series/1/progress", json={"chapter": 374})).status_code == 200
+
+
+async def test_the_discovered_count_bounds_progress_when_the_provider_stated_no_total(client):
+    """A releasing series has no total_chapters; what the source indexed does."""
+    await _series_with_entry(
+        title="One Piece", slug="one-piece", progress=1000, total_chapters=None, chapters=1120
+    )
+
+    assert (await client.post("/api/series/1/progress", json={"chapter": 1200})).status_code == 409
+    assert (await client.post("/api/series/1/progress", json={"chapter": 1120})).status_code == 200
+
+
+async def test_progress_is_unbounded_only_when_nothing_knows_how_long_the_series_is(client):
+    """Neither number exists, so there is no ceiling to enforce.
+
+    Refusing here would leave the +1 button dead on exactly the entries a user
+    is most likely to be tracking by hand.
+    """
+    await _series_with_entry(
+        title="Vagabond", slug="vagabond", progress=0, total_chapters=None, chapters=0
+    )
+
+    response = await client.post("/api/series/1/progress", json={"chapter": 327})
+
+    assert response.status_code == 200
+    assert await _queued_progress_writes() == 1
