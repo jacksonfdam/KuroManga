@@ -1,0 +1,38 @@
+#!/bin/sh
+#
+# Strip tool attribution from commit messages.
+#
+# The working agreement is that commits read as the maintainer's own work and
+# that nothing in this repository references the tools used to write it. Several
+# assistants append attribution trailers on their own, without being asked and
+# without it appearing in any message they were given — three such commits
+# reached main before anyone noticed, and removing them afterwards would have
+# meant rewriting the default branch under twelve dependent branches.
+#
+# Catching it here costs nothing and cannot be forgotten.
+#
+# Enable once per clone:
+#     git config core.hooksPath .githooks
+
+set -e
+
+message="$1"
+
+# Only attribution belonging to an assistant. A Co-Authored-By naming a person
+# is a real credit and must survive.
+sed -e '/^[Cc]o-[Aa]uthored-[Bb]y:.*[Cc]laude/d' \
+    -e '/^[Cc]o-[Aa]uthored-[Bb]y:.*@anthropic\.com/d' \
+    -e '/^[Cc]laude-[Ss]ession:/d' \
+    -e '/^Generated with \[Claude Code\]/d' \
+    -e '/^🤖 Generated with/d' \
+    -e '/^https:\/\/claude\.ai\/code\/session_/d' \
+    "$message" > "$message.stripped"
+
+# Collapse the blank lines the removed trailers leave behind, so the message
+# does not end in whitespace where a trailer block used to be.
+awk 'BEGIN { blank = 0 }
+     /^[[:space:]]*$/ { blank++; next }
+     { while (blank > 0) { print ""; blank-- } print }
+     END { }' "$message.stripped" > "$message"
+
+rm -f "$message.stripped"
