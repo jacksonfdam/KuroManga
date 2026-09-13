@@ -179,7 +179,7 @@ export default {
       maxWidth: { canvas: '1440px' },
       boxShadow: {
         card: '0 8px 24px -4px rgba(0, 0, 0, 0.45)',
-        overlay: '0 20px 40px -12px rgba(139, 92, 246, 0.12)',
+        overlay: '0 20px 40px -12px rgba(208, 188, 255, 0.12)',
         glow: '0 8px 20px -2px rgba(208, 188, 255, 0.25)',
       },
     },
