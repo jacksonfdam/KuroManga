@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  # A new push to the same branch makes the previous run irrelevant.
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: manga
+          POSTGRES_PASSWORD: manga
+          POSTGRES_DB: manga
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U manga -d manga"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # A fresh database every run. That is the point: a test module that relies
+      # on another having migrated first passes locally and fails here.
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: manga
+      POSTGRES_PASSWORD: manga
+      POSTGRES_DB: manga
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install
+        run: uv pip install --system -e ".[dev]" alembic
+
+      - name: Lint
+        run: ruff check app/ tests/
+
+      - name: Test
+        run: pytest tests -q
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Audit
+        # Fails the build on a known vulnerability rather than waiting for
+        # someone to run this by hand.
+        run: npm audit --audit-level=high
+
+      - name: Build
+        # Runs tsc first, so this type-checks as well as bundles.
+        run: npm run build
