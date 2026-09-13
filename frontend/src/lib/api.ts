@@ -103,6 +103,17 @@ export interface SettingsPayload {
   library_path: string
 }
 
+// The PUT answers with more than the GET: what was ignored, and whether the
+// worker has to be restarted for the new schedule to be read. It is not a
+// SettingsPayload, and typing it as one is what let the restart flag go
+// unnoticed.
+export interface SettingsSaved {
+  ok: boolean
+  ignored: string[]
+  restart_worker_required: boolean
+  values: Record<string, string>
+}
+
 export interface Integration {
   name: string
   state: 'ok' | 'unauthenticated' | 'unreachable'
@@ -178,7 +189,7 @@ export const api = {
     request<{ ok: boolean }>(`/api/sync/${provider}`, { method: 'POST' }),
   settings: () => request<SettingsPayload>('/api/settings'),
   saveSettings: (values: Record<string, string>) =>
-    request<SettingsPayload>('/api/settings', {
+    request<SettingsSaved>('/api/settings', {
       method: 'PUT',
       body: JSON.stringify({ values }),
     }),

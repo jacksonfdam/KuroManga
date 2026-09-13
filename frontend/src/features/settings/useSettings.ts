@@ -22,6 +22,7 @@ const DEFAULT_VALUES: Record<string, string> = {
 
 export function useSettings() {
   const [draft, setDraft] = useState<Record<string, string>>({})
+  const [restartRequired, setRestartRequired] = useState(false)
   const [integrations, setIntegrations] = useState<Integration[]>([])
   const [saving, setSaving] = useState(false)
   const { notice, report, reportFailure, clear } = useNotice()
@@ -66,11 +67,24 @@ export function useSettings() {
 
   const save = useCallback(() => {
     setSaving(true)
+    // Only the fields that actually changed. The API decides whether a worker
+    // restart is needed from the keys it was sent, so posting the whole draft
+    // claimed a cron change on every save, including saves that touched none.
+    const changed = Object.fromEntries(
+      Object.keys(draft)
+        .filter((key) => draft[key] !== data?.values[key])
+        .map((key) => [key, draft[key]]),
+    )
     api
-      .saveSettings(draft)
+      .saveSettings(changed)
       .then((payload) => {
         setData((current) => (current ? { ...current, values: payload.values } : current))
         setDraft(payload.values)
+        // The cron expressions are read once, when the worker starts its
+        // scheduler. Reporting a plain "Settings saved" for a schedule that
+        // will not run until the next restart is the API telling the truth
+        // and the screen not passing it on.
+        setRestartRequired(payload.restart_worker_required)
         report('Settings saved')
         // comick_url/comick_enabled may have just changed; the Comick card's
         // health state has to catch up to what was actually saved.
@@ -78,7 +92,7 @@ export function useSettings() {
       })
       .catch(reportFailure)
       .finally(() => setSaving(false))
-  }, [draft, refreshIntegrations, report, reportFailure, setData])
+  }, [data, draft, refreshIntegrations, report, reportFailure, setData])
 
   const connect = useCallback(
     async (provider: string) => {
@@ -127,6 +141,7 @@ export function useSettings() {
     reload,
     draft,
     dirty,
+    restartRequired,
     saving,
     notice,
     setField,

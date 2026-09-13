@@ -40,7 +40,7 @@ function SectionHeader({
 }
 
 export function SettingsPage() {
-  const { data, error, reload, draft, dirty, saving, notice, setField, restoreDefaults, save, connect, disconnect, sync, integration } =
+  const { data, error, reload, draft, dirty, restartRequired, saving, notice, setField, restoreDefaults, save, connect, disconnect, sync, integration } =
     useSettings()
 
   // Without this the screen sat on "Loading…" forever: the fetch had no catch
@@ -193,6 +193,12 @@ export function SettingsPage() {
           title="Download Pipeline & Queue Tuning"
           subtitle="Tune async semaphores, batch sizes and automation cron expressions"
         />
+        {restartRequired && (
+          <NoticeBar
+            tone="info"
+            text="Saved. The worker reads these schedules when it starts, so restart it for the new cron to take effect."
+          />
+        )}
         <PipelineFields draft={draft} onChange={setField} />
       </section>
 
