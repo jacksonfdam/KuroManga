@@ -13,6 +13,7 @@ export interface Series {
   in_flight: number
   failed: number
   total_chapters: number | null
+  auto_download: boolean
   state: SeriesState
 }
 
@@ -93,6 +94,11 @@ export const api = {
     }),
   research: (id: number) =>
     request<{ ok: boolean }>(`/api/series/${id}/search`, { method: 'POST' }),
+  setAutoDownload: (id: number, enabled: boolean) =>
+    request<{ auto_download: boolean; queued: number }>(`/api/series/${id}/auto-download`, {
+      method: 'POST',
+      body: JSON.stringify({ enabled }),
+    }),
   download: (id: number, from?: number, to?: number) =>
     request<{ queued: number }>(`/api/series/${id}/download`, {
       method: 'POST',

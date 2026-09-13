@@ -144,7 +144,23 @@ async def reconcile_with_disk(session: AsyncSession, series_id: int, slug: str) 
     return reconciled
 
 
+async def auto_download_enabled(session: AsyncSession, series_id: int) -> bool:
+    result = await session.execute(
+        text("select auto_download from series where id = :id"), {"id": series_id}
+    )
+    row = result.first()
+    return bool(row and row.auto_download)
+
+
 async def queue_missing(ctx: JobContext, series_id: int) -> int:
+    """Queue downloads only for a series the user has opted in.
+
+    Discovery always runs, so the library screen can show what exists; fetching it
+    is a separate decision.
+    """
+    if not await auto_download_enabled(ctx.session, series_id):
+        return 0
+
     result = await ctx.session.execute(
         text(
             """
@@ -185,4 +201,13 @@ async def handle(ctx: JobContext) -> None:
         await ctx.log(f"{reconciled} already in the library (per {source_of_truth})", pct=70)
 
     queued = await queue_missing(ctx, series_id)
-    await ctx.log(f"queued {queued} missing chapters", pct=100)
+    if queued:
+        await ctx.log(f"queued {queued} missing chapters", pct=100)
+    else:
+        missing = await ctx.session.execute(
+            text("select count(*) from chapter where series_id = :id and state = 'known'"),
+            {"id": series_id},
+        )
+        await ctx.log(
+            f"{missing.scalar_one()} chapters missing, waiting for you to ask", pct=100
+        )

@@ -40,6 +40,9 @@ class Series(Base):
     slug: Mapped[str] = mapped_column(String(300), nullable=False, unique=True)
     komga_series_id: Mapped[str | None] = mapped_column(String(100))
     needs_review: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    # Downloading is opt in. Discovery still runs, so the interface can show what
+    # exists before anything is fetched.
+    auto_download: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     meta: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
     created_at: Mapped[datetime] = _now()
 

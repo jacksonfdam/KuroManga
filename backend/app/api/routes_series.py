@@ -27,8 +27,13 @@ class DownloadIn(BaseModel):
     to_chapter: float | None = None
 
 
+class AutoDownloadIn(BaseModel):
+    enabled: bool
+
+
 LIST_SQL = """
 select s.id, s.canonical_title, s.slug, s.needs_review, s.meta, s.komga_series_id,
+       s.auto_download,
        coalesce(m.source_site, '') as source_site,
        coalesce(m.source_url, '') as source_url,
        count(c.id) filter (where c.state = 'downloaded') as downloaded,
@@ -77,6 +82,7 @@ async def list_series(
             "in_flight": row.in_flight,
             "failed": row.failed,
             "total_chapters": row.total_chapters,
+            "auto_download": row.auto_download,
             "state": _state_of(row),
         }
         if state is None or item["state"] == state:
@@ -197,6 +203,39 @@ async def download_range(series_id: int, body: DownloadIn, session: Session) -> 
     )
     await session.commit()
     return {"ok": True, "queued": queued}
+
+
+@router.post("/{series_id}/auto-download")
+async def set_auto_download(
+    series_id: int, body: AutoDownloadIn, session: Session
+) -> dict[str, Any]:
+    """Opt a series in or out of automatic downloading.
+
+    Turning it on queues whatever is already missing; leaving it off means the
+    series is still tracked and discovered, but nothing is fetched until asked.
+    """
+    await session.execute(
+        text("update series set auto_download = :enabled where id = :series_id"),
+        {"enabled": body.enabled, "series_id": series_id},
+    )
+
+    queued = 0
+    if body.enabled:
+        result = await session.execute(
+            text(
+                """
+                select id from chapter
+                 where series_id = :series_id and state = 'known'
+                 order by number
+                """
+            ),
+            {"series_id": series_id},
+        )
+        queued = await queue_batches(
+            session, series_id, [row.id for row in result.all()], priority=0
+        )
+    await session.commit()
+    return {"ok": True, "auto_download": body.enabled, "queued": queued}
 
 
 @router.get("/{series_id}/chapters")

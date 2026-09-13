@@ -126,7 +126,8 @@ match_search(series)
 cron 2h ──> chapter_discover(series)      [somente séries com mapping ativo]
               sources.list_chapters(url) -> upsert chapter (state = known)
               komga.books_of(series)     -> marca existentes como downloaded
-              delta -> enfileira download_batch em lotes (state = queued)
+              delta -> enfileira download_batch SOMENTE se series.auto_download
+                       caso contrário, para aqui e a Biblioteca mostra o que falta
 
 download_batch(capítulos)                 [N em paralelo]
               subprocesso manga-downloader --format cbz, faixa "1-20,22,25-30"
@@ -154,8 +155,17 @@ voltam para a fila num lote menor, de modo que nada é baixado duas vezes. Um ca
 fonte não publica no idioma pedido acaba isolado em lotes cada vez menores até ser marcado
 `skipped`.
 
-A parada em `match_search` é deliberada: mangá novo na lista não baixa sozinho até o usuário
-confirmar o mapeamento uma vez.
+Há duas paradas deliberadas, e ambas existem para que nada saia pela rede sem decisão do
+usuário.
+
+A primeira é `match_search`: mangá novo na lista não baixa sozinho até o usuário confirmar o
+mapeamento uma vez.
+
+A segunda é o download em si. Confirmar o mapeamento diz ao pipeline *o que* a série é, não que
+o acervo inteiro deva ser buscado. A descoberta continua rodando, para que a Biblioteca mostre
+quantos capítulos existem e quantos faltam, mas o download começa quando o usuário pede uma
+faixa ou marca a série como acompanhada (`series.auto_download`). Sem isso, confirmar 45
+mapeamentos enfileirava dezenas de milhares de capítulos de uma vez.
 
 ## Fila, concorrência e falha
 

@@ -16,6 +16,7 @@ export function Library() {
   const [filter, setFilter] = useState<SeriesState | 'all'>('all')
   const [query, setQuery] = useState('')
   const [busy, setBusy] = useState<number | null>(null)
+  const [note, setNote] = useState<string | null>(null)
 
   const load = () => {
     api.series().then(setSeries).catch(() => undefined)
@@ -35,10 +36,33 @@ export function Library() {
     )
   }, [series, filter, query])
 
-  const downloadAll = async (item: Series) => {
+  const [range, setRange] = useState<Record<number, { from: string; to: string }>>({})
+
+  const downloadRange = async (item: Series) => {
+    const bounds = range[item.id] ?? { from: '', to: '' }
     setBusy(item.id)
     try {
-      await api.download(item.id)
+      const result = await api.download(
+        item.id,
+        bounds.from ? Number(bounds.from) : undefined,
+        bounds.to ? Number(bounds.to) : undefined,
+      )
+      setNote(`${item.title}: queued ${result.queued} chapters`)
+      load()
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  const toggleAuto = async (item: Series) => {
+    setBusy(item.id)
+    try {
+      const result = await api.setAutoDownload(item.id, !item.auto_download)
+      setNote(
+        result.auto_download
+          ? `${item.title}: following new chapters, queued ${result.queued}`
+          : `${item.title}: no longer downloading on its own`,
+      )
       load()
     } finally {
       setBusy(null)
@@ -50,8 +74,9 @@ export function Library() {
       <h1>Library</h1>
       <p className="sub">
         {series.length} series tracked · {series.filter((s) => s.state === 'needs_review').length}{' '}
-        waiting on a mapping
+        waiting on a mapping · nothing downloads until you ask
       </p>
+      {note && <div className="panel" style={{ padding: '8px 12px' }}>{note}</div>}
 
       <div className="toolbar">
         {FILTERS.map((option) => (
@@ -101,12 +126,47 @@ export function Library() {
                     }}
                   />
                 </div>
-                <div style={{ marginTop: 'auto', display: 'flex', gap: 6 }}>
+                <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <div style={{ display: 'flex', gap: 4 }}>
+                    <input
+                      style={{ width: '50%' }}
+                      placeholder="from"
+                      inputMode="decimal"
+                      value={range[item.id]?.from ?? ''}
+                      onChange={(event) =>
+                        setRange({
+                          ...range,
+                          [item.id]: { from: event.target.value, to: range[item.id]?.to ?? '' },
+                        })
+                      }
+                    />
+                    <input
+                      style={{ width: '50%' }}
+                      placeholder="to"
+                      inputMode="decimal"
+                      value={range[item.id]?.to ?? ''}
+                      onChange={(event) =>
+                        setRange({
+                          ...range,
+                          [item.id]: { from: range[item.id]?.from ?? '', to: event.target.value },
+                        })
+                      }
+                    />
+                  </div>
+                  <button
+                    className="primary"
+                    disabled={!item.source_url || busy === item.id}
+                    onClick={() => downloadRange(item)}
+                    title="Leave the range empty to fetch every missing chapter"
+                  >
+                    Download {range[item.id]?.from || range[item.id]?.to ? 'range' : 'all missing'}
+                  </button>
                   <button
                     disabled={!item.source_url || busy === item.id}
-                    onClick={() => downloadAll(item)}
+                    onClick={() => toggleAuto(item)}
+                    title="Follow new chapters as the source publishes them"
                   >
-                    Download missing
+                    {item.auto_download ? '\u2713 following new chapters' : 'Follow new chapters'}
                   </button>
                 </div>
               </div>

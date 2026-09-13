@@ -17,8 +17,13 @@ lista (MAL / AniList)  ->  series canônica  ->  você confirma a fonte  ->  cap
 ```
 
 Uma entrada nova entra na tela **Review** e para ali. Você confirma qual mangá do
-site de origem corresponde, uma vez, e a partir daí o cron cuida do resto: descobre
-capítulos novos, calcula o que falta, baixa em paralelo e avisa o Komga.
+site de origem corresponde, uma vez, e a partir daí o pipeline descobre quais
+capítulos existem e mostra na Biblioteca quantos faltam.
+
+**Nada é baixado até você pedir.** Na Biblioteca, cada série tem uma faixa
+(deixe vazia para tudo que falta) e um botão *Follow new chapters*. Só as séries
+que você marca como acompanhadas entram no cron de download; as outras ficam
+catalogadas, sem consumir disco.
 
 ## Subir
 
