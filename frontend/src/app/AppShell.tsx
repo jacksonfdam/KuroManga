@@ -145,7 +145,6 @@ export function AppShell() {
           <NavLink
             key={item.to}
             to={item.to}
-            aria-label={item.label}
             className={({ isActive }) =>
               `flex flex-col items-center gap-0.5 rounded-lg px-space-sm py-space-xs transition-colors ${
                 isActive ? 'text-primary' : 'text-on-surface-variant hover:text-on-surface'
