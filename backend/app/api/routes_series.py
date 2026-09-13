@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import db_session
 from app.enums import JobType
+from app.handlers.batching import queue_batches
 from app.queue import repo
 from app.sources import source_for_url
 
@@ -191,21 +192,9 @@ async def download_range(series_id: int, body: DownloadIn, session: Session) -> 
     result = await session.execute(
         text(f"select id from chapter where {' and '.join(clauses)} order by number"), params
     )
-    queued = 0
-    for row in result.all():
-        job_id = await repo.enqueue(
-            session,
-            JobType.DOWNLOAD_CHAPTER,
-            {"chapter_id": row.id},
-            priority=0,
-            series_id=series_id,
-            dedupe_key=f"download_chapter:{row.id}",
-        )
-        if job_id is not None:
-            await session.execute(
-                text("update chapter set state = 'queued' where id = :id"), {"id": row.id}
-            )
-            queued += 1
+    queued = await queue_batches(
+        session, series_id, [row.id for row in result.all()], priority=0
+    )
     await session.commit()
     return {"ok": True, "queued": queued}
 

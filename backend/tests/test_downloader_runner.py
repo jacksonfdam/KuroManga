@@ -1,6 +1,7 @@
 from decimal import Decimal
 from pathlib import Path
 
+from app.downloader.paths import format_number
 from app.downloader.runner import build_command, looks_unavailable, parse_progress
 
 
@@ -20,20 +21,20 @@ def test_progress_never_exceeds_one_hundred():
     assert parse_progress("999%") == 100.0
 
 
-def test_command_passes_the_chapter_as_a_positional_range():
-    command = build_command("https://mangadex.org/title/abc", Decimal("12"), Path("/tmp/work"))
+def test_command_passes_the_range_as_the_final_argument():
+    command = build_command("https://mangadex.org/title/abc", "12", Path("/tmp/work"))
     assert command[-2:] == ["https://mangadex.org/title/abc", "12"]
     assert "cbz" in command
 
 
 def test_command_writes_into_the_scratch_directory():
-    command = build_command("https://mangadex.org/title/abc", Decimal("1"), Path("/tmp/work"))
+    command = build_command("https://mangadex.org/title/abc", "1", Path("/tmp/work"))
     assert command[command.index("--output-dir") + 1] == "/tmp/work"
 
 
-def test_a_fractional_chapter_keeps_its_fraction_in_the_range():
-    command = build_command("https://mangadex.org/title/abc", Decimal("12.5"), Path("/tmp/work"))
-    assert command[-1] == "12.5"
+def test_a_single_chapter_is_formatted_without_padding():
+    assert format_number(Decimal("12")).lstrip("0") == "12"
+    assert format_number(Decimal("12.5")).lstrip("0") == "12.5"
 
 
 def test_absent_chapters_are_recognised_so_they_are_not_retried():

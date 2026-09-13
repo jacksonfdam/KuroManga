@@ -23,6 +23,7 @@ EDITABLE = {
     settings_store.CRON_PROGRESS_PUSH,
     settings_store.DOWNLOAD_CONCURRENCY,
     settings_store.PER_SOURCE_CONCURRENCY,
+    settings_store.DOWNLOAD_BATCH_SIZE,
     settings_store.AUTO_DOWNLOAD_NEW,
 }
 

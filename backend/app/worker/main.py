@@ -16,6 +16,7 @@ from app.enums import JobType, Provider
 # Importing the handler modules is what registers them.
 from app.handlers import (  # noqa: F401
     chapter_discover,
+    download_batch,
     download_chapter,
     komga_scan,
     list_sync,

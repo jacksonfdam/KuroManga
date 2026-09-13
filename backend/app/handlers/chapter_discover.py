@@ -15,6 +15,7 @@ from app.config import get_settings
 from app.downloader.paths import chapter_path, number_from_filename
 from app.enums import JobType
 from app.handlers.base import JobContext, PermanentError, register
+from app.handlers.batching import queue_batches
 from app.komga import from_settings
 from app.sources import ChapterRef, source_for_url
 
@@ -147,28 +148,14 @@ async def queue_missing(ctx: JobContext, series_id: int) -> int:
     result = await ctx.session.execute(
         text(
             """
-            select id, number from chapter
+            select id from chapter
              where series_id = :series_id and state = 'known'
              order by number
             """
         ),
         {"series_id": series_id},
     )
-    queued = 0
-    for row in result.all():
-        job_id = await ctx.enqueue(
-            JobType.DOWNLOAD_CHAPTER,
-            {"chapter_id": row.id},
-            series_id=series_id,
-            dedupe_key=f"download_chapter:{row.id}",
-        )
-        if job_id is not None:
-            await ctx.session.execute(
-                text("update chapter set state = 'queued' where id = :id"),
-                {"id": row.id},
-            )
-            queued += 1
-    return queued
+    return await queue_batches(ctx.session, series_id, [row.id for row in result.all()])
 
 
 @register(JobType.CHAPTER_DISCOVER)

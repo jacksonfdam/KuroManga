@@ -79,9 +79,10 @@ Enumerações:
 
 - `list_entry.status`: `reading`, `plan_to_read`, `completed`, `on_hold`, `dropped`
 - `chapter.state`: `known`, `queued`, `downloading`, `downloaded`, `failed`, `skipped`
+  (`skipped` é o capítulo que a fonte não publica no idioma pedido; não volta para retry)
 - `job.state`: `pending`, `leased`, `done`, `failed`
-- `job.type`: `list_sync`, `match_search`, `chapter_discover`, `download_chapter`,
-  `komga_scan`, `progress_push`
+- `job.type`: `list_sync`, `match_search`, `chapter_discover`, `download_batch`,
+  `download_chapter`, `komga_scan`, `progress_push`
 
 `chapter.state` é a fonte de verdade do que falta baixar, e é reconciliado contra os books
 do Komga, não contra o disco. Assim, mexer nos arquivos por fora não causa redownload.
@@ -125,11 +126,11 @@ match_search(series)
 cron 2h ──> chapter_discover(series)      [somente séries com mapping ativo]
               sources.list_chapters(url) -> upsert chapter (state = known)
               komga.books_of(series)     -> marca existentes como downloaded
-              delta -> enfileira download_chapter por capítulo (state = queued)
+              delta -> enfileira download_batch em lotes (state = queued)
 
-download_chapter(chapter)                 [N em paralelo]
-              subprocesso manga-downloader --format cbz
-              stdout -> job_event(pct) por linha
+download_batch(capítulos)                 [N em paralelo]
+              subprocesso manga-downloader --format cbz, faixa "1-20,22,25-30"
+              progresso = arquivos escritos sobre total do lote
               injeta ComicInfo.xml, escreve .part, renomeia para o caminho final
               state = downloaded -> enfileira komga_scan (com debounce)
 
@@ -138,8 +139,20 @@ komga_scan    dispara varredura da library, aguarda indexação, casa komga_book
 progress_push lê read-progress do Komga, escreve em MyAnimeList e AniList
 ```
 
-O botão manual da interface enfileira `download_chapter` ou `chapter_discover` com
+O botão manual da interface enfileira `download_batch` ou `chapter_discover` com
 `priority = 0`, à frente dos jobs de cron, sem código adicional.
+
+**Por que em lotes.** O `manga-downloader` lê o índice completo de capítulos da obra a cada
+invocação. Um job por capítulo significava reler setecentas entradas para baixar um arquivo, e
+sob paralelismo o MangaDex passou a responder com erro 400. O binário aceita faixa
+(`1-10,12,15-20`), então um lote custa uma leitura de índice. O tamanho do lote fica em
+`setting` (padrão 20): um job único para a obra inteira seria um lease segurado por horas e
+tudo-ou-nada em caso de falha.
+
+Quando a fonte entrega parte do lote, os capítulos que chegaram são gravados e os que faltaram
+voltam para a fila num lote menor, de modo que nada é baixado duas vezes. Um capítulo que a
+fonte não publica no idioma pedido acaba isolado em lotes cada vez menores até ser marcado
+`skipped`.
 
 A parada em `match_search` é deliberada: mangá novo na lista não baixa sozinho até o usuário
 confirmar o mapeamento uma vez.

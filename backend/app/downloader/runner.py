@@ -37,6 +37,12 @@ class DownloadResult:
     stdout: str
 
 
+@dataclass(frozen=True)
+class BatchResult:
+    paths: list[Path]
+    stdout: str
+
+
 def parse_progress(line: str) -> float | None:
     """Percentage from a progress line, or None when the line carries none."""
     match = PERCENT.search(line)
@@ -59,11 +65,15 @@ def looks_unavailable(output: str) -> bool:
 
 
 def build_command(
-    source_url: str, number: Decimal, output_dir: Path, *, language: str = "en"
+    source_url: str, chapter_range: str, output_dir: Path, *, language: str = "en"
 ) -> list[str]:
-    """`manga-downloader [flags] [url] [ranges]`, with the range as a single chapter."""
+    """`manga-downloader [flags] [url] [ranges]`.
+
+    The range is the whole point of batching: the tool fetches the chapter index
+    once per invocation, so asking for twenty chapters costs one index fetch
+    rather than twenty.
+    """
     settings = get_settings()
-    chapter_range = format_number(number).lstrip("0") or "0"
     return [
         settings.downloader_binary,
         "--language",
@@ -77,15 +87,15 @@ def build_command(
     ]
 
 
-async def download_chapter(
+async def download_range(
     source_url: str,
-    number: Decimal,
+    chapter_range: str,
     work_dir: Path,
     *,
     language: str = "en",
     on_progress: ProgressCallback | None = None,
-) -> DownloadResult:
-    """Run the binary in an empty directory and return the archive it produced.
+) -> BatchResult:
+    """Run the binary in an empty directory and return the archives it produced.
 
     The binary prompts for confirmation when a range is ambiguous, so stdin is
     closed: a prompt then fails immediately instead of hanging until the lease
@@ -95,7 +105,7 @@ async def download_chapter(
     for leftover in work_dir.iterdir():
         shutil.rmtree(leftover) if leftover.is_dir() else leftover.unlink()
 
-    command = build_command(source_url, number, work_dir, language=language)
+    command = build_command(source_url, chapter_range, work_dir, language=language)
     process = await asyncio.create_subprocess_exec(
         *command,
         cwd=work_dir,
@@ -117,16 +127,33 @@ async def download_chapter(
     code = await process.wait()
     output = "\n".join(collected)
 
-    if code != 0:
+    produced = sorted(work_dir.rglob("*.cbz"))
+
+    if code != 0 and not produced:
         tail = "\n".join(collected[-MAX_ERROR_LINES:])
         if looks_unavailable(output):
-            raise ChapterUnavailable(f"chapter {number} unavailable at source: {tail}")
+            raise ChapterUnavailable(f"{chapter_range} unavailable at source: {tail}")
         raise DownloadError(f"downloader exited {code}: {tail}")
 
-    produced = sorted(work_dir.rglob("*.cbz"))
     if not produced:
         if looks_unavailable(output):
-            raise ChapterUnavailable(f"chapter {number} unavailable at source")
+            raise ChapterUnavailable(f"{chapter_range} unavailable at source")
         raise DownloadError(f"downloader produced no cbz file: {output[-2000:]}")
 
-    return DownloadResult(path=produced[0], stdout=output)
+    return BatchResult(paths=produced, stdout=output)
+
+
+async def download_chapter(
+    source_url: str,
+    number: Decimal,
+    work_dir: Path,
+    *,
+    language: str = "en",
+    on_progress: ProgressCallback | None = None,
+) -> DownloadResult:
+    """One chapter, for manual retries. Batching is what the pipeline uses."""
+    chapter_range = format_number(number).lstrip("0") or "0"
+    batch = await download_range(
+        source_url, chapter_range, work_dir, language=language, on_progress=on_progress
+    )
+    return DownloadResult(path=batch.paths[0], stdout=batch.stdout)

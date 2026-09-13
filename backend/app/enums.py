@@ -35,5 +35,6 @@ class JobType(StrEnum):
     MATCH_SEARCH = "match_search"
     CHAPTER_DISCOVER = "chapter_discover"
     DOWNLOAD_CHAPTER = "download_chapter"
+    DOWNLOAD_BATCH = "download_batch"
     KOMGA_SCAN = "komga_scan"
     PROGRESS_PUSH = "progress_push"

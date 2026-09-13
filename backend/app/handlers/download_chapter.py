@@ -6,7 +6,6 @@ scratch folder on the same filesystem and renamed into place, so Komga never
 indexes a half-written file.
 """
 
-import asyncio
 import os
 import re
 from decimal import Decimal
@@ -19,24 +18,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app import settings_store
 from app.config import get_settings
 from app.downloader.comicinfo import ComicInfo, inject
+from app.downloader.limits import source_semaphore
 from app.downloader.paths import chapter_path, series_dir
 from app.downloader.runner import ChapterUnavailable, download_chapter
 from app.enums import JobType
 from app.handlers.base import JobContext, PermanentError, register
 from app.queue import repo
 
-_semaphores: dict[str, asyncio.Semaphore] = {}
-_semaphore_lock = asyncio.Lock()
 SCRATCH_DIR = ".tmp"
 PROGRESS_LOG_STEP = 10.0
-
-
-async def source_semaphore(site: str, limit: int) -> asyncio.Semaphore:
-    """One semaphore per site. Parallelism is fine; parallelism per host is not."""
-    async with _semaphore_lock:
-        if site not in _semaphores:
-            _semaphores[site] = asyncio.Semaphore(limit)
-        return _semaphores[site]
 
 
 async def load_context(session: AsyncSession, chapter_id: int) -> dict[str, Any]:

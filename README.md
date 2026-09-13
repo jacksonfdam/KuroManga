@@ -86,6 +86,12 @@ lease e backoff são exatamente o que um mock erraria.
 As seis fases da spec estão implementadas: infraestrutura, listas, matching,
 download, integração com o Komga e progresso de volta para as listas.
 
+Downloads são feitos em lotes. O `manga-downloader` relê o índice inteiro da obra
+a cada invocação, então um job por capítulo fazia setecentas leituras de índice
+para baixar setecentos arquivos, e o MangaDex passava a responder 400. Um lote
+usa a sintaxe de faixa do binário (`1-20,22,25-30`) e custa uma leitura. O
+tamanho está em Settings, padrão 20.
+
 As flags do binário `manga-downloader` foram conferidas contra o `--help` da versão
 1.9.0 (`--format`, `--language`, `--output-dir`). O comando é montado em
 `app/downloader/runner.py:build_command` e o parse da saída fica no mesmo módulo,

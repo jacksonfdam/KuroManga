@@ -16,6 +16,7 @@ CRON_CHAPTER_DISCOVER = "cron_chapter_discover"
 CRON_PROGRESS_PUSH = "cron_progress_push"
 DOWNLOAD_CONCURRENCY = "download_concurrency"
 PER_SOURCE_CONCURRENCY = "per_source_concurrency"
+DOWNLOAD_BATCH_SIZE = "download_batch_size"
 AUTO_DOWNLOAD_NEW = "auto_download_new"
 
 
@@ -25,6 +26,7 @@ class Defaults:
     cron_chapter_discover: str = "0 */2 * * *"
     cron_progress_push: str = "30 * * * *"
     per_source_concurrency: int = 2
+    download_batch_size: int = 20
     auto_download_new: bool = True
 
 
@@ -43,6 +45,8 @@ def _fallback(key: str) -> str:
             return str(get_settings().download_concurrency)
         case k if k == PER_SOURCE_CONCURRENCY:
             return str(DEFAULTS.per_source_concurrency)
+        case k if k == DOWNLOAD_BATCH_SIZE:
+            return str(DEFAULTS.download_batch_size)
         case k if k == AUTO_DOWNLOAD_NEW:
             return "true" if DEFAULTS.auto_download_new else "false"
         case _:
@@ -90,6 +94,7 @@ async def all_settings(session: AsyncSession) -> dict[str, str]:
         CRON_PROGRESS_PUSH,
         DOWNLOAD_CONCURRENCY,
         PER_SOURCE_CONCURRENCY,
+        DOWNLOAD_BATCH_SIZE,
         AUTO_DOWNLOAD_NEW,
     ]
     return {key: stored.get(key, _fallback(key)) for key in keys}
