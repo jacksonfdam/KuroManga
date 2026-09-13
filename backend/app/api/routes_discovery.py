@@ -500,6 +500,7 @@ async def _load_anime(session: AsyncSession, anime_id: int) -> UnmatchedAnime:
 async def list_unmatched(
     session: Session,
     hidden: Annotated[bool, Query()] = False,
+    q: Annotated[str, Query()] = "",
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> dict[str, Any]:
@@ -508,6 +509,11 @@ async def list_unmatched(
     `hidden=true` answers with what the user hid instead, and nothing else: it is
     the only way back to a row that one click took off a five hundred row list,
     so it has to show every hidden anime, settled since or not.
+
+    `q` filters by title before the page is cut, so `total` counts what matched
+    rather than what exists. Filtering a page in the browser would only ever
+    search the twenty-five rows already loaded, which is not what a search box
+    promises.
     """
     collapsed = await collapsed_anime(session)
     if hidden:
@@ -524,6 +530,7 @@ async def list_unmatched(
             if not anime.hidden
             and not any((str(m.provider), m.media_id) in settled for m in anime.members)
         ]
+    items = [anime for anime in items if anime.matches(q)]
     # Alphabetical, because five hundred rows paged by offset are only navigable
     # if the same anime is always on the same page.
     items.sort(key=lambda a: normalize(a.title_english or a.title_romaji or ""))

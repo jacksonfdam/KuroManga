@@ -75,6 +75,15 @@ class UnmatchedAnime:
         """Romaji first: it is the spelling both providers index a manga under."""
         return self.title_romaji or self.title_english or ""
 
+    def matches(self, query: str) -> bool:
+        """Is this anime known by a name holding that? Empty matches everything.
+
+        The same `normalize` the fold groups by, so the filter and the grouping
+        agree about what one title is: punctuation and case decide nothing.
+        """
+        needle = normalize(query)
+        return not needle or any(needle in normalize(title) for title in self.search_titles)
+
     @property
     def providers(self) -> list[str]:
         return [str(member.provider) for member in self.members]

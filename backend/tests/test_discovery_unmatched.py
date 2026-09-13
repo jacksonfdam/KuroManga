@@ -340,6 +340,49 @@ async def test_the_list_pages(client):
     assert len(body["items"]) == 1
 
 
+async def test_the_filter_matches_a_synonym_and_the_total_counts_what_matched(client):
+    """Reaching one row of seven hundred means asking the server, not the page.
+
+    A filter over the twenty-five rows already loaded would look like a search
+    box and answer for a thirtieth of the list.
+    """
+    await insert_anime("anilist", "21", romaji="Vinland Saga", english="Vinland Saga")
+    await insert_anime(
+        "anilist",
+        "1735",
+        romaji="Tokidoki Bosotto Rossiya-go de Dereru Tonari no Alya-san",
+        english="Alya Sometimes Hides Her Feelings in Russian",
+        synonyms=["Roshidere"],
+    )
+
+    body = (await client.get("/api/discovery/unmatched?q=roshidere")).json()
+    assert body["total"] == 1
+    assert [a["media_id"] for a in body["items"]] == ["1735"]
+    assert (await client.get("/api/discovery/unmatched?q=berserk")).json() == {
+        "total": 0,
+        "items": [],
+    }
+
+
+async def test_the_filter_folds_case_and_punctuation_the_way_the_grouping_does(client):
+    """One notion of what makes two titles the same, not a second one for the box."""
+    await insert_anime("anilist", "116589", romaji="86: Eighty Six", english="86 EIGHTY-SIX")
+    await insert_anime("anilist", "21", romaji="Vinland Saga", english="Vinland Saga")
+
+    body = (await client.get("/api/discovery/unmatched?q=eighty-six")).json()
+    assert body["total"] == 1
+    assert [a["media_id"] for a in body["items"]] == ["116589"]
+
+
+async def test_the_filter_is_applied_before_the_page_is_cut(client):
+    for media_id, title in (("21", "Vinland Saga"), ("22", "Berserk"), ("23", "Vinland Saga 2")):
+        await insert_anime("anilist", media_id, romaji=title, english=title)
+
+    body = (await client.get("/api/discovery/unmatched?q=vinland&limit=1")).json()
+    assert body["total"] == 2
+    assert len(body["items"]) == 1
+
+
 async def test_a_search_merges_a_manga_both_providers_know_into_one_candidate(
     client, providers_answer
 ):
