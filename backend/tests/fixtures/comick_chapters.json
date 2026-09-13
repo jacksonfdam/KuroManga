@@ -1,9 +1,24 @@
 {
-  "source": "asurascan",
-  "totalChapters": 3,
+  "source": "WeebCentral",
+  "totalChapters": 139,
   "chapters": [
-    {"id": "c1", "number": 1, "title": "Normandy", "url": "https://asuracomic.net/series/vs/chapter/1"},
-    {"id": "c2", "number": 2.5, "title": null, "url": "https://asuracomic.net/series/vs/chapter/2-5"},
-    {"id": "c3", "number": 0, "title": "Prologue", "url": "https://asuracomic.net/series/vs/chapter/prologue"}
+    {
+      "id": "1",
+      "number": 1,
+      "title": "Episode 1",
+      "url": "https://weebcentral.com/chapters/01J76XYYRPD6MW53E6Y89K3NY5"
+    },
+    {
+      "id": "2",
+      "number": 2,
+      "title": "Episode 2",
+      "url": "https://weebcentral.com/chapters/01J76XYYRPDPNZ7RPS5BNXF4FB"
+    },
+    {
+      "id": "3",
+      "number": 3,
+      "title": "Episode 3",
+      "url": "https://weebcentral.com/chapters/01J76XYYRP7EKHHFDHC228P8VC"
+    }
   ]
 }

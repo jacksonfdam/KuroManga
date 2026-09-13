@@ -9,7 +9,7 @@ from sqlalchemy import text
 
 from app.db import get_sessionmaker
 from app.enums import ListStatus, Provider
-from app.handlers.anime_list_sync import needs_mal_relations, upsert_anime
+from app.handlers.anime_list_sync import upsert_anime
 from app.providers.base import AnimeEntryDTO, RelatedManga
 
 pytestmark = pytest.mark.asyncio
@@ -63,12 +63,3 @@ async def test_syncing_twice_updates_instead_of_duplicating():
         await session.commit()
         rows = (await session.execute(text("select progress_episode from anime_entry"))).all()
     assert [r.progress_episode for r in rows] == [25]
-
-
-async def test_mal_entries_without_relations_are_the_ones_worth_a_detail_request():
-    async with get_sessionmaker()() as session:
-        await upsert_anime(session, dto(provider=Provider.MAL, media_id="99", related=[]))
-        await upsert_anime(session, dto(provider=Provider.MAL, media_id="21"))
-        await session.commit()
-        pending = await needs_mal_relations(session)
-    assert pending == ["99"]

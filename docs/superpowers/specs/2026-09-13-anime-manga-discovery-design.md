@@ -46,7 +46,7 @@ Out:
 resolving an anime to a manga costs no request beyond what would be made anyway. MyAnimeList has
 `related_manga`, but only in each anime's detail (`/anime/{id}`), one request per title. Fetching
 that detail only for what AniList did not resolve turns a preference for accuracy into saved
-requests.
+requests. **This fallback was removed after shipping — see "As built" below.**
 
 **Its own subsystem, not an extension of what exists.** A suggestion is not a series. Keeping
 suggestions in `series` behind a flag would force every Library, downloader and Komga query to carry
@@ -220,15 +220,17 @@ Completed would zero the chapter read on the way back.
 A `comick` service in `docker-compose.yml`, from the repository's image, with no environment
 variable. A new setting, `COMICK_API_URL`, default `http://comick:3000`.
 
-`app/sources/comick_client.py` is pure HTTP — `search(query, sources)`, `chapters(url, source)`,
+`app/sources/comick_client.py` is pure HTTP — `search(query, source)`, `chapters(url, source)`,
 `sources()`, `health()` — testable from fixtures like the other clients.
 
-The registered sources come out of the intersection between what comick knows how to search and what
-`manga-downloader` knows how to download. The initial set is **asurascan** and **weebcentral**: they
-are in both catalogues and they are the two comick already proxies through `/api/proxy/html`. Each
-one becomes a `Source` registered by a parameterised subclass `ComickSource(site, domains)`, so that
-`source_for_url` keeps resolving a hand-pasted URL and `download_chapter` does not change a line.
-Adding a third site later is one entry in the registration table.
+The registered sources come out of the intersection between what comick can search *server-side* and
+what `manga-downloader` knows how to download. comick also proxies asurascan through
+`/api/proxy/html`, but asurascan is flagged `clientOnly` and, checked against the running service,
+its scrape returns zero results outside a browser — it only works through the companion userscript,
+which this pipeline does not run. The registered set is **weebcentral** alone. It becomes a `Source`
+registered by a parameterised subclass `ComickSource(site, domains)`, so that `source_for_url` keeps
+resolving a hand-pasted URL and `download_chapter` does not change a line. Adding a site later is one
+entry in the registration table, and only once its scrape works from the server.
 
 MangaDex stays preferred on the tie-break: a documented API, reliable chapter numbering and personal
 authentication already configured.
@@ -304,6 +306,29 @@ enqueue `CHAPTER_DISCOVER`.
 Written after the implementation (branch `feat/anime-manga-discovery`, PR #19), with the design above
 left intact: that is the record of what was decided, this section is the record of what was built.
 Where the two disagree, this section holds.
+
+### MyAnimeList's fallback was built, then removed: it cannot work
+
+The fallback described above shipped as designed: `ANIME_LIST_SYNC` called
+`/v2/anime/{id}?fields=related_manga` once for every MyAnimeList anime AniList had not already
+resolved. Nobody had checked that endpoint against the live API first. After a completed sync the
+database held 970 MyAnimeList anime rows and 0 with a relation, so it was checked directly:
+
+```
+GET /v2/anime/21?fields=related_manga          -> {"id":21,"title":"One Piece","related_manga":[]}
+GET /v2/anime/37521?fields=related_manga       -> related_manga: []
+GET /v2/anime/37521?fields=id,title,related_manga{node{id,title}},related_anime
+                                               -> related_manga: [], related_anime: 2 entries
+```
+
+One Piece and the other title both obviously have a source manga, and the request syntax itself
+works — the same nested-field form returns real data for `related_anime` on the same call. MyAnimeList's
+v2 API simply never populates `related_manga` on the anime endpoint; that field only ever links manga
+to manga, not anime to manga. The fallback was pure cost: about 970 requests against the user's
+account every twelve hours, for zero relations, ever. It was removed (`fetch_related_manga`,
+`parse_related_manga`, `needs_mal_relations`, and the per-anime branch in `ANIME_LIST_SYNC`) rather
+than kept dormant, so nobody spends a future cycle re-adding it on the same assumption. Reading the
+MyAnimeList anime list itself is unaffected — only the relation lookup was dead.
 
 ### Approval resolves before it creates
 
@@ -395,6 +420,24 @@ renews the lease per unit (one seed; twenty anime).
 - `source_summary` omits the keys it did not find instead of writing them null. The upsert merges
   `meta` shallowly, so a cycle with MangaDex down would erase the UUID the status write depends on.
 
+### comick's search contract is `source`, singular, and a flat list
+
+The fixtures this was first built against were invented rather than recorded against the pinned
+service, and got the contract wrong in two ways: the client sent `{"query", "sources": [...]}`
+(plural) instead of `{"query", "source": "<one id>"}`, and the parser expected `results` to be
+per-source groups holding a `manga` list. Neither shape exists. A single `source` gets back a flat
+`results` list for that scraper; the grouped, `manga`-keyed NDJSON shape only appears when `source`
+is omitted or `"all"` — a branch this client never takes on purpose. With the plural key, `source`
+was always undefined server-side, the endpoint always took the streaming branch, and
+`payload["results"]` never matched what `parse_search` looked for: comick contributed zero
+candidates, silently, and the tests never caught it because they were checked against the same
+invented shape. Fixed by sending singular `source` and reading `results` flat; the fixtures were
+re-recorded from the live service.
+
+Checking the live service also settled which sites belong in `SITES`: asurascan is registered on
+comick but answers with an empty `results` list for every query run from the server, because its
+scrape only runs through a browser userscript. It is not in `SITES`, see above.
+
 ### comick pinned to a commit
 
 The design says "from the repository's image". `docker-compose.yml` pins
@@ -409,12 +452,10 @@ all, and the reused provider row said "signed in".
 ### Known gaps
 
 - The format filter (`LIGHT_NOVEL`, `NOVEL`, `ONE_SHOT` out) only works on AniList, whose edges carry
-  `format`. MyAnimeList's `related_manga` carries no media type, so on a MAL-only account a light
-  novel can become a suggestion.
+  `format`. MyAnimeList exposes no anime→manga relation at all (see "As built" above), so a MAL-only
+  account gets no automatic suggestions, filtered or not.
 - A suggestion that has stopped being a suggestion — the manga was added by hand on the provider —
   stays `new`, because the rebuild never touches `state`. The card sits there and the badge
   overcounts.
-- A MyAnimeList anime with no manga at all is queried again every cycle, because the criterion for
-  "still to fetch" is an empty `related_manga`.
 
-Those three, and the smaller ones, are in issue #21.
+That one, and the smaller ones, are in issue #21.

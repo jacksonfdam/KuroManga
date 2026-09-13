@@ -1,6 +1,6 @@
 from app.enums import ListStatus, Provider
 from app.providers.anilist import parse_anime_list
-from app.providers.mal import parse_anime_page, parse_related_manga
+from app.providers.mal import parse_anime_page
 
 
 def test_anilist_reads_episode_progress_not_chapter_progress(fixture):
@@ -53,21 +53,6 @@ def test_mal_keeps_english_and_synonym_spellings(fixture):
     assert entry.title_english == "Vinland Saga"
     assert "VS" in entry.synonyms
     assert "ヴィンランド・サガ" in entry.synonyms
-
-
-def test_only_a_source_or_an_adaptation_becomes_a_manga_candidate(fixture):
-    """A side story is a different book, and suggesting it is suggesting the wrong one."""
-    related = parse_related_manga(fixture("mal_anime_detail.json"))
-    assert [r.media_id for r in related] == ["122763", "160000"]
-    assert related[0].provider is Provider.MAL
-    assert related[0].title == "Kaijuu 8-gou"
-
-
-def test_an_adaptation_is_wanted_as_much_as_a_source(fixture):
-    """An anime original whose manga came second is still a manga to read."""
-    related = parse_related_manga(fixture("mal_anime_detail.json"))
-    assert related[1].relation == "ADAPTATION"
-    assert related[1].title == "Kaijuu 8-gou: Kouhen"
 
 
 def test_an_entry_without_an_id_never_becomes_the_string_none():
