@@ -5,8 +5,6 @@ would get wrong, so these run against the database rather than a fake.
 """
 
 import asyncio
-import subprocess
-import sys
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -17,13 +15,6 @@ from app.enums import JobType
 from app.queue import repo
 
 pytestmark = pytest.mark.asyncio
-
-
-@pytest.fixture(scope="session", autouse=True)
-def schema():
-    subprocess.run(
-        [sys.executable, "-m", "alembic", "upgrade", "head"], check=True, capture_output=True
-    )
 
 
 @pytest.fixture(autouse=True)
