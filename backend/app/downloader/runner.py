@@ -58,8 +58,10 @@ def looks_unavailable(output: str) -> bool:
     )
 
 
-def build_command(source_url: str, number: Decimal, *, language: str = "en") -> list[str]:
-    """Arguments are positional: the manga URL, then the chapter range."""
+def build_command(
+    source_url: str, number: Decimal, output_dir: Path, *, language: str = "en"
+) -> list[str]:
+    """`manga-downloader [flags] [url] [ranges]`, with the range as a single chapter."""
     settings = get_settings()
     chapter_range = format_number(number).lstrip("0") or "0"
     return [
@@ -68,6 +70,8 @@ def build_command(source_url: str, number: Decimal, *, language: str = "en") -> 
         language,
         "--format",
         "cbz",
+        "--output-dir",
+        str(output_dir),
         source_url,
         chapter_range,
     ]
@@ -83,18 +87,19 @@ async def download_chapter(
 ) -> DownloadResult:
     """Run the binary in an empty directory and return the archive it produced.
 
-    Running with the working directory set to a scratch folder means the output
-    lands where we expect regardless of which output flag the binary version
-    supports.
+    The binary prompts for confirmation when a range is ambiguous, so stdin is
+    closed: a prompt then fails immediately instead of hanging until the lease
+    expires.
     """
     work_dir.mkdir(parents=True, exist_ok=True)
     for leftover in work_dir.iterdir():
         shutil.rmtree(leftover) if leftover.is_dir() else leftover.unlink()
 
-    command = build_command(source_url, number, language=language)
+    command = build_command(source_url, number, work_dir, language=language)
     process = await asyncio.create_subprocess_exec(
         *command,
         cwd=work_dir,
+        stdin=asyncio.subprocess.DEVNULL,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.STDOUT,
     )
