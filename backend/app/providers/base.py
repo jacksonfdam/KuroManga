@@ -42,6 +42,36 @@ class ListEntryDTO:
 
 
 @dataclass(frozen=True)
+class RelatedManga:
+    """A manga a provider says an anime adapts, or is adapted from."""
+
+    provider: Provider
+    media_id: str
+    relation: str
+    title: str
+    format: str | None = None
+
+
+@dataclass(frozen=True)
+class AnimeEntryDTO:
+    provider: Provider
+    media_id: str
+    status: ListStatus
+    title_romaji: str | None = None
+    title_english: str | None = None
+    synonyms: list[str] = field(default_factory=list)
+    progress_episode: int = 0
+    total_episodes: int | None = None
+    cover_url: str | None = None
+    related_manga: list[RelatedManga] = field(default_factory=list)
+    raw: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def display_title(self) -> str:
+        return self.title_english or self.title_romaji or f"{self.provider}:{self.media_id}"
+
+
+@dataclass(frozen=True)
 class TokenSet:
     access_token: str
     refresh_token: str | None = None
@@ -73,3 +103,11 @@ class ListSource(ABC):
     async def refresh(self, refresh_token: str) -> TokenSet | None:
         """Renew an expiring token. None when the provider does not support it."""
         return None
+
+    async def fetch_anime_list(self, access_token: str) -> list["AnimeEntryDTO"]:
+        """Every anime entry on the authenticated user's list, relations included."""
+        return []
+
+    async def set_status(self, access_token: str, media_id: str, status: ListStatus) -> None:
+        """Write the manga's list status, creating the entry when it is absent."""
+        raise NotImplementedError

@@ -7,7 +7,7 @@ import httpx
 
 from app.config import get_settings
 from app.enums import ListStatus, Provider
-from app.providers.base import ListEntryDTO, ListSource, TokenSet
+from app.providers.base import AnimeEntryDTO, ListEntryDTO, ListSource, RelatedManga, TokenSet
 
 API_URL = "https://graphql.anilist.co"
 AUTHORIZE_URL = "https://anilist.co/api/v2/oauth/authorize"
@@ -39,6 +39,46 @@ query ($userId: Int) {
           title { romaji english native }
           coverImage { large }
           staff(perPage: 4) { edges { role node { name { full } } } }
+        }
+      }
+    }
+  }
+}
+"""
+
+ANIME_STATUS_MAP = {
+    "CURRENT": ListStatus.READING,
+    "REPEATING": ListStatus.READING,
+    "PLANNING": ListStatus.PLAN_TO_READ,
+    "COMPLETED": ListStatus.COMPLETED,
+    "PAUSED": ListStatus.ON_HOLD,
+    "DROPPED": ListStatus.DROPPED,
+}
+
+# Formats that can actually be read as a manga. NOVEL and ONE_SHOT are relations
+# too, and suggesting either would be suggesting something that does not exist.
+MANGA_FORMATS = {"MANGA", "MANHWA", "MANHUA", "OEL"}
+WANTED_RELATIONS = {"SOURCE", "ADAPTATION"}
+
+ANIME_LIST_QUERY = """
+query ($userId: Int) {
+  MediaListCollection(userId: $userId, type: ANIME) {
+    lists {
+      entries {
+        status
+        progress
+        media {
+          id
+          episodes
+          synonyms
+          title { romaji english native }
+          coverImage { large }
+          relations {
+            edges {
+              relationType
+              node { id type format title { romaji english } }
+            }
+          }
         }
       }
     }
@@ -83,6 +123,11 @@ class AniListSource(ListSource):
         user_id, _ = await self.viewer(access_token)
         data = await self._post(access_token, LIST_QUERY, {"userId": user_id})
         return list(parse_list(data))
+
+    async def fetch_anime_list(self, access_token: str) -> list[AnimeEntryDTO]:
+        user_id, _ = await self.viewer(access_token)
+        data = await self._post(access_token, ANIME_LIST_QUERY, {"userId": user_id})
+        return parse_anime_list(data)
 
     async def push_progress(self, access_token: str, media_id: str, chapter: int) -> None:
         await self._post(
@@ -159,6 +204,56 @@ def parse_list(data: dict[str, Any]) -> list[ListEntryDTO]:
                     progress_chapter=int(entry.get("progress") or 0),
                     total_chapters=media.get("chapters"),
                     cover_url=(media.get("coverImage") or {}).get("large"),
+                    raw=entry,
+                )
+            )
+    return entries
+
+
+def parse_relations(media: dict[str, Any]) -> list[RelatedManga]:
+    related: list[RelatedManga] = []
+    for edge in ((media.get("relations") or {}).get("edges") or []):
+        node = edge.get("node") or {}
+        if edge.get("relationType") not in WANTED_RELATIONS:
+            continue
+        if node.get("type") != "MANGA" or node.get("format") not in MANGA_FORMATS:
+            continue
+        title = node.get("title") or {}
+        related.append(
+            RelatedManga(
+                provider=Provider.ANILIST,
+                media_id=str(node.get("id")),
+                relation=edge["relationType"],
+                title=title.get("romaji") or title.get("english") or "",
+                format=node.get("format"),
+            )
+        )
+    return related
+
+
+def parse_anime_list(data: dict[str, Any]) -> list[AnimeEntryDTO]:
+    """Pure parser, so the shape of an AniList anime response is testable from a fixture."""
+    entries: list[AnimeEntryDTO] = []
+    for group in data.get("MediaListCollection", {}).get("lists", []) or []:
+        for entry in group.get("entries", []) or []:
+            media = entry.get("media") or {}
+            title = media.get("title") or {}
+            synonyms = [s for s in (media.get("synonyms") or []) if s]
+            native = title.get("native")
+            if native:
+                synonyms.append(native)
+            entries.append(
+                AnimeEntryDTO(
+                    provider=Provider.ANILIST,
+                    media_id=str(media.get("id")),
+                    status=ANIME_STATUS_MAP.get(entry.get("status", ""), ListStatus.PLAN_TO_READ),
+                    title_romaji=title.get("romaji"),
+                    title_english=title.get("english"),
+                    synonyms=synonyms,
+                    progress_episode=int(entry.get("progress") or 0),
+                    total_episodes=media.get("episodes"),
+                    cover_url=(media.get("coverImage") or {}).get("large"),
+                    related_manga=parse_relations(media),
                     raw=entry,
                 )
             )

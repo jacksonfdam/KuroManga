@@ -1,0 +1,60 @@
+{
+  "MediaListCollection": {
+    "lists": [
+      {
+        "entries": [
+          {
+            "status": "COMPLETED",
+            "progress": 24,
+            "media": {
+              "id": 21,
+              "episodes": 24,
+              "synonyms": ["VS"],
+              "title": {"romaji": "Vinland Saga", "english": "Vinland Saga", "native": "ヴィンランド・サガ"},
+              "coverImage": {"large": "https://img/vs.jpg"},
+              "relations": {
+                "edges": [
+                  {
+                    "relationType": "SOURCE",
+                    "node": {"id": 3000, "type": "MANGA", "format": "MANGA",
+                             "title": {"romaji": "Vinland Saga", "english": "Vinland Saga"}}
+                  },
+                  {
+                    "relationType": "SEQUEL",
+                    "node": {"id": 22, "type": "ANIME", "format": "TV",
+                             "title": {"romaji": "Vinland Saga Season 2", "english": null}}
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "status": "CURRENT",
+            "progress": 5,
+            "media": {
+              "id": 40,
+              "episodes": null,
+              "synonyms": [],
+              "title": {"romaji": "Mushoku Tensei", "english": null, "native": "無職転生"},
+              "coverImage": {"large": "https://img/mt.jpg"},
+              "relations": {
+                "edges": [
+                  {
+                    "relationType": "SOURCE",
+                    "node": {"id": 4000, "type": "MANGA", "format": "NOVEL",
+                             "title": {"romaji": "Mushoku Tensei (LN)", "english": null}}
+                  },
+                  {
+                    "relationType": "ADAPTATION",
+                    "node": {"id": 4001, "type": "MANGA", "format": "MANGA",
+                             "title": {"romaji": "Mushoku Tensei", "english": "Jobless Reincarnation"}}
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      }
+    ]
+  }
+}
