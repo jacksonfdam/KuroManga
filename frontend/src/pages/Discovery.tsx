@@ -23,8 +23,15 @@ function reasonOf(suggestion: Suggestion): string {
   return `de ${origin_title}, ${watched}${beyond}`
 }
 
+function whenOf(at?: string): string {
+  if (!at) return ''
+  const stamp = new Date(at)
+  return Number.isNaN(stamp.getTime()) ? '' : ` (${stamp.toLocaleString()})`
+}
+
 export function Discovery({ onChanged }: { onChanged: () => void }) {
   const [items, setItems] = useState<Suggestion[]>([])
+  const [writeFailures, setWriteFailures] = useState<Suggestion[]>([])
   const [choice, setChoice] = useState<Record<number, { status: ListStatusValue; download: boolean }>>({})
   const [busy, setBusy] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -32,6 +39,12 @@ export function Discovery({ onChanged }: { onChanged: () => void }) {
 
   const load = () => {
     api.suggestions('new').then(setItems).catch((e) => setError(String(e)))
+    // The card is gone by the time LIST_WRITE finishes, so a rejected status or a
+    // stale token would otherwise never reach the user.
+    api
+      .suggestions('added')
+      .then((added) => setWriteFailures(added.filter((s) => s.write_results.some((r) => !r.ok))))
+      .catch((e) => setError(String(e)))
   }
 
   useEffect(load, [])
@@ -91,6 +104,23 @@ export function Discovery({ onChanged }: { onChanged: () => void }) {
       </header>
       {error && <p className="row-error">{error}</p>}
       {notice && <p className="notice">{notice}</p>}
+      {writeFailures.length > 0 && (
+        <div className="panel">
+          <h2>Status não gravado em todas as listas</h2>
+          {writeFailures.map((item) => (
+            <p key={item.id} className="row-error">
+              {item.title} —{' '}
+              {item.write_results
+                .filter((result) => !result.ok)
+                .map(
+                  (result) =>
+                    `${result.target}: ${result.error ?? 'falha sem detalhe'}${whenOf(result.at)}`,
+                )
+                .join(' · ')}
+            </p>
+          ))}
+        </div>
+      )}
       {items.length === 0 && <p className="empty">Nada novo. A lista de anime já virou mangá.</p>}
       <div className="grid">
         {items.map((item) => (

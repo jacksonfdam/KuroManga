@@ -1,6 +1,7 @@
 """Writing the chosen status outward, one independent target at a time."""
 
 import json
+from datetime import datetime
 
 import pytest
 from sqlalchemy import text
@@ -199,3 +200,12 @@ async def test_results_accumulate_on_the_suggestion():
     results = {r["target"]: r for r in meta["write_results"]}
     assert results["anilist"]["ok"] is True
     assert results["mal"]["error"] == "boom"
+
+
+async def test_a_result_is_stamped_so_a_stale_failure_is_recognisable():
+    async with get_sessionmaker()() as session:
+        suggestion_id = await insert_suggestion(session)
+        await record_result(session, suggestion_id, "mal", ok=False, error="boom")
+        await session.commit()
+    results = await write_results_of(suggestion_id)
+    assert datetime.fromisoformat(results["mal"]["at"]).tzinfo is not None

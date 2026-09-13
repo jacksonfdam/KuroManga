@@ -6,6 +6,7 @@ is what makes repeating it free.
 """
 
 import json
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import text
@@ -63,7 +64,17 @@ async def record_result(
         {
             "id": suggestion_id,
             "target": target,
-            "result": json.dumps([{"target": target, "ok": ok, "error": error}]),
+            # `at` is what tells a failure the user already saw apart from a fresh one.
+            "result": json.dumps(
+                [
+                    {
+                        "target": target,
+                        "ok": ok,
+                        "error": error,
+                        "at": datetime.now(UTC).isoformat(),
+                    }
+                ]
+            ),
         },
     )
 
