@@ -15,10 +15,14 @@ export function NoticeBar({
   tone = 'info',
   text,
   onRetry,
+  actionLabel = 'Retry',
 }: {
   tone?: 'info' | 'error'
   text: string
   onRetry?: () => void
+  /** Named when the action is not a retry — "Undo" on a notice that reports a
+      change the user may have made by mistake. */
+  actionLabel?: string
 }) {
   return (
     <div
@@ -27,8 +31,13 @@ export function NoticeBar({
     >
       <span>{text}</span>
       {onRetry && (
-        <Button variant="surface" size="sm" icon="sync" onClick={onRetry}>
-          Retry
+        <Button
+          variant="surface"
+          size="sm"
+          icon={actionLabel === 'Retry' ? 'sync' : undefined}
+          onClick={onRetry}
+        >
+          {actionLabel}
         </Button>
       )}
     </div>

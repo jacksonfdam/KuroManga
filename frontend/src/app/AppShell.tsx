@@ -9,11 +9,14 @@ import { Icon, type IconName } from '../ui/Icon'
 
 type Integration = { name: string; state: string; detail: string | null }
 
-// Home, Discovery and Stats are omitted: their screens belong to later plans
-// (see task-4..8 in this spec set), and a nav item that leads nowhere is
-// worse than a nav that grows later.
+// Home and Stats are omitted: their screens belong to later plans (see
+// task-4..8 in this spec set), and a nav item that leads nowhere is worse than
+// a nav that grows later. Discovery and its unmatched list are routed, so they
+// are named here.
 const NAV: { to: string; label: string; icon: IconName; badge?: 'review' | 'jobs' | 'suggestions' }[] = [
   { to: '/library', label: 'Library', icon: 'book' },
+  { to: '/discovery', label: 'Discovery', icon: 'sparkle', badge: 'suggestions' },
+  { to: '/unmatched', label: 'Unmatched', icon: 'search' },
   { to: '/review', label: 'Review', icon: 'check', badge: 'review' },
   { to: '/downloads', label: 'Downloads', icon: 'download', badge: 'jobs' },
   { to: '/settings', label: 'Settings', icon: 'settings' },
@@ -43,16 +46,18 @@ const SYNCED: [string, string][] = [
 export function AppShell() {
   const [counts, setCounts] = useState<Record<string, number>>({})
   const [reviewCount, setReviewCount] = useState(0)
+  const [suggestionCount, setSuggestionCount] = useState(0)
   const [integrations, setIntegrations] = useState<Integration[]>([])
   const { notice, report, fail } = useNotice()
 
-  // These three feed badges and the status strip, not the screen below. A
+  // These four feed badges and the status strip, not the screen below. A
   // failure here degrades those to zero and to nothing, which the screens
   // themselves report properly, so it stays quiet rather than covering every
   // page with a banner the user cannot act on.
   const refresh = () => {
     api.jobCounts().then(setCounts).catch(() => undefined)
     api.series('needs_review').then((s) => setReviewCount(s.length)).catch(() => undefined)
+    api.suggestions('new').then((s) => setSuggestionCount(s.length)).catch(() => undefined)
     api.integrations().then(setIntegrations).catch(() => undefined)
   }
 
@@ -75,7 +80,7 @@ export function AppShell() {
   const badges: Record<string, number> = {
     review: reviewCount,
     jobs: (counts.leased ?? 0) + (counts.pending ?? 0),
-    suggestions: 0, // wired when the discovery backend lands
+    suggestions: suggestionCount,
   }
 
   return (

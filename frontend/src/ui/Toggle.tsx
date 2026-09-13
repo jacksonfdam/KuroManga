@@ -4,18 +4,25 @@ export function Toggle({
   checked,
   onChange,
   label,
+  disabled = false,
 }: {
   checked: boolean
   onChange: (checked: boolean) => void
   label: string
+  disabled?: boolean
 }) {
   return (
-    <label className="inline-flex cursor-pointer items-center gap-space-sm">
+    <label
+      className={`inline-flex items-center gap-space-sm ${
+        disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
+      }`}
+    >
       <span className="relative inline-flex h-6 w-11 shrink-0 items-center">
         <input
           type="checkbox"
           className="peer sr-only"
           checked={checked}
+          disabled={disabled}
           onChange={(event) => onChange(event.target.checked)}
         />
         <span className="absolute inset-0 rounded-full bg-surface-variant transition-colors peer-checked:bg-secondary" />
