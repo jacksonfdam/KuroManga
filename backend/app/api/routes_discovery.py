@@ -326,8 +326,8 @@ async def refresh(session: Session) -> dict[str, Any]:
 # search is a question about the anime, not about either provider's row, and
 # only the collapsed shape can answer it. It is a thousand narrow rows.
 ANIME_ROWS = """
-select id, provider, provider_media_id, title_romaji, title_english, cover_url,
-       total_episodes, progress_episode, status, manga_dismissed_at
+select id, provider, provider_media_id, title_romaji, title_english, synonyms,
+       cover_url, total_episodes, progress_episode, status, manga_dismissed_at
   from anime_entry
  where status <> 'dropped'
  order by id

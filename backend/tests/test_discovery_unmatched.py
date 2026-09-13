@@ -5,6 +5,7 @@ approving one of its results is allowed to decide on the user's behalf.
 """
 
 import json
+from types import SimpleNamespace
 
 import httpx
 import pytest
@@ -13,7 +14,7 @@ from sqlalchemy import text
 
 from app.api.main import app
 from app.db import get_sessionmaker
-from app.discovery.unmatched import merge_candidates
+from app.discovery.unmatched import collapse_anime, merge_candidates
 from app.enums import ListStatus, Provider
 from app.providers import get_source
 from app.providers.anilist import parse_manga_search as parse_anilist_search
@@ -59,6 +60,7 @@ async def insert_anime(
     romaji: str = "Vinland Saga",
     english: str | None = "Vinland Saga",
     status: str = "completed",
+    synonyms: list[str] | None = None,
     related: list | None = None,
     hidden: bool = False,
 ) -> int:
@@ -71,7 +73,8 @@ async def insert_anime(
                                              title_english, synonyms, status, progress_episode,
                                              total_episodes, cover_url, related_manga, raw,
                                              manga_dismissed_at, updated_at)
-                    values (:provider, :media_id, :romaji, :english, '[]'::jsonb, :status, 24, 24,
+                    values (:provider, :media_id, :romaji, :english,
+                            cast(:synonyms as jsonb), :status, 24, 24,
                             'https://covers/vs.jpg', cast(:related as jsonb), '{}'::jsonb,
                             case when :hidden then now() end, now())
                     returning id
@@ -83,6 +86,7 @@ async def insert_anime(
                     "romaji": romaji,
                     "english": english,
                     "status": status,
+                    "synonyms": json.dumps(synonyms or []),
                     "related": json.dumps(related or []),
                     "hidden": hidden,
                 },
@@ -208,6 +212,112 @@ async def test_the_same_anime_on_both_providers_is_offered_once(client):
     assert body["total"] == 1
     assert body["items"][0]["id"] == anilist_id
     assert sorted(body["items"][0]["providers"]) == ["anilist", "mal"]
+
+
+async def test_two_rows_that_agree_only_on_their_english_title_are_one_anime(client):
+    """The providers disagree about romaji far more often than about English.
+
+    Grouping on the romaji spelling alone listed this one twice, and the user
+    searched it twice, hid it twice and could add it twice.
+    """
+    anilist_id = await insert_anime(
+        "anilist", "116589", romaji="86: Eighty Six", english="86 EIGHTY-SIX"
+    )
+    await insert_anime("mal", "41457", romaji="86", english="86 Eighty-Six")
+
+    body = (await client.get("/api/discovery/unmatched")).json()
+    assert body["total"] == 1
+    assert body["items"][0]["id"] == anilist_id
+    assert sorted(body["items"][0]["providers"]) == ["anilist", "mal"]
+
+
+async def test_two_rows_that_agree_only_on_a_synonym_are_one_anime(client):
+    """Neither title matches; what the two providers agree on is a name underneath."""
+    await insert_anime(
+        "anilist",
+        "8246",
+        romaji="NARUTO: Dai Gekitotsu! Maboroshi no Chitei Iseki Dattebayo",
+        english="Naruto the Movie: Legend of the Stone of Gelel",
+        synonyms=["Naruto Movie 2"],
+    )
+    await insert_anime(
+        "mal",
+        "934",
+        romaji="Naruto Movie 2: Dai Gekitotsu! Maboroshi no Chiteiiseki Dattebayo!",
+        english="Naruto the Movie 2: Legend of the Stone of Gelel",
+        synonyms=["Naruto Movie 2"],
+    )
+
+    assert (await client.get("/api/discovery/unmatched")).json()["total"] == 1
+
+
+async def test_a_franchise_sharing_a_synonym_stays_one_row_per_season(client):
+    """Every season carries the franchise name, and one Hide button cannot answer
+    for six anime. A fold that chains through a shared name gives it one."""
+    for provider, media_id, romaji, english in (
+        ("mal", "31964", "Boku no Hero Academia", "My Hero Academia"),
+        ("mal", "33486", "Boku no Hero Academia 2nd Season", "My Hero Academia Season 2"),
+        ("anilist", "21459", "Boku no Hero Academia", "My Hero Academia"),
+        ("anilist", "21856", "Boku no Hero Academia 2", "My Hero Academia Season 2"),
+    ):
+        await insert_anime(
+            provider,
+            media_id,
+            romaji=romaji,
+            english=english,
+            synonyms=["My Hero Academia", "Heroaca"],
+        )
+
+    body = (await client.get("/api/discovery/unmatched")).json()
+    assert body["total"] == 2
+    assert sorted(a["title"] for a in body["items"]) == [
+        "My Hero Academia",
+        "My Hero Academia Season 2",
+    ]
+    assert all(sorted(a["providers"]) == ["anilist", "mal"] for a in body["items"])
+
+
+def _row(row_id: int, provider: str, romaji: str, english: str, synonyms=()):
+    return SimpleNamespace(
+        id=row_id,
+        provider=provider,
+        provider_media_id=str(row_id),
+        title_romaji=romaji,
+        title_english=english,
+        synonyms=list(synonyms),
+        status="completed",
+        progress_episode=0,
+        total_episodes=None,
+        cover_url=None,
+        manga_dismissed_at=None,
+    )
+
+
+def test_the_fold_does_not_depend_on_the_order_the_rows_arrive_in():
+    """A sync writes rows in whatever order a provider answered in.
+
+    The fold takes the pairs it merges in order of the evidence behind them
+    rather than in the order the rows turned up, so the same library reads the
+    same way twice - and the seasons land beside their own mirror, not beside
+    each other.
+    """
+    franchise = ["My Hero Academia", "Heroaca"]
+    rows = [
+        _row(1, "mal", "Boku no Hero Academia", "My Hero Academia", franchise),
+        _row(2, "mal", "Boku no Hero Academia 2nd Season", "My Hero Academia Season 2", franchise),
+        _row(3, "anilist", "Boku no Hero Academia", "My Hero Academia", franchise),
+        _row(4, "anilist", "Boku no Hero Academia 2", "My Hero Academia Season 2", franchise),
+    ]
+
+    def grouping(order):
+        return sorted(
+            tuple(sorted(member.row_id for member in anime.members))
+            for anime in collapse_anime(order)
+        )
+
+    assert grouping(rows) == [(1, 3), (2, 4)]
+    assert grouping(list(reversed(rows))) == [(1, 3), (2, 4)]
+    assert grouping([rows[2], rows[1], rows[3], rows[0]]) == [(1, 3), (2, 4)]
 
 
 async def test_one_provider_answering_settles_the_anime_for_both(client):
