@@ -112,6 +112,79 @@ export interface Suggestion {
 
 export type ListStatusValue = 'reading' | 'plan_to_read' | 'completed' | 'on_hold' | 'dropped'
 
+/** One anime from the list that no relation could turn into a manga. */
+export interface UnmatchedAnime {
+  id: number
+  provider: string
+  media_id: string
+  title: string | null
+  title_romaji: string | null
+  title_english: string | null
+  cover_url: string | null
+  total_episodes: number | null
+  progress_episode: number
+  status: string
+  providers: string[]
+  hidden: boolean
+}
+
+export interface UnmatchedPage {
+  total: number
+  items: UnmatchedAnime[]
+}
+
+/** Null when the provider did not say, which the screen has to admit to. */
+export type MangaFormat = 'MANGA' | 'MANHWA' | 'MANHUA' | 'OEL'
+
+/** What the database already knows about a candidate, strongest state first. */
+export type KnownState = 'added' | 'on_list' | 'dismissed' | 'suggested'
+
+export interface SearchCandidate {
+  provider: string
+  media_id: string
+  alt_ids: Record<string, string>
+  providers: string[]
+  title: string
+  cover_url: string | null
+  total_chapters: number | null
+  year: number | null
+  publishing_status: string | null
+  format: MangaFormat | null
+  score: number
+  known_state: KnownState | null
+  series_id: number | null
+}
+
+export type SearchErrorCode = 'not_connected' | 'rate_limited' | 'provider_error'
+
+export interface SearchProviderError {
+  provider: string
+  code: SearchErrorCode
+  detail: string
+}
+
+/** `candidates` and `errors` are independent: one provider down is half an answer. */
+export interface UnmatchedSearch {
+  anime: UnmatchedAnime
+  query: string
+  candidates: SearchCandidate[]
+  errors: SearchProviderError[]
+}
+
+export interface UnmatchedAdded {
+  ok: boolean
+  series_id: number
+  job_ids: number[]
+  needs_review: boolean
+  suggestion_id: number
+}
+
+export interface HiddenResult {
+  ok: boolean
+  hidden: boolean
+  rows: number
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
     headers: { 'Content-Type': 'application/json' },
@@ -171,4 +244,32 @@ export const api = {
     request<{ ok: boolean }>(`/api/suggestions/${id}/dismiss`, { method: 'POST' }),
   refreshDiscovery: () =>
     request<{ ok: boolean; queued: number }>('/api/discovery/refresh', { method: 'POST' }),
+  // Unlike /api/suggestions this answers with an envelope, because 500 anime are
+  // paged and a bare array could not carry the total.
+  unmatched: (options: { hidden?: boolean; limit?: number; offset?: number } = {}) => {
+    const query = new URLSearchParams({
+      hidden: String(options.hidden ?? false),
+      limit: String(options.limit ?? 50),
+      offset: String(options.offset ?? 0),
+    })
+    return request<UnmatchedPage>(`/api/discovery/unmatched?${query}`)
+  },
+  searchUnmatched: (id: number) =>
+    request<UnmatchedSearch>(`/api/discovery/unmatched/${id}/search`, { method: 'POST' }),
+  addUnmatched: (
+    id: number,
+    candidate: SearchCandidate,
+    status: ListStatusValue,
+    download: boolean,
+  ) =>
+    request<UnmatchedAdded>(`/api/discovery/unmatched/${id}/add`, {
+      method: 'POST',
+      // The route ignores unknown keys, so the candidate goes back as it arrived
+      // rather than being re-assembled field by field and drifting from it.
+      body: JSON.stringify({ ...candidate, status, download }),
+    }),
+  hideUnmatched: (id: number) =>
+    request<HiddenResult>(`/api/discovery/unmatched/${id}/hide`, { method: 'POST' }),
+  unhideUnmatched: (id: number) =>
+    request<HiddenResult>(`/api/discovery/unmatched/${id}/hide`, { method: 'DELETE' }),
 }
