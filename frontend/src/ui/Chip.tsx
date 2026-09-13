@@ -15,8 +15,12 @@ export function Chip({
 }) {
   return (
     <button
+      type="button"
       onClick={onClick}
-      className={`flex shrink-0 items-center gap-space-xs rounded-xl px-space-md py-space-sm text-body-sm font-title-md transition-all ${
+      aria-pressed={active}
+      // font-title-md generates no rule (title-md is a fontSize key, not a
+      // fontFamily one) — font-semibold is the weight it was standing in for.
+      className={`flex shrink-0 items-center gap-space-xs rounded-xl px-space-md py-space-sm text-body-sm font-semibold transition-all ${
         active
           ? 'bg-primary text-on-primary shadow-sm'
           : 'text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface'

@@ -10,9 +10,12 @@ const VARIANT: Record<string, string> = {
   ghost: 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface',
 }
 
+// text-label-md already carries both size and weight (tailwind.config.ts defines
+// label-md only under fontSize, not fontFamily) — a paired font-label-md class
+// generates no rule and is dead weight.
 const SIZE: Record<string, string> = {
-  sm: 'px-space-sm py-space-xs text-label-md font-label-md',
-  md: 'px-space-md py-space-sm text-label-md font-label-md',
+  sm: 'px-space-sm py-space-xs text-label-md',
+  md: 'px-space-md py-space-sm text-label-md',
 }
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {

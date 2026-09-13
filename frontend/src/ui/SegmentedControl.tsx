@@ -13,20 +13,31 @@ export function SegmentedControl<T extends string>({
 }) {
   return (
     <div className="inline-flex items-center gap-1 rounded-xl bg-surface-container-lowest p-1 shadow-inner">
-      {options.map((option) => (
-        <button
-          key={option.value}
-          onClick={() => onChange(option.value)}
-          className={`flex items-center gap-space-xs rounded-lg px-space-md py-space-sm text-body-sm font-semibold transition-all ${
-            option.value === value
-              ? 'bg-surface-container-highest text-on-surface'
-              : 'text-outline hover:text-on-surface'
-          }`}
-        >
-          {option.icon && <Icon name={option.icon} />}
-          <span className="hidden font-label-md text-label-md sm:inline">{option.label}</span>
-        </button>
-      ))}
+      {options.map((option) => {
+        const selected = option.value === value
+        return (
+          <button
+            key={option.value}
+            type="button"
+            onClick={() => onChange(option.value)}
+            aria-pressed={selected}
+            // The label collapses to an icon-only button below sm (hidden, not just
+            // visually clipped, so it drops out of the accessibility tree too) —
+            // aria-label keeps the button nameable at every width.
+            aria-label={option.label}
+            className={`flex items-center gap-space-xs rounded-lg px-space-md py-space-sm text-body-sm font-semibold transition-all ${
+              selected
+                ? 'bg-surface-container-highest text-on-surface'
+                : 'text-outline hover:text-on-surface'
+            }`}
+          >
+            {option.icon && <Icon name={option.icon} />}
+            {/* text-label-md carries size and weight on its own (label-md has no
+                matching fontFamily entry — font-label-md generated no rule). */}
+            <span className="hidden text-label-md sm:inline">{option.label}</span>
+          </button>
+        )
+      })}
     </div>
   )
 }

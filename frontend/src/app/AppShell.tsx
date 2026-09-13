@@ -26,6 +26,12 @@ const DOT: Record<string, string> = {
   ok: 'bg-secondary', unauthenticated: 'bg-warning', unreachable: 'bg-error',
 }
 
+// The dot is colour-only. A screen reader needs the state in words too, or it
+// announces the provider's name and nothing about whether it's working.
+const STATE_LABEL: Record<string, string> = {
+  ok: 'reachable', unauthenticated: 'needs sign-in', unreachable: 'unreachable',
+}
+
 export function AppShell() {
   const [counts, setCounts] = useState<Record<string, number>>({})
   const [reviewCount, setReviewCount] = useState(0)
@@ -82,8 +88,9 @@ export function AppShell() {
             <div className="hidden items-center gap-space-sm rounded bg-surface-container-lowest px-space-sm py-space-xs 2xl:flex">
               {integrations.map((item) => (
                 <span key={item.name} className="flex items-center gap-1.5 font-mono text-label-sm text-on-surface-variant">
-                  <span className={`h-2 w-2 rounded-full ${DOT[item.state] ?? 'bg-outline'}`} />
+                  <span aria-hidden="true" className={`h-2 w-2 rounded-full ${DOT[item.state] ?? 'bg-outline'}`} />
                   {STRIP_LABEL[item.name] ?? item.name}
+                  <span className="sr-only"> ({STATE_LABEL[item.state] ?? item.state})</span>
                 </span>
               ))}
             </div>
