@@ -11,6 +11,7 @@ from app import settings_store
 from app.api.deps import db_session
 from app.config import get_settings
 from app.enums import Provider
+from app.sources.comick_client import ComickClient
 from app.sources.mangadex_auth import tokens as mangadex_tokens
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
@@ -35,8 +36,6 @@ class SettingsIn(BaseModel):
 
 @router.get("")
 async def read_settings(session: Session) -> dict[str, Any]:
-    from app.sources.comick_client import ComickClient
-
     result = await session.execute(
         text("select provider, account_name, expires_at from provider_token")
     )
@@ -71,7 +70,9 @@ async def read_settings(session: Session) -> dict[str, Any]:
                 "authenticated": mangadex_tokens.configured,
                 "username": settings.mangadex_username or None,
             },
-            "comick": {"authenticated": comick_up, "username": None},
+            # comick has no accounts at all, so the only thing worth reporting is
+            # whether the service answers.
+            "comick": {"reachable": comick_up},
         },
     }
 

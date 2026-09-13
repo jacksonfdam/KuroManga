@@ -66,9 +66,14 @@ export interface JobEvent {
 export interface SettingsPayload {
   values: Record<string, string>
   providers: Record<string, { connected: boolean; configured: boolean; account_name?: string }>
-  sources: Record<string, { authenticated: boolean; username: string | null }>
+  sources: Record<string, SourceStatus>
   library_path: string
 }
+
+/** MangaDex has an account; comick has none, so it only reports whether it answers. */
+export type SourceStatus =
+  | { authenticated: boolean; username: string | null }
+  | { reachable: boolean }
 
 export interface SuggestionSource {
   site: string

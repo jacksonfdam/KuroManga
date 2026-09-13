@@ -14,6 +14,8 @@ from app.config import get_settings
 from app.sources.base import Candidate, ChapterRef
 from app.text_utils import best_similarity
 
+HEALTH_TIMEOUT_SECONDS = 3
+
 
 def _to_int(value: Any) -> int | None:
     try:
@@ -93,7 +95,9 @@ class ComickClient:
             if self._client is not None:
                 response = await self._client.get(f"{self._base_url}/api/health")
             else:
-                async with httpx.AsyncClient(timeout=10) as owned:
+                # Short: the settings screen waits on this, and a hung instance
+                # is a down instance as far as that answer goes.
+                async with httpx.AsyncClient(timeout=HEALTH_TIMEOUT_SECONDS) as owned:
                     response = await owned.get(f"{self._base_url}/api/health")
             return response.status_code < 400
         except httpx.HTTPError:
