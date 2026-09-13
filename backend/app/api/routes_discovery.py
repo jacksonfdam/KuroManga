@@ -1,0 +1,233 @@
+"""Discovery screen: what to read next, and what happens when you say yes."""
+
+from typing import Annotated, Any
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.api.deps import db_session
+from app.enums import JobType, ListStatus, Provider, SuggestionState
+from app.handlers.list_sync import create_series, upsert_entry
+from app.providers.base import ListEntryDTO
+from app.queue import repo
+from app.sources import source_for_url
+from app.text_utils import normalize
+
+router = APIRouter(prefix="/api", tags=["discovery"])
+
+Session = Annotated[AsyncSession, Depends(db_session)]
+
+# Below this, the best candidate is a guess, and a guess belongs on the review
+# screen where the user can see what was rejected.
+CONFIDENT_SCORE = 0.80
+
+
+class AddIn(BaseModel):
+    status: ListStatus
+    download: bool = False
+
+
+@router.get("/suggestions")
+async def list_suggestions(
+    session: Session,
+    state: Annotated[str, Query()] = "new",
+    limit: Annotated[int, Query(le=200)] = 100,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> list[dict[str, Any]]:
+    result = await session.execute(
+        text(
+            """
+            select id, title, cover_url, total_chapters, year, publishing_status, state,
+                   rank_score, series_id, meta
+              from suggestion
+             where state = :state
+             order by rank_score desc, title
+             limit :limit offset :offset
+            """
+        ),
+        {"state": state, "limit": limit, "offset": offset},
+    )
+    suggestions = []
+    for row in result.all():
+        meta = row.meta or {}
+        origin = meta.get("origin") or {}
+        suggestions.append(
+            {
+                "id": row.id,
+                "title": row.title,
+                "cover_url": row.cover_url,
+                "total_chapters": row.total_chapters,
+                "year": row.year,
+                "publishing_status": row.publishing_status,
+                "state": row.state,
+                "rank_score": float(row.rank_score),
+                "series_id": row.series_id,
+                "reason": {
+                    "origin_title": origin.get("title"),
+                    "origin_status": origin.get("status"),
+                    "total_episodes": origin.get("total_episodes"),
+                    "relation": meta.get("relation"),
+                },
+                "sources": meta.get("sources", []),
+                "best_source": meta.get("best"),
+                "write_results": meta.get("write_results", []),
+            }
+        )
+    return suggestions
+
+
+async def _load(session: AsyncSession, suggestion_id: int) -> Any:
+    result = await session.execute(
+        text(
+            """
+            select id, provider, provider_media_id, alt_ids, title, cover_url, total_chapters,
+                   state, meta
+              from suggestion where id = :id
+            """
+        ),
+        {"id": suggestion_id},
+    )
+    row = result.first()
+    if row is None:
+        raise HTTPException(status_code=404, detail="suggestion not found")
+    return row
+
+
+@router.post("/suggestions/{suggestion_id}/add")
+async def add_suggestion(suggestion_id: int, body: AddIn, session: Session) -> dict[str, Any]:
+    """Approving is what turns a suggestion into a series, a list entry and a status."""
+    row = await _load(session, suggestion_id)
+    if row.state == SuggestionState.ADDED:
+        raise HTTPException(status_code=409, detail="suggestion already added")
+
+    # Every provider that already knows this anime's manga gets its own list_entry,
+    # so the next ANIME_LIST_SYNC recognises it instead of suggesting it again.
+    ids = {row.provider: row.provider_media_id, **(row.alt_ids or {})}
+    alias = normalize(row.title)
+    aliases = [alias] if alias else []
+
+    primary = ListEntryDTO(
+        provider=Provider(row.provider),
+        media_id=row.provider_media_id,
+        status=body.status,
+        title_english=row.title,
+        total_chapters=row.total_chapters,
+        cover_url=row.cover_url,
+    )
+    series_id = await create_series(session, primary, aliases)
+
+    for provider, media_id in ids.items():
+        await upsert_entry(
+            session,
+            ListEntryDTO(
+                provider=Provider(provider),
+                media_id=media_id,
+                status=body.status,
+                title_english=row.title,
+                total_chapters=row.total_chapters,
+                cover_url=row.cover_url,
+            ),
+            series_id,
+        )
+
+    job_ids: list[int | None] = [
+        await repo.enqueue(
+            session,
+            JobType.LIST_WRITE,
+            {"suggestion_id": suggestion_id, "status": str(body.status)},
+            priority=0,
+            dedupe_key=f"list_write:{suggestion_id}",
+        )
+    ]
+
+    # A confident match skips manual review; anything softer stays on the review
+    # path where the user can see what was rejected before a source is mapped.
+    best = (row.meta or {}).get("best") or {}
+    needs_review = True
+    if best.get("url") and float(best.get("score") or 0) >= CONFIDENT_SCORE:
+        try:
+            site = source_for_url(best["url"]).site
+        except ValueError:
+            site = None
+        if site:
+            await session.execute(
+                text(
+                    """
+                    insert into source_mapping (series_id, source_site, source_url, active,
+                                                confirmed_at)
+                    values (:series_id, :site, :url, true, now())
+                    """
+                ),
+                {"series_id": series_id, "site": site, "url": best["url"]},
+            )
+            await session.execute(
+                text("update series set needs_review = false where id = :id"),
+                {"id": series_id},
+            )
+            needs_review = False
+
+    if body.download and not needs_review:
+        job_ids.append(
+            await repo.enqueue(
+                session,
+                JobType.CHAPTER_DISCOVER,
+                {"series_id": series_id},
+                priority=0,
+                series_id=series_id,
+                dedupe_key=f"chapter_discover:{series_id}",
+            )
+        )
+        await session.execute(
+            text("update series set auto_download = true where id = :id"), {"id": series_id}
+        )
+
+    await session.execute(
+        text(
+            """
+            update suggestion
+               set state = 'added',
+                   series_id = :series_id,
+                   updated_at = now()
+             where id = :id
+            """
+        ),
+        {"id": suggestion_id, "series_id": series_id},
+    )
+    await session.commit()
+    return {
+        "ok": True,
+        "series_id": series_id,
+        "job_ids": [j for j in job_ids if j],
+        "needs_review": needs_review,
+    }
+
+
+@router.post("/suggestions/{suggestion_id}/dismiss")
+async def dismiss_suggestion(suggestion_id: int, session: Session) -> dict[str, bool]:
+    """Dismissal is permanent: the row stays so a rebuild cannot resurrect it."""
+    await _load(session, suggestion_id)
+    await session.execute(
+        text("update suggestion set state = 'dismissed', updated_at = now() where id = :id"),
+        {"id": suggestion_id},
+    )
+    await session.commit()
+    return {"ok": True}
+
+
+@router.post("/discovery/refresh")
+async def refresh(session: Session) -> dict[str, Any]:
+    """Queue a fresh anime list pull per provider; `enqueue` skips one already pending."""
+    queued = 0
+    for provider in Provider:
+        job_id = await repo.enqueue(
+            session,
+            JobType.ANIME_LIST_SYNC,
+            {"provider": str(provider)},
+            priority=0,
+            dedupe_key=f"anime_list_sync:{provider}",
+        )
+        queued += 1 if job_id else 0
+    await session.commit()
+    return {"ok": True, "queued": queued}
