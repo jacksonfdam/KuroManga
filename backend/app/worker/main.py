@@ -12,11 +12,11 @@ from sqlalchemy import text
 from app import settings_store
 from app.db import get_sessionmaker
 from app.enums import JobType, Provider
-from app.queue import repo
-from app.worker.runner import reclaim_loop, work_loop
 
 # Importing the handler modules is what registers them.
 from app.handlers import chapter_discover, download_chapter, list_sync, match_search  # noqa: F401
+from app.queue import repo
+from app.worker.runner import reclaim_loop, work_loop
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 log = logging.getLogger("worker")

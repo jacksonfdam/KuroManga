@@ -14,7 +14,7 @@ from typing import Any
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.enums import JobState, JobType
+from app.enums import JobType
 
 NOTIFY_CHANNEL = "jobs"
 BACKOFF_BASE_SECONDS = 60

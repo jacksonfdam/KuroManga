@@ -61,7 +61,7 @@ async def reclaim_loop(stop: asyncio.Event) -> None:
                 await session.commit()
             if reclaimed:
                 log.info("reclaimed %d expired job leases", reclaimed)
-        except Exception:  # noqa: BLE001
+        except Exception:
             log.exception("reclaim pass failed")
         await _wait(stop, RECLAIM_INTERVAL_SECONDS)
 
