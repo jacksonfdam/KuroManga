@@ -327,23 +327,26 @@ async def refresh(session: Session) -> dict[str, Any]:
 # only the collapsed shape can answer it. It is a thousand narrow rows.
 ANIME_ROWS = """
 select id, provider, provider_media_id, title_romaji, title_english, cover_url,
-       total_episodes, progress_episode, status
+       total_episodes, progress_episode, status, manga_dismissed_at
   from anime_entry
  where status <> 'dropped'
  order by id
 """
 
-# A provider row is settled when a relation already covers it, when the user hid
-# it, or when a suggestion already named it as its origin.
+# A provider row is settled when a relation already covers it, or when a
+# suggestion still standing names it as its origin. A dismissed suggestion is
+# not an answer about the anime: the user rejected one manga, and if that was
+# the wrong manga the anime has to come back so they can search for the right
+# one. Hiding is tracked on the anime row itself, not here.
 SETTLED_ROWS = """
 select provider, provider_media_id
   from anime_entry
  where jsonb_array_length(coalesce(related_manga, '[]'::jsonb)) > 0
-    or manga_dismissed_at is not null
 union
 select meta -> 'origin' ->> 'provider', meta -> 'origin' ->> 'media_id'
   from suggestion
  where meta -> 'origin' ->> 'media_id' is not null
+   and state <> 'dismissed'
 """
 
 # What the search already knows about a candidate, from the two tables that can
@@ -394,6 +397,7 @@ def anime_payload(anime: UnmatchedAnime) -> dict[str, Any]:
         "progress_episode": anime.progress_episode,
         "status": str(anime.status),
         "providers": anime.providers,
+        "hidden": anime.hidden,
     }
 
 
@@ -485,20 +489,31 @@ async def _load_anime(session: AsyncSession, anime_id: int) -> UnmatchedAnime:
 @router.get("/discovery/unmatched")
 async def list_unmatched(
     session: Session,
-    limit: Annotated[int, Query(le=200)] = 50,
+    hidden: Annotated[bool, Query()] = False,
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> dict[str, Any]:
-    """The anime worth offering a search for. Nothing here searches anything."""
-    settled = {
-        (row[0], row[1]) for row in (await session.execute(text(SETTLED_ROWS))).all()
-    }
-    # One provider settling an anime settles the anime: the other row is the same
-    # show, and offering it would be offering the same search twice.
-    items = [
-        anime
-        for anime in await collapsed_anime(session)
-        if not any((str(m.provider), m.media_id) in settled for m in anime.members)
-    ]
+    """The anime worth offering a search for. Nothing here searches anything.
+
+    `hidden=true` answers with what the user hid instead, and nothing else: it is
+    the only way back to a row that one click took off a five hundred row list,
+    so it has to show every hidden anime, settled since or not.
+    """
+    collapsed = await collapsed_anime(session)
+    if hidden:
+        items = [anime for anime in collapsed if anime.hidden]
+    else:
+        settled = {
+            (row[0], row[1]) for row in (await session.execute(text(SETTLED_ROWS))).all()
+        }
+        # One provider settling an anime settles the anime: the other row is the
+        # same show, and offering it would be offering the same search twice.
+        items = [
+            anime
+            for anime in collapsed
+            if not anime.hidden
+            and not any((str(m.provider), m.media_id) in settled for m in anime.members)
+        ]
     # Alphabetical, because five hundred rows paged by offset are only navigable
     # if the same anime is always on the same page.
     items.sort(key=lambda a: normalize(a.title_english or a.title_romaji or ""))
@@ -596,12 +611,29 @@ async def add_unmatched(anime_id: int, body: SearchAddIn, session: Session) -> d
 
 @router.post("/discovery/unmatched/{anime_id}/hide")
 async def hide_unmatched(anime_id: int, session: Session) -> dict[str, Any]:
-    """Permanent, like a dismissal: every provider's row for this anime is marked."""
+    """Every provider's row for this anime is marked, and a sync cannot undo it."""
+    return await _set_hidden(session, anime_id, hidden=True)
+
+
+@router.delete("/discovery/unmatched/{anime_id}/hide")
+async def unhide_unmatched(anime_id: int, session: Session) -> dict[str, Any]:
+    """The way back. Hiding survives syncs, but it is still one click on a long list.
+
+    A dismissal is one card the user read and refused; this is a row among five
+    hundred with a button beside it, and the mis-click is a matter of time.
+    """
+    return await _set_hidden(session, anime_id, hidden=False)
+
+
+async def _set_hidden(session: AsyncSession, anime_id: int, *, hidden: bool) -> dict[str, Any]:
     anime = await _load_anime(session, anime_id)
     for member in anime.members:
         await session.execute(
-            text("update anime_entry set manga_dismissed_at = now() where id = :id"),
-            {"id": member.row_id},
+            text(
+                "update anime_entry set manga_dismissed_at = case when :hidden then now() end"
+                " where id = :id"
+            ),
+            {"hidden": hidden, "id": member.row_id},
         )
     await session.commit()
-    return {"ok": True, "hidden": len(anime.members)}
+    return {"ok": True, "hidden": hidden, "rows": len(anime.members)}

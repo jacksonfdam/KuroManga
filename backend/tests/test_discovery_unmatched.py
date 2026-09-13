@@ -621,9 +621,75 @@ async def test_hiding_survives_the_next_anime_list_sync(client):
     assert (await client.get("/api/discovery/unmatched")).json()["total"] == 0
 
 
+async def test_unhiding_puts_the_anime_back_on_the_list(client):
+    """One click out of five hundred rows, and a mis-click is a matter of time."""
+    anime_id = await insert_anime("anilist", "21")
+    await client.post(f"/api/discovery/unmatched/{anime_id}/hide")
+
+    body = (await client.delete(f"/api/discovery/unmatched/{anime_id}/hide")).json()
+    assert body["hidden"] is False
+    assert (await client.get("/api/discovery/unmatched")).json()["total"] == 1
+
+
+async def test_unhiding_reaches_every_provider_row_for_that_anime(client):
+    anime_id = await insert_anime("anilist", "21")
+    await insert_anime("mal", "663", english=None)
+    await client.post(f"/api/discovery/unmatched/{anime_id}/hide")
+    await client.delete(f"/api/discovery/unmatched/{anime_id}/hide")
+
+    async with get_sessionmaker()() as session:
+        still_hidden = (
+            await session.execute(
+                text("select count(*) from anime_entry where manga_dismissed_at is not null")
+            )
+        ).scalar_one()
+    assert still_hidden == 0
+
+
+async def test_what_was_hidden_can_be_listed(client):
+    """A hide the user cannot see is a hide they cannot undo."""
+    hidden_id = await insert_anime("anilist", "21")
+    await insert_anime("anilist", "22", romaji="Berserk", english="Berserk")
+    await client.post(f"/api/discovery/unmatched/{hidden_id}/hide")
+
+    body = (await client.get("/api/discovery/unmatched?hidden=true")).json()
+    assert body["total"] == 1
+    assert body["items"][0]["id"] == hidden_id
+    assert body["items"][0]["hidden"] is True
+    assert (await client.get("/api/discovery/unmatched")).json()["items"][0]["hidden"] is False
+
+
+async def test_a_negative_limit_is_refused_rather_than_slicing_from_the_end(client):
+    await insert_anime("anilist", "21")
+    assert (await client.get("/api/discovery/unmatched?limit=-5")).status_code == 422
+
+
+async def test_two_anime_with_no_title_at_all_are_not_one_anime(client):
+    """Hiding one of them would otherwise hide every other untitled row with it."""
+    first = await insert_anime("anilist", "21", romaji=None, english=None)
+    await insert_anime("anilist", "22", romaji=None, english=None)
+
+    assert (await client.get("/api/discovery/unmatched")).json()["total"] == 0
+    assert (await client.post(f"/api/discovery/unmatched/{first}/hide")).status_code == 404
+
+
+async def test_dismissing_a_title_match_gives_the_anime_back(client):
+    """The user added the wrong manga and said so. The anime is unanswered again."""
+    anime_id = await insert_anime("anilist", "21")
+    await client.post(f"/api/discovery/unmatched/{anime_id}/add", json=candidate_body())
+    assert (await client.get("/api/discovery/unmatched")).json()["total"] == 0
+
+    async with get_sessionmaker()() as session:
+        suggestion_id = (await session.execute(text("select id from suggestion"))).scalar_one()
+    await client.post(f"/api/suggestions/{suggestion_id}/dismiss")
+
+    assert (await client.get("/api/discovery/unmatched")).json()["total"] == 1
+
+
 async def test_an_unknown_anime_is_a_not_found(client):
     assert (await client.post("/api/discovery/unmatched/999/search")).status_code == 404
     assert (await client.post("/api/discovery/unmatched/999/hide")).status_code == 404
+    assert (await client.delete("/api/discovery/unmatched/999/hide")).status_code == 404
 
 
 def candidate_body(**overrides) -> dict:

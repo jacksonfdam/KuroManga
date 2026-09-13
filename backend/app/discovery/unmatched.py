@@ -42,6 +42,7 @@ class UnmatchedAnime:
     title_english: str | None = None
     cover_url: str | None = None
     total_episodes: int | None = None
+    hidden: bool = False
     members: tuple[AnimeMember, ...] = ()
 
     @property
@@ -97,9 +98,17 @@ def _group_by_title(items: list, title_of) -> dict[str, list]:
 
 
 def collapse_anime(rows: list) -> list[UnmatchedAnime]:
-    """One row per anime. AniList carries the identity; MyAnimeList rides along."""
+    """One row per anime. AniList carries the identity; MyAnimeList rides along.
+
+    A row with no title at all is dropped rather than grouped, the way `seeds_from`
+    drops one: the fold is by spelling, so every untitled row would otherwise land
+    in the same group and hiding one of them would hide all the others with it.
+    """
+    titled = [r for r in rows if (r.title_romaji or r.title_english)]
     collapsed: list[UnmatchedAnime] = []
-    for group in _group_by_title(rows, lambda r: r.title_romaji or r.title_english or "").values():
+    for group in _group_by_title(
+        titled, lambda r: r.title_romaji or r.title_english or ""
+    ).values():
         primary = next((r for r in group if Provider(r.provider) is Provider.ANILIST), group[0])
         # The providers disagree about status more often than about anything
         # else, and the further-along answer is the one that ranks a suggestion.
@@ -116,6 +125,9 @@ def collapse_anime(rows: list) -> list[UnmatchedAnime]:
                 title_english=_first(group, primary, "title_english"),
                 cover_url=_first(group, primary, "cover_url"),
                 total_episodes=_first(group, primary, "total_episodes"),
+                # One provider's row being hidden hides the anime: it is the same
+                # show, and the user answered for the show, not for a row.
+                hidden=any(r.manga_dismissed_at for r in group),
                 members=tuple(
                     AnimeMember(
                         row_id=r.id,
