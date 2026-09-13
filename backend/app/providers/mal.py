@@ -96,7 +96,11 @@ class MyAnimeListSource(ListSource):
         }
         async with httpx.AsyncClient(timeout=30) as client:
             response = await client.post(TOKEN_URL, data=form)
-            response.raise_for_status()
+            if response.status_code >= 400:
+                raise RuntimeError(
+                    f"myanimelist token exchange failed ({response.status_code}): "
+                    f"{response.text[:300]}"
+                )
             body = response.json()
             me = await client.get(
                 f"{API_BASE}/users/@me",

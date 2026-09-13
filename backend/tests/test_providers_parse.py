@@ -1,6 +1,7 @@
+from app.config import get_settings
 from app.enums import ListStatus, Provider
-from app.providers.anilist import parse_list
-from app.providers.mal import parse_page
+from app.providers.anilist import AniListSource, parse_list
+from app.providers.mal import MyAnimeListSource, parse_page
 
 
 def test_anilist_maps_statuses_onto_the_shared_vocabulary(fixture):
@@ -42,3 +43,19 @@ def test_titles_are_deduplicated(fixture):
 def test_missing_english_title_falls_back_for_display(fixture):
     second = parse_list(fixture("anilist_list.json"))[1]
     assert second.display_title == "Shizuka na Umi"
+
+
+def test_anilist_percent_encodes_the_redirect_uri(monkeypatch):
+    monkeypatch.setenv("ANILIST_CLIENT_ID", "51042")
+    get_settings.cache_clear()
+    url = AniListSource().authorize_url("http://localhost:8080/api/auth/anilist/callback", "S", "")
+    assert "redirect_uri=http%3A%2F%2Flocalhost%3A8080" in url
+    assert "://localhost" not in url.split("redirect_uri=")[1]
+
+
+def test_mal_percent_encodes_the_redirect_uri(monkeypatch):
+    monkeypatch.setenv("MAL_CLIENT_ID", "abc")
+    get_settings.cache_clear()
+    url = MyAnimeListSource().authorize_url("http://localhost:8080/api/auth/mal/callback", "S", "v")
+    assert "redirect_uri=http%3A%2F%2Flocalhost%3A8080" in url
+    assert "code_challenge_method=plain" in url

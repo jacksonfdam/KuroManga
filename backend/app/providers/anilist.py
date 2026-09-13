@@ -1,6 +1,7 @@
 """AniList list source. GraphQL, one query for the whole list."""
 
 from typing import Any
+from urllib.parse import urlencode
 
 import httpx
 
@@ -85,11 +86,17 @@ class AniListSource(ListSource):
         )
 
     def authorize_url(self, redirect_uri: str, state: str, verifier: str) -> str:
-        settings = get_settings()
-        return (
-            f"{AUTHORIZE_URL}?client_id={settings.anilist_client_id}"
-            f"&redirect_uri={redirect_uri}&response_type=code&state={state}"
+        # Percent-encoded: providers compare the redirect against the registered
+        # value, and a raw "://" in a query string is not the same string.
+        query = urlencode(
+            {
+                "client_id": get_settings().anilist_client_id,
+                "redirect_uri": redirect_uri,
+                "response_type": "code",
+                "state": state,
+            }
         )
+        return f"{AUTHORIZE_URL}?{query}"
 
     async def exchange_code(self, code: str, redirect_uri: str, verifier: str) -> TokenSet:
         settings = get_settings()
@@ -105,7 +112,12 @@ class AniListSource(ListSource):
                 },
                 headers={"Accept": "application/json"},
             )
-        response.raise_for_status()
+        if response.status_code >= 400:
+            # AniList answers with a json body saying what it rejected; losing it
+            # turns a one-line fix into a guessing game.
+            raise RuntimeError(
+                f"anilist token exchange failed ({response.status_code}): {response.text[:300]}"
+            )
         body = response.json()
         token = TokenSet(
             access_token=body["access_token"],
