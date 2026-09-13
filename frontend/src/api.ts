@@ -65,6 +65,7 @@ export interface JobEvent {
 export interface SettingsPayload {
   values: Record<string, string>
   providers: Record<string, { connected: boolean; configured: boolean; account_name?: string }>
+  sources: Record<string, { authenticated: boolean; username: string | null }>
   library_path: string
 }
 

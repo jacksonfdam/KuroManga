@@ -29,6 +29,13 @@ class Settings(BaseSettings):
 
     public_base_url: str = "http://localhost:8080"
 
+    # MangaDex personal client. Optional: search and chapter feeds work anonymously,
+    # and MangaDex caches anonymous responses but not authenticated ones.
+    mangadex_client_id: str = ""
+    mangadex_client_secret: str = ""
+    mangadex_username: str = ""
+    mangadex_password: str = ""
+
     downloader_binary: str = "manga-downloader"
 
     @property

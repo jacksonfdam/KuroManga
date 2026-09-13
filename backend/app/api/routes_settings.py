@@ -11,6 +11,7 @@ from app import settings_store
 from app.api.deps import db_session
 from app.config import get_settings
 from app.enums import Provider
+from app.sources.mangadex_auth import tokens as mangadex_tokens
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
 
@@ -58,6 +59,14 @@ async def read_settings(session: Session) -> dict[str, Any]:
             for provider in Provider
         },
         "library_path": str(settings.library_path),
+        "sources": {
+            "mangadex": {
+                # Anonymous access is the normal mode; credentials only widen
+                # what the account itself is allowed to see.
+                "authenticated": mangadex_tokens.configured,
+                "username": settings.mangadex_username or None,
+            }
+        },
     }
 
 

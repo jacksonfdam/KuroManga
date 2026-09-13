@@ -10,6 +10,7 @@ from typing import Any
 import httpx
 
 from app.sources.base import Candidate, ChapterRef, Source, register
+from app.sources.mangadex_auth import tokens
 from app.text_utils import best_similarity
 
 API_BASE = "https://api.mangadex.org"
@@ -112,12 +113,19 @@ class MangaDexSource(Source):
     def __init__(self, client: httpx.AsyncClient | None = None) -> None:
         self._client = client
 
+    async def _headers(self) -> dict[str, str]:
+        token = await tokens.token(self._client)
+        return {"Authorization": f"Bearer {token}"} if token else {}
+
     async def _get(self, path: str, params: list[tuple[str, Any]]) -> dict[str, Any]:
+        headers = await self._headers()
         if self._client is not None:
-            response = await self._client.get(f"{API_BASE}{path}", params=params)
+            response = await self._client.get(
+                f"{API_BASE}{path}", params=params, headers=headers
+            )
         else:
             async with httpx.AsyncClient(timeout=30) as client:
-                response = await client.get(f"{API_BASE}{path}", params=params)
+                response = await client.get(f"{API_BASE}{path}", params=params, headers=headers)
         response.raise_for_status()
         return response.json()
 

@@ -74,6 +74,30 @@ export function Settings() {
         ))}
       </div>
 
+      <h2>Sources</h2>
+      <div className="panel">
+        {Object.entries(data.sources ?? {}).map(([source, info]) => (
+          <div
+            key={source}
+            style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0' }}
+          >
+            <b style={{ width: 90 }}>{source}</b>
+            {info.authenticated ? (
+              <span className="pill mapped">
+                signed in{info.username ? ` · ${info.username}` : ''}
+              </span>
+            ) : (
+              <span className="pill">anonymous</span>
+            )}
+            <span className="meta" style={{ flex: 1 }}>
+              Anonymous is the normal mode. MangaDex caches anonymous responses and not
+              authenticated ones, so signing in makes searches slower, not faster. Set the four
+              MANGADEX_ variables in .env only if your account needs to see restricted titles.
+            </span>
+          </div>
+        ))}
+      </div>
+
       <h2>Pipeline</h2>
       <div className="panel">
         {FIELDS.map((field) => (
