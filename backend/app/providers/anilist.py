@@ -6,6 +6,7 @@ from urllib.parse import urlencode
 import httpx
 
 from app.config import get_settings
+from app.discovery.status_sync import anilist_status
 from app.enums import ListStatus, Provider
 from app.providers.base import (
     AnimeEntryDTO,
@@ -120,6 +121,12 @@ mutation ($mediaId: Int, $progress: Int) {
 }
 """
 
+STATUS_MUTATION = """
+mutation ($mediaId: Int, $status: MediaListStatus) {
+  SaveMediaListEntry(mediaId: $mediaId, status: $status) { id status }
+}
+"""
+
 
 class AniListSource(ListSource):
     provider = Provider.ANILIST
@@ -169,6 +176,13 @@ class AniListSource(ListSource):
     async def push_progress(self, access_token: str, media_id: str, chapter: int) -> None:
         await self._post(
             access_token, PROGRESS_MUTATION, {"mediaId": int(media_id), "progress": chapter}
+        )
+
+    async def set_status(self, access_token: str, media_id: str, status: ListStatus) -> None:
+        await self._post(
+            access_token,
+            STATUS_MUTATION,
+            {"mediaId": int(media_id), "status": anilist_status(status)},
         )
 
     def authorize_url(self, redirect_uri: str, state: str, verifier: str) -> str:

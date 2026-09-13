@@ -21,6 +21,7 @@ from app.handlers import (  # noqa: F401
     download_chapter,
     komga_scan,
     list_sync,
+    list_write,
     match_search,
     progress_push,
     suggest_build,

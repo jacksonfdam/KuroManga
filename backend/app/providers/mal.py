@@ -10,6 +10,7 @@ from urllib.parse import urlencode
 import httpx
 
 from app.config import get_settings
+from app.discovery.status_sync import mal_status
 from app.enums import ListStatus, Provider
 from app.providers.base import AnimeEntryDTO, ListEntryDTO, ListSource, RelatedManga, TokenSet
 
@@ -103,6 +104,17 @@ class MyAnimeListSource(ListSource):
         headers = {"Authorization": f"Bearer {access_token}"}
         data = {"num_chapters_read": chapter}
         url = f"{API_BASE}/manga/{media_id}/my_list_status"
+        if self._client is not None:
+            response = await self._client.patch(url, data=data, headers=headers)
+        else:
+            async with httpx.AsyncClient(timeout=30) as client:
+                response = await client.patch(url, data=data, headers=headers)
+        response.raise_for_status()
+
+    async def set_status(self, access_token: str, media_id: str, status: ListStatus) -> None:
+        headers = {"Authorization": f"Bearer {access_token}"}
+        url = f"{API_BASE}/manga/{media_id}/my_list_status"
+        data = {"status": mal_status(status)}
         if self._client is not None:
             response = await self._client.patch(url, data=data, headers=headers)
         else:
