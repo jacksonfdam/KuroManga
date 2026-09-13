@@ -126,10 +126,7 @@ services:
     logging: *logging
 
   comick:
-    build:
-      # Pinned: without a ref every build runs whatever that third party pushed
-      # to master, as a service on this host.
-      context: https://github.com/GooglyBlox/comick-source-api.git#ea168fc283466c403d057301df41fc177694c67c
+    build: ./docker/comick
     restart: unless-stopped
     expose:
       - "3000"
