@@ -252,6 +252,48 @@ async def test_progress_advances_whichever_provider_is_behind(client):
     assert response.json() == {"progress": 120, "queued": True}
 
 
+async def test_a_second_progress_request_raises_the_queued_job_instead_of_adding_one(client):
+    """Two +1 clicks must never become two jobs for the same series.
+
+    Two workers leasing both would each read the same pre-commit chapter, and
+    the lower one could reach the provider last — a backwards write that the
+    per-job forward-only guard cannot see.
+    """
+    async with get_sessionmaker()() as session:
+        await session.execute(
+            text(
+                """
+                insert into series (canonical_title, slug, needs_review, meta)
+                values ('One Piece', 'one-piece', false, '{}'::jsonb)
+                """
+            )
+        )
+        await session.execute(
+            text(
+                """
+                insert into list_entry
+                       (provider, provider_media_id, series_id, status, user_progress_chapter, synonyms, raw)
+                values ('mal', '3', 1, 'reading', 100, '[]'::jsonb, '{}'::jsonb)
+                """
+            )
+        )
+        await session.commit()
+
+    assert (await client.post("/api/series/1/progress", json={"chapter": 101})).status_code == 200
+    assert (await client.post("/api/series/1/progress", json={"chapter": 102})).status_code == 200
+
+    async with get_sessionmaker()() as session:
+        jobs = (
+            await session.execute(
+                text(
+                    "select payload->>'chapter' as chapter from job"
+                    " where type = 'progress_write' and state = 'pending'"
+                )
+            )
+        ).all()
+    assert [row.chapter for row in jobs] == ["102"]
+
+
 async def test_settings_expose_the_new_pipeline_keys(client):
     values = (await client.get("/api/settings")).json()["values"]
     assert values["cron_anime_sync"] == "0 */12 * * *"

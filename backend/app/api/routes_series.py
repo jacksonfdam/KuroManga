@@ -463,12 +463,39 @@ async def set_progress(series_id: int, body: ProgressIn, session: Session) -> di
     if forward_only(current, body.chapter) is None:
         raise HTTPException(status_code=409, detail="progress cannot move backwards")
 
-    await repo.enqueue(
+    queued = await repo.enqueue(
         session,
         JobType.PROGRESS_WRITE,
         {"series_id": series_id, "chapter": body.chapter},
         priority=0,
         series_id=series_id,
+        dedupe_key=f"progress_write:{series_id}",
     )
+    if queued is None:
+        # Two of these for one series is how a backwards write reaches someone
+        # else's list: the grid card and the Continue-reading row each render
+        # their own +1 with their own busy state, two workers lease both jobs,
+        # both read the same pre-commit user_progress_chapter, and the higher
+        # chapter can land at the provider first. The dedupe key refuses the
+        # second job, so the request raises the chapter on the one already
+        # waiting instead — the handler re-reads it before pushing, which is
+        # what keeps this from silently dropping the click.
+        await session.execute(
+            text(
+                """
+                update job
+                   set payload = jsonb_set(payload, '{chapter}',
+                                           to_jsonb(cast(:chapter as integer)))
+                 where type = :type and series_id = :series_id
+                   and state in ('pending', 'leased')
+                   and (payload->>'chapter')::int < cast(:chapter as integer)
+                """
+            ),
+            {
+                "type": str(JobType.PROGRESS_WRITE),
+                "series_id": series_id,
+                "chapter": body.chapter,
+            },
+        )
     await session.commit()
     return {"progress": body.chapter, "queued": True}
