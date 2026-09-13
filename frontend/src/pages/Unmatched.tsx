@@ -19,8 +19,10 @@ const PROVIDER_NAMES: Record<string, string> = { anilist: 'AniList', mal: 'MyAni
 const providerName = (provider: string) => PROVIDER_NAMES[provider] ?? provider
 
 /**
- * The three codes ask the user for three different things — authorise, wait,
- * retry — which is the whole reason the API sends a code instead of a sentence.
+ * The four codes ask the user for four different things — authorise, wait,
+ * retry, nothing — which is the whole reason the API sends a code instead of a
+ * sentence. The last one is the one that must not read as a retry: the provider
+ * refuses the query itself and would refuse it again.
  */
 function errorMessage(failure: SearchProviderError): string {
   const who = providerName(failure.provider)
@@ -29,6 +31,8 @@ function errorMessage(failure: SearchProviderError): string {
       return `${who} is not connected. Authorise it in Settings, then search again.`
     case 'rate_limited':
       return `${who} is taking too many requests right now. Wait a moment and search again.`
+    case 'query_unsupported':
+      return `${who} cannot search for any title this anime goes by, so it was not asked. Searching again would answer the same.`
     default:
       return `${who} did not answer. Try the search again.`
   }

@@ -155,7 +155,15 @@ export interface SearchCandidate {
   series_id: number | null
 }
 
-export type SearchErrorCode = 'not_connected' | 'rate_limited' | 'provider_error'
+/**
+ * `query_unsupported` is the one a retry cannot answer: the provider refuses the
+ * query itself, so the screen must not offer to search again.
+ */
+export type SearchErrorCode =
+  | 'not_connected'
+  | 'rate_limited'
+  | 'provider_error'
+  | 'query_unsupported'
 
 export interface SearchProviderError {
   provider: string
