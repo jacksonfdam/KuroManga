@@ -269,6 +269,8 @@ def parse_list(data: dict[str, Any]) -> list[ListEntryDTO]:
     for group in data.get("MediaListCollection", {}).get("lists", []) or []:
         for entry in group.get("entries", []) or []:
             media = entry.get("media") or {}
+            if not media.get("id"):
+                continue
             title = media.get("title") or {}
             synonyms = [s for s in (media.get("synonyms") or []) if s]
             native = title.get("native")
