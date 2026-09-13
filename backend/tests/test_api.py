@@ -298,4 +298,9 @@ async def test_series_detail_returns_chapters_and_entries(client):
 
 
 async def test_series_detail_for_a_missing_series_is_a_404(client):
-    assert (await client.get("/api/series/999999")).status_code == 404
+    # Asserting the status code alone would pass identically with the whole
+    # route deleted, since a bare /{series_id} already 404s by default when
+    # nothing matches it. The body is what proves this handler's own check ran.
+    response = await client.get("/api/series/999999")
+    assert response.status_code == 404
+    assert response.json() == {"detail": "series not found"}
