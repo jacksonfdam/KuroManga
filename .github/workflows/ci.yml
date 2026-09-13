@@ -46,13 +46,18 @@ jobs:
           enable-cache: true
 
       - name: Install
-        run: uv pip install --system -e ".[dev]" alembic
+        # A virtual environment rather than --system: the runner's interpreter is
+        # externally managed and refuses. This also matches what the README tells
+        # a developer to do, so CI and a laptop run the same way.
+        run: |
+          uv venv
+          uv pip install -e ".[dev]" alembic
 
       - name: Lint
-        run: ruff check app/ tests/
+        run: .venv/bin/ruff check app/ tests/
 
       - name: Test
-        run: pytest tests -q
+        run: .venv/bin/pytest tests -q
 
   frontend:
     runs-on: ubuntu-latest
