@@ -681,6 +681,12 @@ export function AppShell() {
 
 The `suggestions: 0` line is deliberate and temporary: the badge has no source until the discovery backend exists, and showing zero is honest where inventing a number is not. Plan B replaces it.
 
+Two things the sample above does not show, both required:
+
+**The header nav is `xl:` only, so it needs a complement.** Below that width the sample leaves no way to reach any screen but the URL bar, which fails the constraint that every screen is usable at 640 px. `DESIGN.md`'s responsive section specifies the answer — a compact navigation pinned to the bottom — so implement that rather than inventing a pattern. The bar's breakpoint must be the exact complement of the header nav's: no width where both show, and none where neither does. The main container gains bottom padding at those widths so the bar never covers content. This is where each `NAV` entry's `icon` field earns its place.
+
+**The status dots need a text alternative.** Colour is the sample's only signal for `ok` / `unauthenticated` / `unreachable`, and the adjacent text is just the provider's name, so a screen reader announces "MyAnimeList" and nothing about its health. Add visually hidden text stating the state, keyed off the same `item.state` the dot reads so the two cannot drift. The visible design does not change.
+
 - [ ] **Step 4: Move the client, add the new call, rewrite the routes**
 
 Move `src/api.ts` to `src/lib/api.ts` and `src/useEvents.ts` to `src/lib/useEvents.ts` with `git mv`, fixing imports in the four existing pages. Add to the `api` object:
