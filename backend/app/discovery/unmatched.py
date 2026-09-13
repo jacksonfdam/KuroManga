@@ -82,6 +82,11 @@ class MangaCandidate:
     def providers(self) -> list[str]:
         return [str(self.provider), *self.alt_ids]
 
+    @property
+    def media_ids(self) -> list[tuple[str, str]]:
+        """Every (provider, id) pair this one manga is known by, primary first."""
+        return [(str(self.provider), self.media_id), *self.alt_ids.items()]
+
 
 def _group_by_title(items: list, title_of) -> dict[str, list]:
     grouped: dict[str, list] = {}

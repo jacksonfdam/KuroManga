@@ -375,6 +375,61 @@ async def test_the_order_of_two_identical_titles_is_stable():
     assert [c.media_id for c in once] == [c.media_id for c in twice]
 
 
+async def test_a_candidate_already_on_a_list_says_so(client, providers_answer):
+    """Otherwise the only way to learn it is to click add and read a 409."""
+    anime_id = await insert_anime("anilist", "21")
+    async with get_sessionmaker()() as session:
+        series_id = (
+            await session.execute(
+                text(
+                    "insert into series (canonical_title, slug, needs_review, meta,"
+                    " created_at) values ('Vinland Saga', 'vinland-saga', false, '{}'::jsonb,"
+                    " now()) returning id"
+                )
+            )
+        ).scalar_one()
+        await session.execute(
+            text(
+                """
+                insert into list_entry (provider, provider_media_id, series_id, synonyms, status,
+                                        user_progress_chapter, raw)
+                values ('mal', '642', :series_id, '[]'::jsonb, 'reading', 0, '{}'::jsonb)
+                """
+            ),
+            {"series_id": series_id},
+        )
+        await session.commit()
+
+    body = (await client.post(f"/api/discovery/unmatched/{anime_id}/search")).json()
+    best = body["candidates"][0]
+    # Matched through the alt id: the candidate is one manga under two numbers.
+    assert best["media_id"] == "30642"
+    assert best["known_state"] == "on_list"
+    assert best["series_id"] == series_id
+    assert body["candidates"][1]["known_state"] is None
+
+
+async def test_a_candidate_already_added_says_added_rather_than_on_a_list(
+    client, providers_answer
+):
+    anime_id = await insert_anime("anilist", "21")
+    await client.post(f"/api/discovery/unmatched/{anime_id}/add", json=candidate_body())
+
+    body = (await client.post(f"/api/discovery/unmatched/{anime_id}/search")).json()
+    assert body["candidates"][0]["known_state"] == "added"
+
+
+async def test_a_dismissed_candidate_says_dismissed(client, providers_answer):
+    anime_id = await insert_anime("anilist", "21")
+    await insert_suggestion_from("anilist", "21")
+    async with get_sessionmaker()() as session:
+        await session.execute(text("update suggestion set state = 'dismissed'"))
+        await session.commit()
+
+    body = (await client.post(f"/api/discovery/unmatched/{anime_id}/search")).json()
+    assert body["candidates"][0]["known_state"] == "dismissed"
+
+
 async def test_adding_a_searched_candidate_records_a_title_match_not_an_adaptation(client):
     """The distinction is the whole point: nobody declared this one."""
     anime_id = await insert_anime("anilist", "21")

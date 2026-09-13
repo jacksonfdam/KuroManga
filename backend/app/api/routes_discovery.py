@@ -346,6 +346,27 @@ select meta -> 'origin' ->> 'provider', meta -> 'origin' ->> 'media_id'
  where meta -> 'origin' ->> 'media_id' is not null
 """
 
+# What the search already knows about a candidate, from the two tables that can
+# know it. `state` is the suggestion's own vocabulary translated into the answer
+# the screen needs: a suggestion still in `new` is a card the user has not
+# answered yet, which is worth saying and is not a reason to refuse the add.
+KNOWN_CANDIDATES = """
+select 'on_list' as state, provider, provider_media_id, series_id
+  from list_entry
+ where provider || ':' || provider_media_id = any(cast(:keys as text[]))
+union all
+select case state when 'added' then 'added' when 'dismissed' then 'dismissed'
+                  else 'suggested' end,
+       provider, provider_media_id, series_id
+  from suggestion
+ where provider || ':' || provider_media_id = any(cast(:keys as text[]))
+"""
+
+# Strongest first. `added` outranks `on_list` because approving writes both, and
+# of the two it is the one that says where the entry came from - and the one the
+# add would answer with a 409.
+KNOWN_PRECEDENCE = ("added", "on_list", "dismissed", "suggested")
+
 
 class SearchAddIn(AddIn):
     """The candidate the user picked, as the search handed it to them."""
@@ -376,7 +397,20 @@ def anime_payload(anime: UnmatchedAnime) -> dict[str, Any]:
     }
 
 
-def candidate_payload(candidate: MangaCandidate) -> dict[str, Any]:
+def known_key(provider: Any, media_id: str) -> str:
+    return f"{provider}:{media_id}"
+
+
+def candidate_payload(
+    candidate: MangaCandidate, known: dict[str, tuple[str, int | None]]
+) -> dict[str, Any]:
+    # A candidate is one manga under several ids, so whatever the strongest of
+    # them is known to be is what the candidate is known to be.
+    state, series_id = min(
+        (known[known_key(*pair)] for pair in candidate.media_ids if known_key(*pair) in known),
+        key=lambda found: KNOWN_PRECEDENCE.index(found[0]),
+        default=(None, None),
+    )
     return {
         "provider": str(candidate.provider),
         "media_id": candidate.media_id,
@@ -389,7 +423,32 @@ def candidate_payload(candidate: MangaCandidate) -> dict[str, Any]:
         "publishing_status": candidate.publishing_status,
         "format": candidate.format,
         "score": candidate.score,
+        "known_state": state,
+        "series_id": series_id,
     }
+
+
+async def known_states(
+    session: AsyncSession, candidates: list[MangaCandidate]
+) -> dict[str, tuple[str, int | None]]:
+    """What the database already has to say about every id the search turned up.
+
+    One query for the whole result set: without it the screen offers an add that
+    answers 409, or quietly duplicates a manga the user is already reading.
+    """
+    keys = [known_key(*pair) for candidate in candidates for pair in candidate.media_ids]
+    if not keys:
+        return {}
+    rows = (await session.execute(text(KNOWN_CANDIDATES), {"keys": keys})).all()
+    states: dict[str, tuple[str, int | None]] = {}
+    for row in rows:
+        key = known_key(row.provider, row.provider_media_id)
+        current = states.get(key)
+        if current is None or KNOWN_PRECEDENCE.index(row.state) < KNOWN_PRECEDENCE.index(
+            current[0]
+        ):
+            states[key] = (row.state, row.series_id)
+    return states
 
 
 def error_code(exc: Exception) -> str:
@@ -476,10 +535,12 @@ async def search_unmatched(anime_id: int, session: Session) -> dict[str, Any]:
     # that renewal away on every click.
     await session.commit()
 
+    candidates = merge_candidates(found, anime.titles)
+    known = await known_states(session, candidates)
     return {
         "anime": anime_payload(anime),
         "query": anime.search_title,
-        "candidates": [candidate_payload(c) for c in merge_candidates(found, anime.titles)],
+        "candidates": [candidate_payload(c, known) for c in candidates],
         "errors": errors,
     }
 
