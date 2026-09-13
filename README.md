@@ -20,10 +20,10 @@ A new entry lands on the **Review** screen and stops there. You confirm once whi
 on the source site it is, and from then on the pipeline discovers which chapters exist
 and shows in the Library how many are missing.
 
-**Nothing is downloaded until you ask.** In the Library each series has a chapter range
-(leave it empty for everything missing) and a *Follow new chapters* button. Only the
-series you follow enter the download schedule; the rest stay catalogued without using
-disk.
+**Nothing is downloaded until you ask.** Open a series from the Library and its own
+screen carries the chapter range (leave it empty for everything missing) and the
+*Auto-download new chapters* switch. Only the series you follow enter the download
+schedule; the rest stay catalogued without using disk.
 
 ## Running it
 
@@ -86,6 +86,11 @@ POSTGRES_HOST=localhost POSTGRES_PORT=5433 .venv/bin/python -m uvicorn app.api.m
 
 cd ../frontend && npm install && npm run dev
 ```
+
+One database per branch. A container shared between two working copies gets migrated by
+whichever branch runs `alembic upgrade head` last, and a schema ahead of the branch under
+test makes the tests lie about it — so a second branch worked on at the same time wants
+its own container on its own port, with `POSTGRES_PORT` pointed at it.
 
 Tests of the pure edges run from recorded fixtures and never touch the network. The queue
 tests run against a real Postgres, because concurrent leasing, lease expiry and backoff
