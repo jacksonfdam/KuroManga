@@ -292,3 +292,128 @@ enfileira `CHAPTER_DISCOVER`.
 6. Aprovar com `download: true` e candidato confiável baixa sem passar pela tela Review.
 7. Falha em um provedor não impede a escrita nos outros dois, e o retry refaz só o que falhou.
 8. Comick indisponível ainda produz sugestões, sem a lista de fontes.
+
+---
+
+## Como ficou
+
+Escrito depois da implementação (branch `feat/anime-manga-discovery`, PR #19), com o
+desenho acima intacto: ele é o registro do que foi decidido, esta seção é o registro do
+que foi construído. Onde os dois discordam, vale esta seção.
+
+### Aprovação resolve antes de criar
+
+O desenho manda criar `series`. A implementação primeiro procura: por id de mídia, depois
+por alias, exatamente como o `list_sync` faz, e só cria quando não achou nada
+(`resolve_series_for`, em `app/api/routes_discovery.py`). Uma sugestão pode ficar semanas
+sem resposta, e um `list_sync` nesse meio-tempo cria o mesmo mangá com a grafia dele:
+criar de novo aqui daria dois slugs, duas pastas e duas séries no Komga.
+
+Duas consequências disso, que o desenho não previa porque não previa a resolução:
+
+- A série reaproveitada pode já ter um `source_mapping` ativo, confirmado pelo usuário.
+  A aprovação não grava um segundo por cima, nem quando o candidato é confiável.
+- A escrita local passou a ser `upsert_entry_status`, e não o `upsert_entry` do
+  `list_sync`. O upsert compartilhado copia todas as colunas no conflito, e um DTO feito
+  de sugestão não carrega progresso: aprovar um mangá que o `list_sync` já conhecia
+  zerava `user_progress_chapter` e apagava título, capa e `raw`. Esse contador é a única
+  guarda monotônica que existe — o `progress_push` compara contra ele —, então zerá-lo
+  empurraria para a conta real um capítulo menor do que o que ela já tem. É essa separação
+  que faz valer a "fronteira que não pode borrar" desta spec, e não o nome do job.
+
+### Mapeamento automático exige título idêntico, não só pontuação
+
+O desenho fala em "confiança alta". Só a pontuação não serve: ela sai de uma grafia
+enquanto o `match_search` pontua contra todas, e o quase-acerto fica na linha — "Dragon
+Ball" contra "Dragon Ball Super" dá 0.786. O critério implementado é 0.80 **e** título
+normalizado igual ao da sugestão; o título do candidato passou a ser guardado em
+`meta.best` junto de site, url e score, justamente para essa comparação. O resto vai para
+o Review, que é onde um humano vê o que foi recusado.
+
+### "Baixar agora" é aditivo, e sobrevive ao Review
+
+Duas correções sobre o passo 4 da Aprovação:
+
+- O flag vira `auto_download = auto_download or :enabled`. Atribuir o valor da caixa
+  desligava o acompanhamento de uma série que o usuário já seguia — e a caixa nasce
+  desmarcada em Completo, Em espera e Dropado, que é o caso comum.
+- `CHAPTER_DISCOVER` imediato só quando o mapeamento ficou resolvido. Quando cai no
+  Review, o pedido de download fica no flag e o `confirm_mapping` o cumpre ao enfileirar o
+  `CHAPTER_DISCOVER` dele. Sem isso, quem pediu download e caiu no Review revisava a série
+  e nunca recebia o download.
+
+### `LIST_WRITE`: falta de conta não é falha do job
+
+O desenho manda levantar `PermanentError` para alvo sem conta conectada. Implementado
+assim, um AniList desconectado aposentava o job antes de MyAnimeList e MangaDex serem
+escritos. O que existe:
+
+- `NotConnected` é registrado no alvo e o laço continua. Só vira `PermanentError` se, ao
+  fim, nada foi escrito e nada pode ser: reconectar é ação humana, e retentar não ajuda.
+- `NotConfigured` — MangaDex sem as variáveis `MANGADEX_`, que são opcionais no
+  `.env.example` — é registrado como `skipped`: uma ausência, a mesma forma que a spec dá
+  a uma sugestão sem UUID. Um erro real do MangaDex continua falhando e retentando.
+- `meta.write_results` ganhou o campo `skipped` por causa disso, e a tela lista só os
+  alvos que de fato falharam, com o horário.
+
+Os alvos são os que a sugestão conhece: o provedor dela, os de `alt_ids`, e MangaDex
+quando o UUID resolveu. Nunca os três incondicionalmente.
+
+### Onde a escrita do MangaDex mora
+
+Não existe `providers/mangadex.py`. MangaDex não é lista de usuário no sentido dos outros
+dois — não tem OAuth por aqui —, então `POST /manga/{uuid}/status` foi para
+`sources/mangadex.py` como `set_reading_status`, usando o cache de token pessoal que já
+estava lá. E `ListSource` ganhou um único `set_status`: nos dois provedores, adicionar à
+lista e definir status são a mesma chamada, então dois métodos seriam dois nomes para uma
+coisa só.
+
+### Komga: marcado uma vez, e só o primeiro lote
+
+Marcar como lido virou um passo do `komga_scan`, depois de a adoção dos books estar
+commitada (os ids são o que o `progress_push` lê; uma falha contra o Komga não pode
+desfazê-los), com erro por book tratado individualmente e um carimbo `meta.komga_marked_read`
+para não repetir. O carimbo é a limitação conhecida: o `chapter_discover` enfileira todos
+os lotes de uma vez e cada lote termina com o seu próprio scan, então uma obra longa tem
+marcados só os livros indexados no primeiro. Está na issue #21 e não foi corrigido aqui.
+
+### Jobs longos commitam por unidade de trabalho
+
+O `SUGGEST_BUILD` faz uma busca por fonte por semente, e o `ANIME_LIST_SYNC` um request
+por anime do MyAnimeList: os dois estouram o lease de 900 segundos numa lista real, e
+lease expirado volta para a fila e é arrematado de novo — o job passaria a rodar ao lado
+de si mesmo. Cada um agora commita e renova o lease a cada unidade (uma semente; vinte
+animes).
+
+### Duas economias que o desenho não pedia
+
+- Semente já `dismissed` é descartada junto com as que já estão em `list_entry`, antes da
+  busca. O upsert preservar `state` bastava para a correção; o custo é que não bastava —
+  cada dispensa somava uma busca por fonte a todo ciclo futuro.
+- `source_summary` omite as chaves que não achou em vez de escrevê-las nulas. O upsert
+  funde `meta` de forma rasa, então um ciclo com o MangaDex fora do ar apagaria o UUID de
+  que a escrita de status depende.
+
+### Comick fixado em um commit
+
+O desenho diz "a partir da imagem do repositório". O `docker-compose.yml` fixa
+`#ea168fc283466c403d057301df41fc177694c67c`: sem ref, todo build sobe neste host o que
+aquele terceiro tiver empurrado para a branch padrão. Atualizar é trocar o SHA depois de
+ler o que mudou. O extrator de páginas continua fora, como o escopo já dizia: o comick não
+tem endpoint de imagem, e o `manga-downloader` baixa dos mesmos sites.
+
+Em Settings, o comick aparece como `reachable` / `not answering`, não como conta: ele não
+tem login nenhum, e a linha de provedor reaproveitada dizia "signed in".
+
+### Lacunas conhecidas
+
+- O filtro de formato (`LIGHT_NOVEL`, `NOVEL`, `ONE_SHOT` fora) só funciona no AniList,
+  cujas arestas trazem `format`. O `related_manga` do MyAnimeList não traz tipo de mídia,
+  então numa conta só-MAL uma light novel pode virar sugestão.
+- Uma sugestão que deixou de ser sugestão — o mangá foi adicionado à mão no provedor —
+  continua `new`, porque o rebuild nunca mexe em `state`. O card fica lá e o badge conta a
+  mais.
+- Anime do MyAnimeList sem mangá nenhum é reconsultado a cada ciclo, porque o critério de
+  "falta buscar" é `related_manga` vazio.
+
+Essas três, e as menores, estão na issue #21.
