@@ -56,21 +56,43 @@ async def adopt_book_ids(session: AsyncSession, series_id: int, books) -> int:
     return matched
 
 
-async def completed_series(session: AsyncSession, series_id: int) -> bool:
-    """True when the user added this series already finished, so Komga should agree."""
+async def completed_series(session: AsyncSession, series_id: int) -> int | None:
+    """The suggestion id when the user added this series already finished, else None.
+
+    Marking is one-shot. This job runs after every download batch, so without the
+    stamp a chapter downloaded months later would be marked read in Komga without
+    being read, and progress_push would then carry that chapter number out to the
+    user's real accounts, where it cannot be walked back.
+    """
     result = await session.execute(
         text(
             """
-            select 1 from suggestion
+            select id from suggestion
              where series_id = :series_id
                and state = 'added'
                and meta ->> 'chosen_status' = 'completed'
+               and coalesce(meta ->> 'komga_marked_read', 'false') <> 'true'
              limit 1
             """
         ),
         {"series_id": series_id},
     )
-    return result.first() is not None
+    row = result.first()
+    return row[0] if row else None
+
+
+async def stamp_marked_read(session: AsyncSession, suggestion_id: int) -> None:
+    await session.execute(
+        text(
+            """
+            update suggestion
+               set meta = coalesce(meta, '{}'::jsonb) || '{"komga_marked_read": true}'::jsonb,
+                   updated_at = now()
+             where id = :id
+            """
+        ),
+        {"id": suggestion_id},
+    )
 
 
 @register(JobType.KOMGA_SCAN)
@@ -109,9 +131,23 @@ async def handle(ctx: JobContext) -> None:
 
     books = await client.books_of_series(komga_series_id)
     matched = await adopt_book_ids(ctx.session, series_id, books)
-    if await completed_series(ctx.session, series_id):
-        for book in books:
+    await ctx.log(f"{len(books)} books indexed, {matched} chapters matched", pct=80)
+    # The book ids are what progress_push reads; a later failure against Komga
+    # must not roll them back and leave the series without them forever.
+    await ctx.session.commit()
+
+    suggestion_id = await completed_series(ctx.session, series_id)
+    if suggestion_id is None:
+        await ctx.log("done", pct=100)
+        return
+
+    marked = 0
+    for book in books:
+        try:
             await client.set_read_progress(book.id, page=1, completed=True)
-        await ctx.log(f"marked {len(books)} books read: added as completed", pct=100)
-    else:
-        await ctx.log(f"{len(books)} books indexed, {matched} chapters matched", pct=100)
+        except Exception as exc:  # noqa: BLE001 - one book is not the whole series
+            await ctx.log(f"could not mark {book.filename} read: {exc}", level="warning")
+            continue
+        marked += 1
+    await stamp_marked_read(ctx.session, suggestion_id)
+    await ctx.log(f"marked {marked}/{len(books)} books read: added as completed", pct=100)
