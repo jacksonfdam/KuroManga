@@ -6,6 +6,9 @@ import type { Config } from 'tailwindcss'
  * That file also carries a prose palette naming #8b5cf6 over #0d1117. It
  * disagrees with this map and loses: every mockup in .redesign/ embeds these
  * values, and the screenshots were rendered from them.
+ *
+ * This is a deliberate subset: surface-tint and the *-fixed / *-fixed-dim /
+ * on-*-fixed / on-*-fixed-variant roles are omitted because nothing uses them.
  */
 export default {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
@@ -90,7 +93,7 @@ export default {
       maxWidth: { canvas: '1440px' },
       boxShadow: {
         card: '0 8px 24px -4px rgba(0, 0, 0, 0.45)',
-        overlay: '0 20px 40px -12px rgba(139, 92, 246, 0.12)',
+        overlay: '0 20px 40px -12px rgba(208, 188, 255, 0.12)',
         glow: '0 8px 20px -2px rgba(208, 188, 255, 0.25)',
       },
     },
