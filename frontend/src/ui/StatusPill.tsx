@@ -1,11 +1,13 @@
 import { STATUS_LABEL, STATUS_TONE, type ListStatus } from '../lib/format'
 
+// DESIGN.md's Status Badges spec calls for a 12% alpha tint, not the 10%
+// this started as.
 const TINT: Record<string, string> = {
-  secondary: 'bg-secondary/10 text-secondary',
-  primary: 'bg-primary/10 text-primary',
-  tertiary: 'bg-tertiary/10 text-tertiary',
-  warning: 'bg-warning/10 text-warning',
-  error: 'bg-error/10 text-error',
+  secondary: 'bg-secondary/12 text-secondary',
+  primary: 'bg-primary/12 text-primary',
+  tertiary: 'bg-tertiary/12 text-tertiary',
+  warning: 'bg-warning/12 text-warning',
+  error: 'bg-error/12 text-error',
 }
 
 export function StatusPill({ status }: { status: ListStatus }) {
