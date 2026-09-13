@@ -1,0 +1,36 @@
+{
+  "Page": {
+    "media": [
+      {
+        "id": 30642,
+        "title": {
+          "romaji": "Vinland Saga",
+          "english": "Vinland Saga"
+        },
+        "coverImage": {
+          "large": "https://s4.anilist.co/file/anilistcdn/media/manga/cover/medium/bx30642-0mjRDkf4THpo.jpg"
+        },
+        "chapters": 224,
+        "status": "FINISHED",
+        "startDate": {
+          "year": 2005
+        }
+      },
+      {
+        "id": 125307,
+        "title": {
+          "romaji": "Assassin's Creed: Valhalla x Vinland Saga",
+          "english": null
+        },
+        "coverImage": {
+          "large": "https://s4.anilist.co/file/anilistcdn/media/manga/cover/medium/bx125307-aq2v8ZLsBNDt.png"
+        },
+        "chapters": 1,
+        "status": "FINISHED",
+        "startDate": {
+          "year": 2020
+        }
+      }
+    ]
+  }
+}

@@ -12,7 +12,7 @@ import httpx
 from app.config import get_settings
 from app.discovery.status_sync import mal_status
 from app.enums import ListStatus, Provider
-from app.providers.base import AnimeEntryDTO, ListEntryDTO, ListSource, TokenSet
+from app.providers.base import AnimeEntryDTO, ListEntryDTO, ListSource, MangaMeta, TokenSet
 
 API_BASE = "https://api.myanimelist.net/v2"
 AUTHORIZE_URL = "https://myanimelist.net/v1/oauth2/authorize"
@@ -33,6 +33,20 @@ STATUS_MAP = {
 }
 
 ANIME_LIST_FIELDS = "list_status,alternative_titles,num_episodes,main_picture,title"
+
+SEARCH_FIELDS = "id,title,alternative_titles,num_chapters,main_picture,start_date,status"
+SEARCH_LIMIT = 10
+
+# The two providers spell the same publishing state differently and a merged
+# candidate carries one badge, so MyAnimeList is translated into AniList's
+# vocabulary - the one rank_score and the suggestion cards already read.
+PUBLISHING_STATUS_MAP = {
+    "finished": "FINISHED",
+    "currently_publishing": "RELEASING",
+    "not_yet_published": "NOT_YET_RELEASED",
+    "on_hiatus": "HIATUS",
+    "discontinued": "CANCELLED",
+}
 
 ANIME_STATUS_MAP = {
     "watching": ListStatus.READING,
@@ -88,6 +102,17 @@ class MyAnimeListSource(ListSource):
             url = (page.get("paging") or {}).get("next")
             params = None
         return entries
+
+    async def search_manga(
+        self, access_token: str, title: str, limit: int = SEARCH_LIMIT
+    ) -> list[MangaMeta]:
+        """One page, one user action: nothing here loops or follows `paging.next`."""
+        page = await self._get(
+            access_token,
+            f"{API_BASE}/manga",
+            {"q": title, "limit": limit, "fields": SEARCH_FIELDS, "nsfw": "true"},
+        )
+        return parse_manga_search(page)
 
     async def push_progress(self, access_token: str, media_id: str, chapter: int) -> None:
         headers = {"Authorization": f"Bearer {access_token}"}
@@ -227,3 +252,27 @@ def parse_anime_page(page: dict[str, Any]) -> list[AnimeEntryDTO]:
             )
         )
     return entries
+
+
+def parse_manga_search(page: dict[str, Any]) -> list[MangaMeta]:
+    """Pure parser for a manga title search, in the order MyAnimeList ranked it."""
+    results: list[MangaMeta] = []
+    for item in page.get("data", []) or []:
+        node = item.get("node") or {}
+        if not node.get("id"):
+            continue
+        alt = node.get("alternative_titles") or {}
+        # `en` comes back as an empty string far more often than it comes back
+        # absent, and an empty title is worse than the romaji one it replaces.
+        start_date = node.get("start_date") or ""
+        results.append(
+            MangaMeta(
+                media_id=str(node["id"]),
+                title=alt.get("en") or node.get("title") or "",
+                cover_url=(node.get("main_picture") or {}).get("large"),
+                total_chapters=node.get("num_chapters") or None,
+                year=int(start_date[:4]) if start_date[:4].isdigit() else None,
+                publishing_status=PUBLISHING_STATUS_MAP.get(node.get("status") or ""),
+            )
+        )
+    return results

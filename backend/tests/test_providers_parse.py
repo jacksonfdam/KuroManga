@@ -1,7 +1,9 @@
 from app.config import get_settings
 from app.enums import ListStatus, Provider
 from app.providers.anilist import AniListSource, parse_list
+from app.providers.anilist import parse_manga_search as parse_anilist_search
 from app.providers.mal import MyAnimeListSource, parse_page
+from app.providers.mal import parse_manga_search as parse_mal_search
 
 
 def test_anilist_maps_statuses_onto_the_shared_vocabulary(fixture):
@@ -59,3 +61,43 @@ def test_mal_percent_encodes_the_redirect_uri(monkeypatch):
     url = MyAnimeListSource().authorize_url("http://localhost:8080/api/auth/mal/callback", "S", "v")
     assert "redirect_uri=http%3A%2F%2Flocalhost%3A8080" in url
     assert "code_challenge_method=plain" in url
+
+
+def test_anilist_search_returns_manga_metadata_in_the_order_it_ranked(fixture):
+    """Recorded from the live API: `Vinland Saga`, perPage 5."""
+    results = parse_anilist_search(fixture("anilist_manga_search.json"))
+    assert [r.media_id for r in results] == ["30642", "125307"]
+    assert results[0].title == "Vinland Saga"
+    assert results[0].total_chapters == 224
+    assert results[0].year == 2005
+    assert results[0].publishing_status == "FINISHED"
+
+
+def test_anilist_search_falls_back_to_romaji_when_there_is_no_english_title(fixture):
+    results = parse_anilist_search(fixture("anilist_manga_search.json"))
+    assert results[1].title == "Assassin's Creed: Valhalla x Vinland Saga"
+
+
+def test_mal_search_returns_manga_metadata(fixture):
+    """Recorded from the live API: q=Vinland Saga, limit 5."""
+    results = parse_mal_search(fixture("mal_manga_search.json"))
+    assert [r.media_id for r in results] == ["642", "131084", "98614"]
+    assert results[0].title == "Vinland Saga"
+    assert results[0].total_chapters == 224
+    assert results[0].cover_url.endswith("188925l.jpg")
+
+
+def test_mal_search_reads_the_year_out_of_the_start_date(fixture):
+    assert parse_mal_search(fixture("mal_manga_search.json"))[0].year == 2005
+
+
+def test_mal_search_ignores_an_empty_english_title(fixture):
+    """`alternative_titles.en` comes back as "" far more often than it is absent."""
+    assert parse_mal_search(fixture("mal_manga_search.json"))[1].title == (
+        "Assassin's Creed Valhalla x Vinland Saga"
+    )
+
+
+def test_mal_search_speaks_anilist_publishing_vocabulary(fixture):
+    """One merged candidate carries one badge, so `finished` cannot stay lowercase."""
+    assert parse_mal_search(fixture("mal_manga_search.json"))[0].publishing_status == "FINISHED"

@@ -123,3 +123,9 @@ class ListSource(ABC):
     async def set_status(self, access_token: str, media_id: str, status: ListStatus) -> None:
         """Write the manga's list status, creating the entry when it is absent."""
         raise NotImplementedError
+
+    async def search_manga(
+        self, access_token: str, title: str, limit: int = 10
+    ) -> list["MangaMeta"]:
+        """Manga whose title resembles this one. Empty when the provider cannot search."""
+        return []
