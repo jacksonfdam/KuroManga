@@ -56,6 +56,23 @@ async def adopt_book_ids(session: AsyncSession, series_id: int, books) -> int:
     return matched
 
 
+async def completed_series(session: AsyncSession, series_id: int) -> bool:
+    """True when the user added this series already finished, so Komga should agree."""
+    result = await session.execute(
+        text(
+            """
+            select 1 from suggestion
+             where series_id = :series_id
+               and state = 'added'
+               and meta ->> 'chosen_status' = 'completed'
+             limit 1
+            """
+        ),
+        {"series_id": series_id},
+    )
+    return result.first() is not None
+
+
 @register(JobType.KOMGA_SCAN)
 async def handle(ctx: JobContext) -> None:
     settings = get_settings()
@@ -92,4 +109,9 @@ async def handle(ctx: JobContext) -> None:
 
     books = await client.books_of_series(komga_series_id)
     matched = await adopt_book_ids(ctx.session, series_id, books)
-    await ctx.log(f"{len(books)} books indexed, {matched} chapters matched", pct=100)
+    if await completed_series(ctx.session, series_id):
+        for book in books:
+            await client.set_read_progress(book.id, page=1, completed=True)
+        await ctx.log(f"marked {len(books)} books read: added as completed", pct=100)
+    else:
+        await ctx.log(f"{len(books)} books indexed, {matched} chapters matched", pct=100)
