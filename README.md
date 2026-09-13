@@ -53,8 +53,9 @@ what is missing. A MangaDex without the credentials in `.env` does not count as 
 they are optional, so that target simply does not exist in this installation, and it is
 recorded as skipped.
 
-A checkbox on each suggestion decides whether the download starts now or waits, and it
-arrives already set from the status you chose. When the candidate source has exactly the
+A checkbox on each suggestion decides whether the download starts now or waits. It arrives
+ticked only for Reading: planning to read something is not asking for its whole backlog
+tonight, so every other status leaves it to you. When the candidate source has exactly the
 same title and a high enough score, the mapping is made directly and the series skips the
 Review screen. When it does not, the series waits on Review, and the download you asked for
 starts as soon as the source is confirmed there. *Baixar agora* only ever turns following

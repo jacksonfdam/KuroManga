@@ -15,7 +15,9 @@ const STATUSES: { value: ListStatusValue; label: string }[] = [
 // must not claim otherwise.
 const DEFAULT_STATUS: ListStatusValue = 'plan_to_read'
 
-const DOWNLOADS_BY_DEFAULT: ListStatusValue[] = ['reading', 'plan_to_read']
+// Only what is being read now downloads unasked. Planning to read something is
+// not asking for its whole backlog on disk tonight.
+const DOWNLOADS_BY_DEFAULT: ListStatusValue[] = ['reading']
 
 function reasonOf(suggestion: Suggestion): string {
   const { origin_title, origin_status, total_episodes } = suggestion.reason
