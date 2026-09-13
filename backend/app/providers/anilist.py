@@ -9,6 +9,7 @@ from app.config import get_settings
 from app.discovery.status_sync import anilist_status
 from app.enums import ListStatus, Provider
 from app.providers.base import (
+    MANGA_FORMATS,
     AnimeEntryDTO,
     ListEntryDTO,
     ListSource,
@@ -44,11 +45,14 @@ query ($ids: [Int]) {
 }
 """
 
+# `type: MANGA` is not the filter it reads like: on AniList a light novel is a
+# MANGA too, and only `format` separates them.
 MANGA_SEARCH_QUERY = """
 query ($q: String, $perPage: Int) {
   Page(perPage: $perPage) {
     media(search: $q, type: MANGA) {
       id
+      format
       title { romaji english }
       coverImage { large }
       chapters
@@ -101,9 +105,6 @@ ANIME_STATUS_MAP = {
     "DROPPED": ListStatus.DROPPED,
 }
 
-# Formats that can actually be read as a manga. NOVEL and ONE_SHOT are relations
-# too, and suggesting either would be suggesting something that does not exist.
-MANGA_FORMATS = {"MANGA", "MANHWA", "MANHUA", "OEL"}
 WANTED_RELATIONS = {"SOURCE", "ADAPTATION"}
 
 ANIME_LIST_QUERY = """
@@ -311,10 +312,15 @@ def parse_manga_search(data: dict[str, Any]) -> list[MangaMeta]:
 
     The order is kept because the caller re-scores against the anime's own titles,
     and a stable input order is what makes that ranking reproducible.
+
+    Formats are filtered exactly as `parse_relations` filters them. The anime this
+    search serves are disproportionately light novel adaptations, where the novel
+    is AniList's top hit under the exact anime title, and a format nobody declared
+    is one nobody can vouch for either.
     """
     results: list[MangaMeta] = []
     for media in (data.get("Page") or {}).get("media", []) or []:
-        if not media.get("id"):
+        if not media.get("id") or media.get("format") not in MANGA_FORMATS:
             continue
         title = media.get("title") or {}
         results.append(
@@ -325,6 +331,7 @@ def parse_manga_search(data: dict[str, Any]) -> list[MangaMeta]:
                 total_chapters=media.get("chapters"),
                 year=(media.get("startDate") or {}).get("year"),
                 publishing_status=media.get("status"),
+                format=media.get("format"),
             )
         )
     return results

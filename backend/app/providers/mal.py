@@ -12,7 +12,14 @@ import httpx
 from app.config import get_settings
 from app.discovery.status_sync import mal_status
 from app.enums import ListStatus, Provider
-from app.providers.base import AnimeEntryDTO, ListEntryDTO, ListSource, MangaMeta, TokenSet
+from app.providers.base import (
+    MANGA_FORMATS,
+    AnimeEntryDTO,
+    ListEntryDTO,
+    ListSource,
+    MangaMeta,
+    TokenSet,
+)
 
 API_BASE = "https://api.myanimelist.net/v2"
 AUTHORIZE_URL = "https://myanimelist.net/v1/oauth2/authorize"
@@ -34,8 +41,26 @@ STATUS_MAP = {
 
 ANIME_LIST_FIELDS = "list_status,alternative_titles,num_episodes,main_picture,title"
 
-SEARCH_FIELDS = "id,title,alternative_titles,num_chapters,main_picture,start_date,status"
+# `media_type` is what keeps light novels out: MyAnimeList indexes them under
+# /manga like AniList does, and asking for the field is the only way to tell.
+SEARCH_FIELDS = (
+    "id,title,alternative_titles,num_chapters,main_picture,start_date,status,media_type"
+)
 SEARCH_LIMIT = 10
+
+# MyAnimeList's own vocabulary, translated into AniList's so one filter and one
+# badge serve both. It splits what AniList calls NOVEL into two, and everything
+# it names outside MANGA_FORMATS is dropped either way.
+MEDIA_TYPE_MAP = {
+    "manga": "MANGA",
+    "manhwa": "MANHWA",
+    "manhua": "MANHUA",
+    "oel": "OEL",
+    "one_shot": "ONE_SHOT",
+    "doujinshi": "DOUJINSHI",
+    "novel": "NOVEL",
+    "light_novel": "NOVEL",
+}
 
 # The two providers spell the same publishing state differently and a merged
 # candidate carries one badge, so MyAnimeList is translated into AniList's
@@ -255,11 +280,16 @@ def parse_anime_page(page: dict[str, Any]) -> list[AnimeEntryDTO]:
 
 
 def parse_manga_search(page: dict[str, Any]) -> list[MangaMeta]:
-    """Pure parser for a manga title search, in the order MyAnimeList ranked it."""
+    """Pure parser for a manga title search, in the order MyAnimeList ranked it.
+
+    Formats are filtered the way AniList's are, for the same reason: a search for
+    an anime's title surfaces the light novel it was adapted from first.
+    """
     results: list[MangaMeta] = []
     for item in page.get("data", []) or []:
         node = item.get("node") or {}
-        if not node.get("id"):
+        media_format = MEDIA_TYPE_MAP.get(node.get("media_type") or "")
+        if not node.get("id") or media_format not in MANGA_FORMATS:
             continue
         alt = node.get("alternative_titles") or {}
         # `en` comes back as an empty string far more often than it comes back
@@ -273,6 +303,7 @@ def parse_manga_search(page: dict[str, Any]) -> list[MangaMeta]:
                 total_chapters=node.get("num_chapters") or None,
                 year=int(start_date[:4]) if start_date[:4].isdigit() else None,
                 publishing_status=PUBLISHING_STATUS_MAP.get(node.get("status") or ""),
+                format=media_format,
             )
         )
     return results

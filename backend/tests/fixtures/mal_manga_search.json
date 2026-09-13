@@ -22,7 +22,8 @@
         },
         "num_chapters": 224,
         "start_date": "2005-04-13",
-        "status": "finished"
+        "status": "finished",
+        "media_type": "manga"
       }
     },
     {
@@ -40,7 +41,8 @@
         },
         "num_chapters": 1,
         "start_date": "2020-10-24",
-        "status": "finished"
+        "status": "finished",
+        "media_type": "one_shot"
       }
     },
     {
@@ -58,7 +60,8 @@
         },
         "num_chapters": 39,
         "start_date": "2009-02-21",
-        "status": "finished"
+        "status": "finished",
+        "media_type": "manga"
       }
     }
   ],

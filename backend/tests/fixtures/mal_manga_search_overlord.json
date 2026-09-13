@@ -1,0 +1,213 @@
+{
+  "data": [
+    {
+      "node": {
+        "id": 81669,
+        "title": "Overlord",
+        "main_picture": {
+          "medium": "https://cdn.myanimelist.net/images/manga/1/160558.webp",
+          "large": "https://cdn.myanimelist.net/images/manga/1/160558l.webp"
+        },
+        "alternative_titles": {
+          "synonyms": [
+            "Over Lord"
+          ],
+          "en": "Overlord",
+          "ja": "オーバーロード"
+        },
+        "num_chapters": 0,
+        "start_date": "2012-07-30",
+        "status": "currently_publishing",
+        "media_type": "light_novel"
+      }
+    },
+    {
+      "node": {
+        "id": 81667,
+        "title": "Overlord",
+        "main_picture": {
+          "medium": "https://cdn.myanimelist.net/images/manga/3/161407.jpg",
+          "large": "https://cdn.myanimelist.net/images/manga/3/161407l.jpg"
+        },
+        "alternative_titles": {
+          "synonyms": [],
+          "en": "Overlord",
+          "ja": "オーバーロード"
+        },
+        "num_chapters": 91,
+        "start_date": "2014-11-26",
+        "status": "finished",
+        "media_type": "manga"
+      }
+    },
+    {
+      "node": {
+        "id": 194453,
+        "title": "Lady Overlord",
+        "main_picture": {
+          "medium": "https://cdn.myanimelist.net/images/manga/3/346894.jpg",
+          "large": "https://cdn.myanimelist.net/images/manga/3/346894l.jpg"
+        },
+        "alternative_titles": {
+          "synonyms": [
+            "The Overlord Lady"
+          ],
+          "en": "Lady Overlord",
+          "ja": "패왕영애"
+        },
+        "num_chapters": 0,
+        "start_date": "2025-08-12",
+        "status": "currently_publishing",
+        "media_type": "manhwa"
+      }
+    },
+    {
+      "node": {
+        "id": 169454,
+        "title": "Overlord: \"Shin\" Sekai-hen",
+        "main_picture": {
+          "medium": "https://cdn.myanimelist.net/images/manga/1/311780.jpg",
+          "large": "https://cdn.myanimelist.net/images/manga/1/311780l.jpg"
+        },
+        "alternative_titles": {
+          "synonyms": [
+            "Overlord: Shinsekai-hen"
+          ],
+          "en": "Overlord New World",
+          "ja": "オーバーロード＜新＞世界編"
+        },
+        "num_chapters": 0,
+        "start_date": "2024-02-22",
+        "status": "currently_publishing",
+        "media_type": "manga"
+      }
+    },
+    {
+      "node": {
+        "id": 190182,
+        "title": "The Iron Overlord of Sichuan",
+        "main_picture": {
+          "medium": "https://cdn.myanimelist.net/images/manga/1/339950.jpg",
+          "large": "https://cdn.myanimelist.net/images/manga/1/339950l.jpg"
+        },
+        "alternative_titles": {
+          "synonyms": [
+            "Sichuan's Supreme King",
+            "Emperor of Sichuan"
+          ],
+          "en": "The Iron Overlord of Sichuan",
+          "ja": "사천패왕"
+        },
+        "num_chapters": 0,
+        "start_date": "2026-01-09",
+        "status": "currently_publishing",
+        "media_type": "manhwa"
+      }
+    },
+    {
+      "node": {
+        "id": 185271,
+        "title": "Haou ni Natte kara Isekai ni Kiteshimatta! Edit shita Game Chara-tachi to Isekai wo Juurin suru Wagahaou: The Comic",
+        "main_picture": {
+          "medium": "https://cdn.myanimelist.net/images/manga/3/331596.jpg",
+          "large": "https://cdn.myanimelist.net/images/manga/3/331596l.jpg"
+        },
+        "alternative_titles": {
+          "synonyms": [
+            "I Became the Overlord in Another World!"
+          ],
+          "en": "",
+          "ja": "覇王になってから異世界に来てしまった!～エディットしたゲームキャラ達と異世界を蹂躙する我覇王～ THE COMIC"
+        },
+        "num_chapters": 0,
+        "start_date": "2025-07-25",
+        "status": "currently_publishing",
+        "media_type": "manga"
+      }
+    },
+    {
+      "node": {
+        "id": 117956,
+        "title": "Overlord: Koushiki Comic à la Carte",
+        "main_picture": {
+          "medium": "https://cdn.myanimelist.net/images/manga/3/221257.jpg",
+          "large": "https://cdn.myanimelist.net/images/manga/3/221257l.jpg"
+        },
+        "alternative_titles": {
+          "synonyms": [],
+          "en": "Overlord à la Carte",
+          "ja": "オーバーロード 公式コミックアラカルト"
+        },
+        "num_chapters": 47,
+        "start_date": "2018-01-10",
+        "status": "finished",
+        "media_type": "manga"
+      }
+    },
+    {
+      "node": {
+        "id": 161188,
+        "title": "Star of the Overlord",
+        "main_picture": {
+          "medium": "https://cdn.myanimelist.net/images/manga/1/285928.jpg",
+          "large": "https://cdn.myanimelist.net/images/manga/1/285928l.jpg"
+        },
+        "alternative_titles": {
+          "synonyms": [
+            "The Star of a Supreme Ruler",
+            "Paewang-ui Byeol"
+          ],
+          "en": "Star of the Overlord",
+          "ja": "패왕의 별"
+        },
+        "num_chapters": 122,
+        "start_date": "2022-02-28",
+        "status": "on_hiatus",
+        "media_type": "manhwa"
+      }
+    },
+    {
+      "node": {
+        "id": 180146,
+        "title": "Maryoku Zetsumu no Ryuukentsukai: Maryoku Zero no Ryuuou no Musuko, Bocchi Yue ni, Tomodachi wo Tsukuru Tame ni Madou Gakuen de Musou suru",
+        "main_picture": {
+          "medium": "https://cdn.myanimelist.net/images/manga/1/321442.jpg",
+          "large": "https://cdn.myanimelist.net/images/manga/1/321442l.jpg"
+        },
+        "alternative_titles": {
+          "synonyms": [
+            "Overlord Dragoon"
+          ],
+          "en": "",
+          "ja": "魔力絶無の竜拳使い～魔力ゼロの竜王の息子、ぼっち故に、友達を作るために魔導学園で無双する～"
+        },
+        "num_chapters": 0,
+        "start_date": "2023-12-05",
+        "status": "currently_publishing",
+        "media_type": "manga"
+      }
+    },
+    {
+      "node": {
+        "id": 116651,
+        "title": "Overlord: Fushisha no Oh!",
+        "main_picture": {
+          "medium": "https://cdn.myanimelist.net/images/manga/2/221258.jpg",
+          "large": "https://cdn.myanimelist.net/images/manga/2/221258l.jpg"
+        },
+        "alternative_titles": {
+          "synonyms": [],
+          "en": "Overlord: The Undead King Oh!",
+          "ja": "オーバーロード 不死者のOh!"
+        },
+        "num_chapters": 0,
+        "start_date": "2017-01-26",
+        "status": "currently_publishing",
+        "media_type": "manga"
+      }
+    }
+  ],
+  "paging": {
+    "next": "https://api.myanimelist.net/v2/manga?offset=10&q=Overlord&limit=10&fields=id%2Ctitle%2Calternative_titles%2Cnum_chapters%2Cmain_picture%2Cstart_date%2Cstatus%2Cmedia_type&nsfw=true"
+  }
+}

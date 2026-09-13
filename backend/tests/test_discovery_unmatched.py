@@ -122,11 +122,13 @@ class FakeSource:
         return self.results
 
 
-@pytest.fixture
-def providers_answer(monkeypatch, fixture):
+def _answer(monkeypatch, fixture, slug: str):
+    suffix = f"_{slug}" if slug else ""
     sources = {
-        Provider.ANILIST: FakeSource(parse_anilist_search(fixture("anilist_manga_search.json"))),
-        Provider.MAL: FakeSource(parse_mal_search(fixture("mal_manga_search.json"))),
+        Provider.ANILIST: FakeSource(
+            parse_anilist_search(fixture(f"anilist_manga_search{suffix}.json"))
+        ),
+        Provider.MAL: FakeSource(parse_mal_search(fixture(f"mal_manga_search{suffix}.json"))),
     }
 
     async def token(session, provider):
@@ -135,6 +137,17 @@ def providers_answer(monkeypatch, fixture):
     monkeypatch.setattr("app.api.routes_discovery.access_token_for", token)
     monkeypatch.setattr("app.api.routes_discovery.get_source", lambda p: sources[p])
     return sources
+
+
+@pytest.fixture
+def providers_answer(monkeypatch, fixture):
+    return _answer(monkeypatch, fixture, "")
+
+
+@pytest.fixture
+def providers_answer_overlord(monkeypatch, fixture):
+    """Recorded live. Both providers answer `Overlord` with the light novel first."""
+    return _answer(monkeypatch, fixture, "overlord")
 
 
 async def test_an_anime_with_no_relation_is_offered_a_search(client):
@@ -225,7 +238,7 @@ async def test_a_search_ranks_the_closest_title_first(client, providers_answer):
     body = (await client.post(f"/api/discovery/unmatched/{anime_id}/search")).json()
     scores = [c["score"] for c in body["candidates"]]
     assert scores == sorted(scores, reverse=True)
-    assert body["candidates"][-1]["title"].startswith("Assassin")
+    assert body["candidates"][-1]["title"] == "Finland Saga"
 
 
 async def test_a_search_asks_each_provider_once(client, providers_answer):
@@ -258,7 +271,27 @@ async def test_a_provider_that_fails_is_reported_rather_than_silently_dropped(
     body = (await client.post(f"/api/discovery/unmatched/{anime_id}/search")).json()
 
     assert [e["provider"] for e in body["errors"]] == ["anilist"]
-    assert [c["provider"] for c in body["candidates"]] == ["mal", "mal", "mal"]
+    assert [c["provider"] for c in body["candidates"]] == ["mal", "mal"]
+
+
+async def test_the_light_novel_an_anime_was_adapted_from_is_never_offered(
+    client, providers_answer_overlord
+):
+    """Both providers rank it first, under the anime's exact title."""
+    anime_id = await insert_anime("anilist", "21", romaji="Overlord", english="Overlord")
+    body = (await client.post(f"/api/discovery/unmatched/{anime_id}/search")).json()
+
+    offered = {(c["provider"], c["media_id"]) for c in body["candidates"]}
+    assert ("anilist", "85976") not in offered
+    assert ("mal", "81669") not in offered
+    assert ("anilist", "85934") in offered
+    assert {c["format"] for c in body["candidates"]} <= {"MANGA", "MANHWA", "MANHUA", "OEL"}
+
+
+async def test_a_candidate_says_what_format_it_is(client, providers_answer):
+    anime_id = await insert_anime("anilist", "21")
+    body = (await client.post(f"/api/discovery/unmatched/{anime_id}/search")).json()
+    assert body["candidates"][0]["format"] == "MANGA"
 
 
 async def test_adding_a_searched_candidate_records_a_title_match_not_an_adaptation(client):

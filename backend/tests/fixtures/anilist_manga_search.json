@@ -3,6 +3,7 @@
     "media": [
       {
         "id": 30642,
+        "format": "MANGA",
         "title": {
           "romaji": "Vinland Saga",
           "english": "Vinland Saga"
@@ -18,6 +19,7 @@
       },
       {
         "id": 125307,
+        "format": "ONE_SHOT",
         "title": {
           "romaji": "Assassin's Creed: Valhalla x Vinland Saga",
           "english": null

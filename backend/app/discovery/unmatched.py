@@ -75,6 +75,7 @@ class MangaCandidate:
     total_chapters: int | None = None
     year: int | None = None
     publishing_status: str | None = None
+    format: str | None = None
     alt_ids: dict[str, str] = field(default_factory=dict)
 
     @property
@@ -153,6 +154,7 @@ def merge_candidates(
                 total_chapters=_best(group, primary_meta, "total_chapters"),
                 year=_best(group, primary_meta, "year"),
                 publishing_status=_best(group, primary_meta, "publishing_status"),
+                format=_best(group, primary_meta, "format"),
                 alt_ids={
                     str(provider): meta.media_id
                     for provider, meta in group

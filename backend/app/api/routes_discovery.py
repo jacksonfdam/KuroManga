@@ -386,6 +386,7 @@ def candidate_payload(candidate: MangaCandidate) -> dict[str, Any]:
         "total_chapters": candidate.total_chapters,
         "year": candidate.year,
         "publishing_status": candidate.publishing_status,
+        "format": candidate.format,
         "score": candidate.score,
     }
 

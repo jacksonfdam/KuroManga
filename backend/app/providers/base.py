@@ -10,6 +10,13 @@ from typing import Any
 
 from app.enums import ListStatus, Provider
 
+# Formats that can actually be read as a manga, in AniList's vocabulary, which
+# both providers are translated into. NOVEL and ONE_SHOT come back from a
+# relation and from a search alike, and offering either would be offering
+# something that does not exist: a light novel is not a manga the downloader can
+# ever find, and the user would be writing a status to a real account for it.
+MANGA_FORMATS = {"MANGA", "MANHWA", "MANHUA", "OEL"}
+
 
 @dataclass(frozen=True)
 class ListEntryDTO:
@@ -81,6 +88,9 @@ class MangaMeta:
     total_chapters: int | None = None
     year: int | None = None
     publishing_status: str | None = None
+    # In AniList's vocabulary whichever provider reported it, so a merged
+    # candidate carries one badge and the screen can say what a thing is.
+    format: str | None = None
 
 
 @dataclass(frozen=True)

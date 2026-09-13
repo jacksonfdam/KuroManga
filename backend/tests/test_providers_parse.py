@@ -66,25 +66,58 @@ def test_mal_percent_encodes_the_redirect_uri(monkeypatch):
 def test_anilist_search_returns_manga_metadata_in_the_order_it_ranked(fixture):
     """Recorded from the live API: `Vinland Saga`, perPage 5."""
     results = parse_anilist_search(fixture("anilist_manga_search.json"))
-    assert [r.media_id for r in results] == ["30642", "125307"]
+    assert [r.media_id for r in results] == ["30642"]
     assert results[0].title == "Vinland Saga"
     assert results[0].total_chapters == 224
     assert results[0].year == 2005
     assert results[0].publishing_status == "FINISHED"
+    assert results[0].format == "MANGA"
 
 
 def test_anilist_search_falls_back_to_romaji_when_there_is_no_english_title(fixture):
-    results = parse_anilist_search(fixture("anilist_manga_search.json"))
-    assert results[1].title == "Assassin's Creed: Valhalla x Vinland Saga"
+    results = parse_anilist_search(fixture("anilist_manga_search_overlord.json"))
+    assert "Etrange Overlord" in [r.title for r in results]
+
+
+def test_anilist_search_drops_the_light_novel_the_anime_was_adapted_from(fixture):
+    """Recorded live: AniList answers `Overlord` with the novel and the manga.
+
+    Both are `type: MANGA`, both are titled exactly "Overlord", and the novel is
+    not something the user can be offered - there is no manga behind it to read.
+    """
+    results = parse_anilist_search(fixture("anilist_manga_search_overlord.json"))
+    assert "85976" not in [r.media_id for r in results]
+    assert "85934" in [r.media_id for r in results]
+    assert {r.format for r in results} <= {"MANGA", "MANHWA", "MANHUA", "OEL"}
+
+
+def test_anilist_search_drops_a_one_shot(fixture):
+    """The relation path already refuses these; the search cannot be laxer."""
+    ids = [r.media_id for r in parse_anilist_search(fixture("anilist_manga_search.json"))]
+    assert "125307" not in ids
 
 
 def test_mal_search_returns_manga_metadata(fixture):
-    """Recorded from the live API: q=Vinland Saga, limit 5."""
+    """Recorded from the live API: q=Vinland Saga, limit 10."""
     results = parse_mal_search(fixture("mal_manga_search.json"))
-    assert [r.media_id for r in results] == ["642", "131084", "98614"]
+    assert [r.media_id for r in results] == ["642", "98614"]
     assert results[0].title == "Vinland Saga"
     assert results[0].total_chapters == 224
     assert results[0].cover_url.endswith("188925l.jpg")
+    assert results[0].format == "MANGA"
+
+
+def test_mal_search_drops_the_light_novel_the_anime_was_adapted_from(fixture):
+    """MyAnimeList can report it: `media_type` is `light_novel` for id 81669."""
+    results = parse_mal_search(fixture("mal_manga_search_overlord.json"))
+    assert "81669" not in [r.media_id for r in results]
+    assert "81667" in [r.media_id for r in results]
+
+
+def test_mal_search_speaks_anilist_format_vocabulary(fixture):
+    """`manhwa` has to arrive as MANHWA or the merged badge contradicts itself."""
+    results = parse_mal_search(fixture("mal_manga_search_overlord.json"))
+    assert {r.media_id: r.format for r in results}["194453"] == "MANHWA"
 
 
 def test_mal_search_reads_the_year_out_of_the_start_date(fixture):
@@ -93,9 +126,7 @@ def test_mal_search_reads_the_year_out_of_the_start_date(fixture):
 
 def test_mal_search_ignores_an_empty_english_title(fixture):
     """`alternative_titles.en` comes back as "" far more often than it is absent."""
-    assert parse_mal_search(fixture("mal_manga_search.json"))[1].title == (
-        "Assassin's Creed Valhalla x Vinland Saga"
-    )
+    assert parse_mal_search(fixture("mal_manga_search.json"))[1].title == "Finland Saga"
 
 
 def test_mal_search_speaks_anilist_publishing_vocabulary(fixture):
