@@ -97,3 +97,16 @@ async def test_candidates_for_a_missing_series_is_a_404(client):
 
 async def test_events_for_an_unknown_job_is_an_empty_log(client):
     assert (await client.get("/api/jobs/999999/events")).json() == []
+
+
+async def test_integration_health_reports_every_service(client):
+    body = (await client.get("/api/health/integrations")).json()
+    names = {item["name"] for item in body["integrations"]}
+    assert names == {"mal", "anilist", "mangadex", "komga", "comick"}
+
+
+async def test_integration_health_reports_unauthenticated_without_tokens(client):
+    body = (await client.get("/api/health/integrations")).json()
+    states = {item["name"]: item["state"] for item in body["integrations"]}
+    assert states["mal"] == "unauthenticated"
+    assert states["anilist"] == "unauthenticated"
