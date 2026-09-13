@@ -400,3 +400,52 @@ async def test_approving_still_creates_a_list_entry_that_did_not_exist(client, s
     ]
     assert all(e.user_progress_chapter == 0 and e.series_id for e in entries)
 
+
+
+async def test_approving_without_downloading_does_not_unfollow_a_followed_series(
+    client, suggestion_id
+):
+    """Ticking nothing is not a request to stop following a series already followed."""
+    async with get_sessionmaker()() as session:
+        await session.execute(
+            text(
+                """
+                insert into series (canonical_title, slug, needs_review, auto_download, meta,
+                                    created_at)
+                values ('Vinland Saga', 'vinland-saga', false, true,
+                        '{"aliases": ["vinland saga"]}'::jsonb, now())
+                """
+            )
+        )
+        await session.commit()
+
+    await client.post(
+        f"/api/suggestions/{suggestion_id}/add", json={"status": "completed", "download": False}
+    )
+    async with get_sessionmaker()() as session:
+        auto = (await session.execute(text("select auto_download from series"))).scalar_one()
+    assert auto is True
+
+
+async def test_approving_with_downloads_starts_following_a_series_that_was_not(
+    client, suggestion_id
+):
+    async with get_sessionmaker()() as session:
+        await session.execute(
+            text(
+                """
+                insert into series (canonical_title, slug, needs_review, auto_download, meta,
+                                    created_at)
+                values ('Vinland Saga', 'vinland-saga', false, false,
+                        '{"aliases": ["vinland saga"]}'::jsonb, now())
+                """
+            )
+        )
+        await session.commit()
+
+    await client.post(
+        f"/api/suggestions/{suggestion_id}/add", json={"status": "reading", "download": True}
+    )
+    async with get_sessionmaker()() as session:
+        auto = (await session.execute(text("select auto_download from series"))).scalar_one()
+    assert auto is True

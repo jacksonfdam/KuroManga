@@ -215,9 +215,11 @@ async def add_suggestion(suggestion_id: int, body: AddIn, session: Session) -> d
     # The answer to "download now" is recorded whatever the mapping did. An
     # unconfident match goes to Review, and confirming the source there enqueues
     # CHAPTER_DISCOVER but sets no flag; without this the user would review the
-    # series and still never get the downloads they asked for.
+    # series and still never get the downloads they asked for. It only ever adds:
+    # "Baixar agora" is a per-suggestion action, not a statement that a series the
+    # user already follows should stop being followed.
     await session.execute(
-        text("update series set auto_download = :enabled where id = :id"),
+        text("update series set auto_download = auto_download or :enabled where id = :id"),
         {"enabled": body.download, "id": series_id},
     )
     if body.download and not needs_review:
