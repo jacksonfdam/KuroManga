@@ -25,6 +25,7 @@ EDITABLE = {
     settings_store.PER_SOURCE_CONCURRENCY,
     settings_store.DOWNLOAD_BATCH_SIZE,
     settings_store.AUTO_DOWNLOAD_NEW,
+    settings_store.CRON_ANIME_LIST_SYNC,
 }
 
 
@@ -34,6 +35,8 @@ class SettingsIn(BaseModel):
 
 @router.get("")
 async def read_settings(session: Session) -> dict[str, Any]:
+    from app.sources.comick_client import ComickClient
+
     result = await session.execute(
         text("select provider, account_name, expires_at from provider_token")
     )
@@ -45,6 +48,7 @@ async def read_settings(session: Session) -> dict[str, Any]:
         for row in result.all()
     }
     settings = get_settings()
+    comick_up = await ComickClient().health()
     return {
         "values": await settings_store.all_settings(session),
         "providers": {
@@ -66,7 +70,8 @@ async def read_settings(session: Session) -> dict[str, Any]:
                 # what the account itself is allowed to see.
                 "authenticated": mangadex_tokens.configured,
                 "username": settings.mangadex_username or None,
-            }
+            },
+            "comick": {"authenticated": comick_up, "username": None},
         },
     }
 

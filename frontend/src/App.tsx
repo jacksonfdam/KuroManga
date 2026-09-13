@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { NavLink, Navigate, Route, Routes } from 'react-router-dom'
 
 import { api } from './api'
+import { Discovery } from './pages/Discovery'
 import { Downloads } from './pages/Downloads'
 import { Library } from './pages/Library'
 import { Review } from './pages/Review'
@@ -11,12 +12,17 @@ import { useJobEvents } from './useEvents'
 export function App() {
   const [counts, setCounts] = useState<Record<string, number>>({})
   const [reviewCount, setReviewCount] = useState(0)
+  const [suggestionCount, setSuggestionCount] = useState(0)
 
   const refreshBadges = () => {
     api.jobCounts().then(setCounts).catch(() => undefined)
     api
       .series('needs_review')
       .then((series) => setReviewCount(series.length))
+      .catch(() => undefined)
+    api
+      .suggestions('new')
+      .then((items) => setSuggestionCount(items.length))
       .catch(() => undefined)
   }
 
@@ -34,6 +40,9 @@ export function App() {
           <NavLink to="/review">
             Review {reviewCount > 0 && <b className="badge">{reviewCount}</b>}
           </NavLink>
+          <NavLink to="/discovery">
+            Discovery {suggestionCount > 0 && <b className="badge">{suggestionCount}</b>}
+          </NavLink>
           <NavLink to="/downloads">
             Downloads {active > 0 && <b className="badge">{active}</b>}
           </NavLink>
@@ -45,6 +54,7 @@ export function App() {
           <Route path="/" element={<Navigate to="/library" replace />} />
           <Route path="/library" element={<Library />} />
           <Route path="/review" element={<Review onResolved={refreshBadges} />} />
+          <Route path="/discovery" element={<Discovery onChanged={refreshBadges} />} />
           <Route path="/downloads" element={<Downloads />} />
           <Route path="/settings" element={<Settings />} />
         </Routes>

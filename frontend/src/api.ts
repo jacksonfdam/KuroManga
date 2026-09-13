@@ -70,6 +70,36 @@ export interface SettingsPayload {
   library_path: string
 }
 
+export interface SuggestionSource {
+  site: string
+  url: string
+  chapters: number | null
+  score: number
+}
+
+export interface Suggestion {
+  id: number
+  title: string
+  cover_url: string | null
+  total_chapters: number | null
+  year: number | null
+  publishing_status: string | null
+  state: 'new' | 'dismissed' | 'added'
+  rank_score: number
+  series_id: number | null
+  reason: {
+    origin_title: string | null
+    origin_status: string | null
+    total_episodes: number | null
+    relation: string | null
+  }
+  sources: SuggestionSource[]
+  best_source: { site: string; url: string; score: number } | null
+  write_results: { target: string; ok: boolean; error: string | null }[]
+}
+
+export type ListStatusValue = 'reading' | 'plan_to_read' | 'completed' | 'on_hold' | 'dropped'
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
     headers: { 'Content-Type': 'application/json' },
@@ -119,4 +149,14 @@ export const api = {
   authStart: (provider: string) => request<{ url: string }>(`/api/auth/${provider}/start`),
   disconnect: (provider: string) =>
     request<{ ok: boolean }>(`/api/auth/${provider}`, { method: 'DELETE' }),
+  suggestions: (state = 'new') => request<Suggestion[]>(`/api/suggestions?state=${state}`),
+  addSuggestion: (id: number, status: ListStatusValue, download: boolean) =>
+    request<{ ok: boolean; series_id: number; needs_review: boolean }>(
+      `/api/suggestions/${id}/add`,
+      { method: 'POST', body: JSON.stringify({ status, download }) },
+    ),
+  dismissSuggestion: (id: number) =>
+    request<{ ok: boolean }>(`/api/suggestions/${id}/dismiss`, { method: 'POST' }),
+  refreshDiscovery: () =>
+    request<{ ok: boolean; queued: number }>('/api/discovery/refresh', { method: 'POST' }),
 }
