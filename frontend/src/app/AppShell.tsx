@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 
-import { api } from '../lib/api'
+import { api, messageOf } from '../lib/api'
 import { useJobEvents } from '../lib/useEvents'
-import { Badge, Button } from '../ui'
+import { useNotice } from '../lib/useNotice'
+import { Badge, Button, NoticeBar } from '../ui'
 import { Icon, type IconName } from '../ui/Icon'
 
 type Integration = { name: string; state: string; detail: string | null }
@@ -32,11 +33,23 @@ const STATE_LABEL: Record<string, string> = {
   ok: 'reachable', unauthenticated: 'needs sign-in', unreachable: 'unreachable',
 }
 
+// Named here rather than reusing the strip's map, because the strip lists
+// every integration and only the two list providers are synced.
+const SYNCED: [string, string][] = [
+  ['mal', 'MyAnimeList'],
+  ['anilist', 'AniList'],
+]
+
 export function AppShell() {
   const [counts, setCounts] = useState<Record<string, number>>({})
   const [reviewCount, setReviewCount] = useState(0)
   const [integrations, setIntegrations] = useState<Integration[]>([])
+  const { notice, report, fail } = useNotice()
 
+  // These three feed badges and the status strip, not the screen below. A
+  // failure here degrades those to zero and to nothing, which the screens
+  // themselves report properly, so it stays quiet rather than covering every
+  // page with a banner the user cannot act on.
   const refresh = () => {
     api.jobCounts().then(setCounts).catch(() => undefined)
     api.series('needs_review').then((s) => setReviewCount(s.length)).catch(() => undefined)
@@ -45,6 +58,19 @@ export function AppShell() {
 
   useEffect(refresh, [])
   useJobEvents(refresh)
+
+  // The shell's own primary action. An unauthenticated provider rejects, and
+  // firing both promises without looking at either meant the click reported
+  // nothing at all — allSettled so one dead provider does not hide the other
+  // one having worked.
+  const syncAll = async () => {
+    const results = await Promise.allSettled(SYNCED.map(([provider]) => api.sync(provider)))
+    const failures = results.flatMap((result, index) =>
+      result.status === 'rejected' ? [`${SYNCED[index][1]}: ${messageOf(result.reason)}`] : [],
+    )
+    if (failures.length > 0) fail(failures.join(' · '))
+    else report('Sync queued for MyAnimeList and AniList')
+  }
 
   const badges: Record<string, number> = {
     review: reviewCount,
@@ -94,7 +120,7 @@ export function AppShell() {
                 </span>
               ))}
             </div>
-            <Button variant="surface" size="sm" icon="sync" onClick={() => { api.sync('mal'); api.sync('anilist') }}>
+            <Button variant="surface" size="sm" icon="sync" onClick={syncAll}>
               Sync all
             </Button>
           </div>
@@ -108,6 +134,9 @@ export function AppShell() {
         {/* DESIGN.md's responsive section: 1rem outer margin below 640px, 2rem at
             and above it — space-md and margin are exactly those tokens. */}
         <div className="mx-auto flex max-w-canvas flex-col gap-space-xl px-space-md py-space-xl sm:px-margin">
+          {/* Above the outlet rather than in the header: the header is one
+              fixed row and the notice has to stay readable at phone width. */}
+          {notice && <NoticeBar tone={notice.tone} text={notice.text} />}
           <Outlet context={refresh} />
         </div>
       </main>
