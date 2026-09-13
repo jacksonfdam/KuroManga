@@ -180,9 +180,17 @@ async def add_suggestion(suggestion_id: int, body: AddIn, session: Session) -> d
 
     # A confident match skips manual review; anything softer stays on the review
     # path where the user can see what was rejected before a source is mapped.
+    # A series resolved onto an existing one may already carry a confirmed
+    # mapping, and that answer was the user's: leave it alone.
+    mapped = (
+        await session.execute(
+            text("select 1 from source_mapping where series_id = :id and active limit 1"),
+            {"id": series_id},
+        )
+    ).first() is not None
     best = (row.meta or {}).get("best") or {}
-    needs_review = True
-    if best.get("url") and confident(row.title, best):
+    needs_review = not mapped
+    if not mapped and best.get("url") and confident(row.title, best):
         try:
             site = source_for_url(best["url"]).site
         except ValueError:

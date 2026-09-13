@@ -132,6 +132,49 @@ async def test_approving_attaches_to_the_series_list_sync_already_created(client
     assert count == 1
 
 
+async def test_a_series_that_is_already_mapped_keeps_the_mapping_it_has(client, suggestion_id):
+    """Two active mappings for one series is a state the rest of the app cannot read."""
+    async with get_sessionmaker()() as session:
+        series_id = (
+            await session.execute(
+                text(
+                    """
+                    insert into series (canonical_title, slug, needs_review, meta, created_at)
+                    values ('Vinland Saga', 'vinland-saga', false,
+                            '{"aliases": ["vinland saga"]}'::jsonb, now())
+                    returning id
+                    """
+                )
+            )
+        ).scalar_one()
+        await session.execute(
+            text(
+                """
+                insert into source_mapping (series_id, source_site, source_url, active,
+                                            confirmed_at)
+                values (:id, 'asurascan', 'https://asuracomic.net/series/vs', true, now())
+                """
+            ),
+            {"id": series_id},
+        )
+        await session.commit()
+
+    body = (
+        await client.post(
+            f"/api/suggestions/{suggestion_id}/add", json={"status": "reading", "download": False}
+        )
+    ).json()
+    assert body["needs_review"] is False
+
+    async with get_sessionmaker()() as session:
+        rows = (
+            await session.execute(
+                text("select source_site from source_mapping where active")
+            )
+        ).all()
+    assert [row[0] for row in rows] == ["asurascan"]
+
+
 async def test_approving_queues_the_status_write(client, suggestion_id):
     await client.post(
         f"/api/suggestions/{suggestion_id}/add", json={"status": "reading", "download": False}
