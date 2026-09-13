@@ -94,7 +94,11 @@ async def merge_aliases(session: AsyncSession, series_id: int, dto: ListEntryDTO
                            coalesce(meta -> 'aliases', '[]'::jsonb) || cast(:aliases as jsonb)
                        ),
                        '{cover_url}',
-                       coalesce(meta -> 'cover_url', to_jsonb(cast(:cover as text)))
+                       -- to_jsonb of a SQL null is a SQL null, and jsonb_set with
+                       -- one wipes the whole meta object; an entry without a cover
+                       -- has to land as a json null instead.
+                       coalesce(meta -> 'cover_url', to_jsonb(cast(:cover as text)),
+                                'null'::jsonb)
                    )
              where id = :series_id
             """

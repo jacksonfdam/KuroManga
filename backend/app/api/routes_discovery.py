@@ -10,7 +10,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import db_session
 from app.enums import JobType, ListStatus, Provider, SuggestionState
-from app.handlers.list_sync import create_series, upsert_entry
+from app.handlers.list_sync import (
+    create_series,
+    existing_series_for_entry,
+    find_series_by_alias,
+    merge_aliases,
+    upsert_entry,
+)
 from app.providers.base import ListEntryDTO
 from app.queue import repo
 from app.sources import source_for_url
@@ -96,6 +102,29 @@ async def _load(session: AsyncSession, suggestion_id: int) -> Any:
     return row
 
 
+async def resolve_series_for(
+    session: AsyncSession, entries: list[ListEntryDTO], aliases: list[str]
+) -> int:
+    """Attach to the series that already covers this manga, exactly as list_sync does.
+
+    Weeks can pass between a suggestion appearing and being approved, and a
+    list_sync in between creates that same manga under its own spelling. Creating
+    a second one here would mean two slugs, two folders and two Komga series.
+    """
+    for entry in entries:
+        series_id = await existing_series_for_entry(session, entry)
+        if series_id:
+            await merge_aliases(session, series_id, entry, aliases)
+            return series_id
+
+    series_id = await find_series_by_alias(session, aliases)
+    if series_id:
+        await merge_aliases(session, series_id, entries[0], aliases)
+        return series_id
+
+    return await create_series(session, entries[0], aliases)
+
+
 @router.post("/suggestions/{suggestion_id}/add")
 async def add_suggestion(suggestion_id: int, body: AddIn, session: Session) -> dict[str, Any]:
     """Approving is what turns a suggestion into a series, a list entry and a status."""
@@ -106,8 +135,6 @@ async def add_suggestion(suggestion_id: int, body: AddIn, session: Session) -> d
     # Every provider that already knows this anime's manga gets its own list_entry,
     # so the next ANIME_LIST_SYNC recognises it instead of suggesting it again.
     ids = {row.provider: row.provider_media_id, **(row.alt_ids or {})}
-    alias = normalize(row.title)
-    aliases = [alias] if alias else []
 
     entries = [
         ListEntryDTO(
@@ -120,7 +147,10 @@ async def add_suggestion(suggestion_id: int, body: AddIn, session: Session) -> d
         )
         for provider, media_id in ids.items()
     ]
-    series_id = await create_series(session, entries[0], aliases)
+    aliases = list(
+        dict.fromkeys(normalize(t) for entry in entries for t in entry.titles if normalize(t))
+    )
+    series_id = await resolve_series_for(session, entries, aliases)
     for entry in entries:
         await upsert_entry(session, entry, series_id)
 

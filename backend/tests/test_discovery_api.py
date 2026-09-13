@@ -103,6 +103,35 @@ async def test_approving_creates_the_series_and_the_local_list_entries(client, s
     ]
 
 
+async def test_approving_attaches_to_the_series_list_sync_already_created(client, suggestion_id):
+    """Two rows for one manga would mean two slugs, two folders and two Komga series."""
+    async with get_sessionmaker()() as session:
+        existing = (
+            await session.execute(
+                text(
+                    """
+                    insert into series (canonical_title, slug, needs_review, meta, created_at)
+                    values ('Vinland Saga', 'vinland-saga', true,
+                            '{"aliases": ["vinland saga"]}'::jsonb, now())
+                    returning id
+                    """
+                )
+            )
+        ).scalar_one()
+        await session.commit()
+
+    body = (
+        await client.post(
+            f"/api/suggestions/{suggestion_id}/add", json={"status": "reading", "download": False}
+        )
+    ).json()
+    assert body["series_id"] == existing
+
+    async with get_sessionmaker()() as session:
+        count = (await session.execute(text("select count(*) from series"))).scalar_one()
+    assert count == 1
+
+
 async def test_approving_queues_the_status_write(client, suggestion_id):
     await client.post(
         f"/api/suggestions/{suggestion_id}/add", json={"status": "reading", "download": False}
