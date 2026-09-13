@@ -2,6 +2,61 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+## Status: complete
+
+All thirteen tasks were implemented on branch `feat/anime-manga-discovery` and shipped as
+PR #19. Backend suite 216 passing, `ruff` clean. What the branch actually looks like, and
+why it differs from the spec, is recorded in the "Como ficou" section of the design doc.
+
+The useful part for the next plan is what two whole-branch reviews caught that this plan
+itself caused. Each of these was a correct implementation of what is written above:
+
+- **Reusing a shared helper without reading its conflict branch.** The plan told approval
+  to create `series` and `list_entry` with `list_sync`'s helpers. `upsert_entry` copies
+  every column on conflict, so approving a manga `list_sync` already knew zeroed
+  `user_progress_chapter` — the only forward-only guard in the system — and blanked its
+  metadata. Needed a separate `upsert_entry_status`. When a plan says "reuse X", it has to
+  say which parts of X's behaviour are wanted.
+- **"Create the series" with no resolve step.** A suggestion can sit unapproved while
+  `list_sync` creates that same manga under another spelling; the plan never said to look
+  first, so approval duplicated it. It also never said what to do when the resolved series
+  already carries a confirmed source mapping.
+- **A confidence threshold expressed as one number.** `score >= 0.80` against a single
+  title puts near-misses over the line ("Dragon Ball" vs "Dragon Ball Super" = 0.786). The
+  rule had to become score *and* exact normalised title, which meant storing the candidate
+  title in `meta.best` — a field the plan never listed.
+- **A boolean assigned instead of merged.** The plan's approval step set `auto_download`
+  from the request body, so approving an already-followed series with the box unticked
+  stopped following it. It is an additive action, `auto_download or :enabled`.
+- **A branch left undescribed.** The plan enqueued `CHAPTER_DISCOVER` when
+  `download: true`, and said nothing about `download: true` *plus* an unconfident mapping.
+  That combination silently dropped the download the user asked for.
+- **"Raise `PermanentError` when a target has no account."** Applied literally, one
+  disconnected provider retired the job before the other two targets were written. Failure
+  policy has to be stated per target and then per job. The same sentence also had no room
+  for a target that was never configured at all: MangaDex's credentials are optional, so
+  an empty set is the default deployment, and it is an absence, not a failure.
+- **Long loops with one commit at the end.** `SUGGEST_BUILD` (a search per source per
+  seed) and `ANIME_LIST_SYNC` (a request per MAL anime) both outrun the 900-second lease
+  on a real list, and an expired lease is re-leased, so the job runs beside itself. A plan
+  that adds a loop over network calls has to say where it commits and renews.
+- **A shallow `meta` merge with unconditional keys.** The plan had `source_summary` write
+  every key it computed, so one cycle with MangaDex rate-limited erased the stored
+  `mangadex_uuid` that `LIST_WRITE` depends on.
+- **Exclusion described for correctness, not for cost.** `SUGGEST_BUILD` was told the
+  upsert preserves `state`, which is true, so dismissed seeds were still searched — every
+  dismissal adding a search per source to every future run, for ever.
+- **A third-party build context with no ref.** The plan's compose service built from the
+  comick repository's default branch, meaning each build ran whatever that project had
+  just pushed, as a service on this host. Pin it.
+- **Reused UI shapes carry their own copy.** The Settings provider row rendered comick,
+  which has no accounts, as "signed in".
+- **A name in the file table that was never built.** `sources/mangadex.py` was to gain
+  `search_id`; what it needed was `manga_id_from_candidate`, reading the uuid off a
+  candidate the search already returned.
+
+Follow-ups deliberately left for a second pass are in issue #21.
+
 **Goal:** Read the user's anime lists, suggest the manga those anime adapt, and make approving a suggestion write the chosen status to MyAnimeList, AniList and MangaDex while the existing pipeline downloads it into Komga.
 
 **Architecture:** Two new tables (`anime_entry`, `suggestion`) hold the discovery state; three new jobs (`ANIME_LIST_SYNC`, `SUGGEST_BUILD`, `LIST_WRITE`) fill them and write status outward; a `comick-source-api` container supplies search and chapter listing for non-MangaDex sites whose downloads the existing `manga-downloader` binary already handles. Nothing in the current download path changes.
