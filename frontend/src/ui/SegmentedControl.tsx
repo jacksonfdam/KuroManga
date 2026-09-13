@@ -12,7 +12,9 @@ export function SegmentedControl<T extends string>({
   onChange: (value: T) => void
 }) {
   return (
-    <div className="inline-flex items-center gap-1 rounded-xl bg-surface-container-lowest p-1 shadow-inner">
+    // DESIGN.md's View Switcher spec calls for a 1px container border; the
+    // hairline value is the same one used for card perimeters elsewhere.
+    <div className="inline-flex items-center gap-1 rounded-xl border border-white/[0.08] bg-surface-container-lowest p-1 shadow-inner">
       {options.map((option) => {
         const selected = option.value === value
         return (
