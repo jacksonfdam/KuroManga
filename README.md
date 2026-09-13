@@ -9,11 +9,15 @@ Desenho completo em [`docs/superpowers/specs/2026-09-13-manga-komga-pipeline-des
 ## Como funciona
 
 ```
-lista (MAL / AniList)  ->  series canônica  ->  você confirma a fonte  ->  capítulos
-                                                                              |
-                                                       CBZ + ComicInfo.xml  <-+
-                                                                |
-                                                        /manga  ->  Komga  ->  leitor
+lista de mangá (MAL / AniList)  ->  series canônica  ->  você confirma a fonte  ->  capítulos
+                                                                                        |
+                                                                 CBZ + ComicInfo.xml  <-+
+                                                                          |
+                                                                  /manga  ->  Komga  ->  leitor
+
+lista de anime (MAL / AniList)  ->  Discovery  ->  você aprova  -+
+                                                                  |
+                                                   (entra no fluxo acima como series canônica)
 ```
 
 Uma entrada nova entra na tela **Review** e para ali. Você confirma qual mangá do
@@ -24,6 +28,40 @@ capítulos existem e mostra na Biblioteca quantos faltam.
 (deixe vazia para tudo que falta) e um botão *Follow new chapters*. Só as séries
 que você marca como acompanhadas entram no cron de download; as outras ficam
 catalogadas, sem consumir disco.
+
+## Discovery
+
+Além das listas de mangá, o pipeline lê suas listas de *anime* no MAL e no
+AniList, num cron próprio (a cada 12 horas por padrão, ajustável em Settings).
+O AniList já devolve, na mesma consulta da lista, quais mangás cada anime
+adapta; o MyAnimeList só expõe essa relação por anime, então essa consulta
+extra é feita apenas para os títulos que o AniList não resolveu.
+
+Todo mangá adaptado de um anime da sua lista vira uma sugestão na tela
+**Discovery** — a menos que ele já esteja em alguma das suas listas de mangá ou
+já exista como série local, casos em que sugeri-lo de novo seria só ruído. Cada
+sugestão mostra o anime de origem, até onde a adaptação foi e quanto mangá
+existe, para você decidir se vale a pena.
+
+Aprovar uma sugestão com o status escolhido cria a série local e grava esse
+status no MyAnimeList, no AniList e no MangaDex. Um botão por sugestão decide
+se o download começa agora ou fica para depois (o padrão já vem ajustado
+conforme o status escolhido); quando a fonte candidata é confiável o bastante,
+o mapeamento é feito direto e a série pula a tela Review. Dispensar uma
+sugestão é definitivo — ela não volta a aparecer numa atualização futura.
+
+Uma série aprovada como Completa tem seus capítulos marcados como lidos no
+Komga assim que forem indexados. Fora isso, o progresso de leitura continua
+vindo só do cron `progress_push` existente, que só avança — Discovery nunca
+grava progresso, só o status inicial.
+
+Para achar a fonte de cada sugestão, além do MangaDex o pipeline consulta o
+serviço `comick`, empacotado junto no `docker-compose.yml` e apontado por
+`COMICK_API_URL` (padrão `http://comick:3000`, sem chave de API). Ele cobre
+sites que o MangaDex não tem — hoje asurascan e weebcentral — mas só devolve
+busca e lista de capítulos, sem endpoint de imagem de página; o download desses
+sites continua pelo binário `manga-downloader`, que já sabia baixá-los. Se o
+comick cair, Discovery perde essas fontes na busca em vez de quebrar.
 
 ## Subir
 
