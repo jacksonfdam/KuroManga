@@ -61,7 +61,9 @@ serviço `comick`, empacotado junto no `docker-compose.yml` e apontado por
 sites que o MangaDex não tem — hoje asurascan e weebcentral — mas só devolve
 busca e lista de capítulos, sem endpoint de imagem de página; o download desses
 sites continua pelo binário `manga-downloader`, que já sabia baixá-los. Se o
-comick cair, Discovery perde essas fontes na busca em vez de quebrar.
+comick cair, Discovery perde essas fontes na busca em vez de quebrar. O
+`context` do build fixa um commit de propósito — código de terceiro não roda
+aqui sem revisão; para atualizar, troque o SHA depois de olhar o que mudou.
 
 ## Subir
 
