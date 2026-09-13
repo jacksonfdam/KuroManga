@@ -1,5 +1,5 @@
 {
-  "name": "manga-pipeline-web",
+  "name": "kuromanga-web",
   "private": true,
   "type": "module",
   "scripts": {

@@ -34,7 +34,7 @@ export function App() {
   return (
     <div className="shell">
       <header>
-        <span className="brand">manga pipeline</span>
+        <span className="brand">KuroManga</span>
         <nav>
           <NavLink to="/library">Library</NavLink>
           <NavLink to="/review">

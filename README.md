@@ -1,132 +1,137 @@
-# manga pipeline
+# KuroManga
 
-Lê suas listas de mangá no MyAnimeList e no AniList, resolve cada entrada para uma
-URL de site de origem com a sua confirmação, baixa os capítulos que faltam em CBZ
-com metadata embutida, e entrega tudo para o Komga ler no navegador e no celular.
+Reads your manga reading lists on MyAnimeList and AniList, resolves each entry to a
+source site URL with your confirmation, downloads the missing chapters as CBZ with
+metadata embedded, and hands everything to Komga to read in a browser or on a phone.
 
-Desenho completo em [`docs/superpowers/specs/2026-09-13-manga-komga-pipeline-design.md`](docs/superpowers/specs/2026-09-13-manga-komga-pipeline-design.md).
+The full design lives in [`docs/superpowers/specs/2026-09-13-manga-komga-pipeline-design.md`](docs/superpowers/specs/2026-09-13-manga-komga-pipeline-design.md).
 
-## Como funciona
+## How it works
 
 ```
-lista de mangá (MAL / AniList)  ->  series canônica  ->  você confirma a fonte  ->  capítulos
-                                                                                        |
-                                                                 CBZ + ComicInfo.xml  <-+
-                                                                          |
-                                                                  /manga  ->  Komga  ->  leitor
+manga list (MAL / AniList)  ->  canonical series  ->  you confirm the source  ->  chapters
+                                                                                    |
+                                                             CBZ + ComicInfo.xml  <-+
+                                                                      |
+                                                              /manga  ->  Komga  ->  reader
 
-lista de anime (MAL / AniList)  ->  Discovery  ->  você aprova  -+
-                                                                  |
-                                                   (entra no fluxo acima como series canônica)
+anime list (MAL / AniList)  ->  Discovery  ->  you approve  -+
+                                                             |
+                                        (joins the flow above as a canonical series)
 ```
 
-Uma entrada nova entra na tela **Review** e para ali. Você confirma qual mangá do
-site de origem corresponde, uma vez, e a partir daí o pipeline descobre quais
-capítulos existem e mostra na Biblioteca quantos faltam.
+A new entry lands on the **Review** screen and stops there. You confirm once which manga
+on the source site it is, and from then on the pipeline discovers which chapters exist
+and shows in the Library how many are missing.
 
-**Nada é baixado até você pedir.** Na Biblioteca, cada série tem uma faixa
-(deixe vazia para tudo que falta) e um botão *Follow new chapters*. Só as séries
-que você marca como acompanhadas entram no cron de download; as outras ficam
-catalogadas, sem consumir disco.
+**Nothing is downloaded until you ask.** In the Library each series has a chapter range
+(leave it empty for everything missing) and a *Follow new chapters* button. Only the
+series you follow enter the download schedule; the rest stay catalogued without using
+disk.
 
 ## Discovery
 
-Além das listas de mangá, o pipeline lê suas listas de *anime* no MAL e no
-AniList, num cron próprio (a cada 12 horas por padrão, ajustável em Settings; o
-botão *Procurar agora*, na tela Discovery, força uma passagem na hora).
-O AniList já devolve, na mesma consulta da lista, quais mangás cada anime
-adapta; o MyAnimeList só expõe essa relação por anime, então essa consulta
-extra é feita apenas para os títulos que o AniList não resolveu.
+Besides your manga lists, the pipeline reads your *anime* lists on MyAnimeList and AniList,
+on a cron of their own: every 12 hours by default, adjustable in Settings, and the
+*Procurar agora* button on the Discovery screen forces a pass right away. AniList already
+returns, in the same list query, which manga each anime adapts; MyAnimeList only exposes
+that per anime, so the extra request is made only for the titles AniList did not resolve.
 
-Todo mangá adaptado de um anime da sua lista vira uma sugestão na tela
-**Discovery** — a menos que ele já esteja em alguma das suas listas de mangá ou
-já exista como série local, casos em que sugeri-lo de novo seria só ruído. Cada
-sugestão mostra de qual anime veio, se esse anime acabou e com quantos
-episódios, quantos capítulos o mangá tem e em quais sites ele foi encontrado —
-o bastante para decidir se vale a pena.
+Every manga adapted from an anime on your list becomes a suggestion on the **Discovery**
+screen — unless it is already on one of your manga lists, or already exists as a local
+series, in which case suggesting it again would be noise. Each card shows which anime it
+came from, whether that anime has finished and with how many episodes, how many chapters
+the manga has, and which sites it was found on: enough to decide whether it is worth it.
 
-Aprovar uma sugestão com o status escolhido reaproveita a série local quando ela
-já existe — a que o `list_sync` criou sob outra grafia, por exemplo — e só cria
-uma nova quando não existe nenhuma. O status vai para cada lista que conhece
-aquele mangá, e só para essas: MyAnimeList e AniList conforme os ids que a
-sugestão carrega, e MangaDex quando o UUID foi encontrado. Se alguma escrita
-falhar, a tela mostra qual foi e quando, e a fila refaz só o que faltou. Um
-MangaDex sem as credenciais do `.env` não conta como falha: elas são opcionais,
-então esse destino simplesmente não existe nessa instalação e é registrado como
-pulado.
+Approving a suggestion with the status you chose reuses the local series when there already
+is one — the one `list_sync` created under a different spelling, say — and creates a new one
+only when there is none. The status goes to every list that knows that manga, and only
+those: MyAnimeList and AniList by the ids the suggestion carries, and MangaDex when the UUID
+was found. If a write fails, the screen shows which one and when, and the queue repeats only
+what is missing. A MangaDex without the credentials in `.env` does not count as a failure:
+they are optional, so that target simply does not exist in this installation, and it is
+recorded as skipped.
 
-Um botão por sugestão decide se o download começa agora ou fica para depois (o
-padrão já vem ajustado conforme o status escolhido); quando a fonte candidata
-tem exatamente o mesmo título e pontuação alta o bastante, o mapeamento é feito
-direto e a série pula a tela Review. Quando não tem, a série espera no Review e
-o download que você pediu começa assim que a fonte for confirmada lá. *Baixar
-agora* só liga o acompanhamento, nunca desliga: aprovar com a caixa desmarcada
-uma série que você já seguia não a tira do cron de download. Dispensar uma
-sugestão é definitivo — ela não volta a aparecer numa atualização futura.
+A checkbox on each suggestion decides whether the download starts now or waits, and it
+arrives already set from the status you chose. When the candidate source has exactly the
+same title and a high enough score, the mapping is made directly and the series skips the
+Review screen. When it does not, the series waits on Review, and the download you asked for
+starts as soon as the source is confirmed there. *Baixar agora* only ever turns following
+on, never off: approving with the box unchecked does not take a series you already followed
+out of the download schedule. Dismissing a suggestion is permanent — it does not come back
+on a later pass.
 
-Uma série aprovada como Completa tem seus capítulos marcados como lidos no
-Komga uma única vez, na primeira indexação depois que os arquivos chegam. Como
-a indexação roda por lote de download, só os livros já indexados nessa primeira
-passagem são marcados; numa obra longa o resto fica por ler
-([#21](https://github.com/jacksonfdam/KuroManga/issues/21)). Fora isso, o
-progresso de leitura continua vindo só do cron `progress_push` existente, que
-só avança — Discovery grava status e preenche o que falta na entrada, nunca o
-capítulo lido.
+A series approved as *Completo* has its chapters marked read in Komga once, at the first
+indexing after the files arrive. Indexing runs per download batch, so only the books indexed
+in that first pass are marked; on a long series the rest stays unread
+([#21](https://github.com/jacksonfdam/KuroManga/issues/21)). Beyond that, reading progress
+still comes only from the existing `progress_push` cron, which only moves forward —
+Discovery writes status, never the chapter read.
 
-Para achar a fonte de cada sugestão, além do MangaDex o pipeline consulta o
-serviço `comick`, empacotado junto no `docker-compose.yml` e apontado por
-`COMICK_API_URL` (padrão `http://comick:3000`, sem chave de API). Ele cobre
-sites que o MangaDex não tem — hoje asurascan e weebcentral — mas só devolve
-busca e lista de capítulos, sem endpoint de imagem de página; o download desses
-sites continua pelo binário `manga-downloader`, que já sabia baixá-los. Se o
-comick cair, Discovery perde essas fontes na busca em vez de quebrar. O
-`context` do build fixa um commit de propósito — código de terceiro não roda
-aqui sem revisão; para atualizar, troque o SHA depois de olhar o que mudou.
+To find a source for each suggestion the pipeline searches MangaDex and the bundled `comick`
+service, which covers sites MangaDex does not have: today asurascan and weebcentral. comick
+answers with search results and chapter lists only, with no page-image endpoint, so
+downloads from those sites still go through the `manga-downloader` binary, which already
+knew how to fetch them. If comick is down, Discovery loses those sources from the search
+rather than breaking.
 
-## Subir
+## Running it
 
 ```bash
-cp .env.example .env      # preencha as credenciais
+cp .env.example .env      # fill in the credentials
 docker compose up -d --build
 ```
 
 - Interface: <http://localhost:8080>
 - Komga: <http://localhost:25600>
 
-Ajuste `PUID` e `PGID` no `.env` para o seu usuário (`id -u`, `id -g`). Isso vale
-só para o worker, que é quem escreve na biblioteca. O Komga roda com o usuário da
-própria imagem: sobrescrever o usuário dele quebra o `/config`, que é onde ele
-guarda o banco SQLite — o sintoma é um `SQLITE_CANTOPEN` em loop de restart, que
-não menciona permissão em lugar nenhum. A biblioteca ele só lê, e arquivos com
-leitura para todos bastam.
+Set `PUID` and `PGID` in `.env` to your own user (`id -u`, `id -g`). That applies only to
+the worker, which is the service that writes the library. Komga runs as the user its own
+image defines: overriding it breaks `/config`, where Komga keeps its SQLite database, and
+the symptom is a `SQLITE_CANTOPEN` restart loop that never mentions permissions anywhere.
+Komga only reads the library, so world-readable files are enough.
 
-O serviço `bootstrap` roda sozinho a cada `up`: espera o Komga responder, cria o
-administrador inicial se ninguém criou ainda, e cria a biblioteca apontando para
-`/manga` se ela não existir. É idempotente.
+The `bootstrap` service runs on its own on every `up`: it waits for Komga to answer,
+creates the initial administrator if nobody has, and creates the library pointing at
+`/manga` if it does not exist. It is idempotent.
 
-### Credenciais do Komga
+The `comick` service comes up with the rest and needs no credentials: `COMICK_API_URL`
+points at it and defaults to `http://comick:3000`. Its build `context` pins a commit on
+purpose — third-party code does not run here unreviewed — so updating it means changing the
+SHA after reading what changed.
 
-Preencha `KOMGA_API_KEY` no `.env` (no Komga: Settings, Account, API keys). É a
-forma normal de autenticar, e a chave pode ser revogada sozinha.
+### Komga credentials
 
-`KOMGA_USER` e `KOMGA_PASS` só são necessários uma vez, para reivindicar uma
-instância recém-criada: sem usuário não existe chave, e o endpoint de claim só
-aceita email e senha. Com isso preenchido o `bootstrap` faz o claim para você.
+Fill in `KOMGA_API_KEY` in `.env` (in Komga: Settings, Account, API keys). That is the
+normal way to authenticate, and the key can be revoked on its own.
 
-### Credenciais das listas
+`KOMGA_USER` and `KOMGA_PASS` are only needed once, to claim a freshly created instance:
+with no user there can be no key, and the claim endpoint only accepts an email and a
+password. With those filled in, `bootstrap` performs the claim for you.
 
-| Provedor | Onde registrar | Redirect URI |
+### List credentials
+
+| Provider | Where to register | Redirect URI |
 |---|---|---|
 | MyAnimeList | <https://myanimelist.net/apiconfig> | `http://localhost:8080/api/auth/mal/callback` |
 | AniList | <https://anilist.co/settings/developer> | `http://localhost:8080/api/auth/anilist/callback` |
 
-Se você acessar por outro endereço, ajuste `PUBLIC_BASE_URL` no `.env` — é dele que
-o redirect URI é montado.
+The redirect URI must match what you register, character for character. If you reach the
+interface at a different address, set `PUBLIC_BASE_URL` in `.env` — the redirect URI is
+built from it.
 
-Depois de subir, vá em **Settings**, conecte os dois provedores e clique em
-**Sync now**.
+Once the stack is up, go to **Settings**, connect both providers and click **Sync now**.
+The same credentials cover the anime lists Discovery reads; there is nothing else to
+connect.
 
-## Desenvolvimento
+### MangaDex credentials (optional)
+
+Search and chapter listing work anonymously, and MangaDex caches anonymous responses but
+not authenticated ones, so signing in makes searches slower rather than faster. Leave the
+four `MANGADEX_` variables empty unless your account needs to see restricted titles, or you
+want Discovery to write the status you approve to your MangaDex list as well.
+
+## Development
 
 ```bash
 cd backend
@@ -140,29 +145,37 @@ POSTGRES_HOST=localhost POSTGRES_PORT=5433 .venv/bin/python -m uvicorn app.api.m
 cd ../frontend && npm install && npm run dev
 ```
 
-Os testes das bordas puras rodam de fixtures gravadas e não tocam a rede. Os da
-fila rodam contra o Postgres de verdade, porque lease concorrente, expiração de
-lease e backoff são exatamente o que um mock erraria.
+Tests of the pure edges run from recorded fixtures and never touch the network. The queue
+tests run against a real Postgres, because concurrent leasing, lease expiry and backoff
+are exactly what a mock would get wrong.
 
-## Estado
+## State
 
-As seis fases da spec estão implementadas: infraestrutura, listas, matching,
-download, integração com o Komga e progresso de volta para as listas.
+All six phases of the design are implemented: infrastructure, lists, matching, downloads,
+the Komga integration, and reading progress written back to the lists. Discovery sits on
+top of them, and has a design of its own in
+[`docs/superpowers/specs/2026-09-13-anime-manga-discovery-design.md`](docs/superpowers/specs/2026-09-13-anime-manga-discovery-design.md).
 
-Downloads são feitos em lotes. O `manga-downloader` relê o índice inteiro da obra
-a cada invocação, então um job por capítulo fazia setecentas leituras de índice
-para baixar setecentos arquivos, e o MangaDex passava a responder 400. Um lote
-usa a sintaxe de faixa do binário (`1-20,22,25-30`) e custa uma leitura. O
-tamanho está em Settings, padrão 20.
+Downloads happen in batches. `manga-downloader` re-reads a manga's entire chapter index on
+every invocation, so one job per chapter meant seven hundred index reads to fetch seven
+hundred files, and MangaDex started answering with errors. A batch uses the tool's own
+range syntax (`1-20,22,25-30`) and costs a single index read. The batch size is in
+Settings, default 20.
 
-As flags do binário `manga-downloader` foram conferidas contra o `--help` da versão
-1.9.0 (`--format`, `--language`, `--output-dir`). O comando é montado em
-`app/downloader/runner.py:build_command` e o parse da saída fica no mesmo módulo,
-cobertos por testes — se uma versão futura mudar as flags, a correção é local.
+The binary's flags were checked against `--help` on version 1.9.0 (`--format`,
+`--language`, `--output-dir`). The command is assembled in
+`app/downloader/runner.py:build_command` and the output parsing lives in the same module,
+both covered by tests, so a future version changing its flags is a local fix.
 
-O que ainda não foi exercido contra a rede: uma busca real no MangaDex, um
-download real, a escrita de progresso e de status no MyAnimeList e no AniList, a
-escrita de status no MangaDex, e a busca via comick. Essas bordas rodam de
-fixtures nos testes. O loop do Komga foi verificado contra uma instância real:
-claim, criação da biblioteca, varredura, casamento de série por pasta e de book
-por caminho, e leitura do progresso de leitura de volta.
+Exercised against the real services: the AniList and MyAnimeList list sync, MangaDex
+search and chapter listing, real downloads producing CBZ files with valid `ComicInfo.xml`,
+and the whole Komga loop — claim, library creation, scanning, matching a series by folder
+and a book by path, and reading progress back out.
+
+Not yet exercised: writing progress and status back to MyAnimeList and AniList against a
+live account, writing status to MangaDex, and searching through comick. Those paths run
+from fixtures in the tests.
+
+## License
+
+MIT. See [LICENSE](LICENSE).

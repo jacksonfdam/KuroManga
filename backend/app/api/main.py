@@ -19,7 +19,7 @@ async def lifespan(app: FastAPI):
     await broker.stop()
 
 
-app = FastAPI(title="manga pipeline", lifespan=lifespan)
+app = FastAPI(title="KuroManga", lifespan=lifespan)
 app.include_router(routes_series.router)
 app.include_router(routes_discovery.router)
 app.include_router(routes_jobs.router)
