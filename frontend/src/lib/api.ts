@@ -122,6 +122,14 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * The sentence a user is shown for a rejection. Every screen reports a failure
+ * through this, so the wording never depends on which screen made the request.
+ */
+export function messageOf(failure: unknown): string {
+  return failure instanceof Error ? failure.message : String(failure)
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
     headers: { 'Content-Type': 'application/json' },

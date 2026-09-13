@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 
 import { api, type Series } from '../../lib/api'
 import type { ListStatus } from '../../lib/format'
+import { useAsyncData } from '../../lib/useAsyncData'
+import { useJobEvents } from '../../lib/useEvents'
 
 export type View = 'grid' | 'table'
 
@@ -14,63 +16,74 @@ export function totalChapters(series: Series): number | null {
 }
 
 export function useLibrary() {
-  const [series, setSeries] = useState<Series[]>([])
+  const load = useCallback(() => api.series(), [])
+  const { data, error, reload, setData } = useAsyncData(load)
   const [status, setStatus] = useState<ListStatus | 'all'>('reading')
   const [view, setView] = useState<View>('grid')
   const [query, setQuery] = useState('')
 
-  const load = useCallback(() => {
-    api.series().then(setSeries).catch(() => undefined)
-  }, [])
+  const all = useMemo(() => data ?? [], [data])
 
-  useEffect(load, [load])
+  // POST /progress only queues the write; the number the library reads comes
+  // from list_entry, which the handler updates when the job runs. So the card
+  // is reconciled twice: once against the reload below, and again when the
+  // job that actually reached the provider reports done.
+  useJobEvents((event) => {
+    if (event.event !== 'job.progress') reload()
+  })
 
   /**
    * Apply, then confirm. A rejected write restores the previous number
    * visibly: silently reverting reads as the click having missed.
    */
-  const increment = useCallback(async (id: number, next: number) => {
-    // The functional-updater form re-reads state at rollback time. Capturing
-    // `series` in this closure would restore whatever list existed when the
-    // click happened, discarding any refresh that landed while the request
-    // was in flight.
-    let previous: Series[] = []
-    setSeries((rows) => {
-      previous = rows
-      return rows.map((row) => (row.id === id ? { ...row, progress: next } : row))
-    })
-    try {
-      await api.setProgress(id, next)
-    } catch (error) {
-      setSeries(previous)
-      throw error
-    }
-  }, [])
+  const increment = useCallback(
+    async (id: number, next: number) => {
+      // The functional-updater form re-reads state at rollback time. Capturing
+      // `data` in this closure would restore whatever list existed when the
+      // click happened, discarding any refresh that landed while the request
+      // was in flight.
+      let previous: Series[] = []
+      setData((rows) => {
+        previous = rows ?? []
+        return (rows ?? []).map((row) => (row.id === id ? { ...row, progress: next } : row))
+      })
+      try {
+        await api.setProgress(id, next)
+      } catch (failure) {
+        setData(previous)
+        throw failure
+      }
+      reload()
+    },
+    [reload, setData],
+  )
 
   const visible = useMemo(
     () =>
-      series.filter((row) => {
+      all.filter((row) => {
         const matchesStatus = status === 'all' || row.status === status
         const matchesQuery = !query || row.title.toLowerCase().includes(query.toLowerCase())
         return matchesStatus && matchesQuery
       }),
-    [series, status, query],
+    [all, status, query],
   )
 
   // Independent of the active status tab: a series still belongs here the
   // instant it drops out of "reading" from a click, not only while filtered in.
   const continueReading = useMemo(
     () =>
-      [...series]
+      [...all]
         .filter((row) => row.status === 'reading' && row.updated_at)
         .sort((a, b) => new Date(b.updated_at as string).getTime() - new Date(a.updated_at as string).getTime())
         .slice(0, 3),
-    [series],
+    [all],
   )
 
   return {
     series: visible,
-    all: series,
+    all,
+    loaded: data !== null,
+    error,
     status,
     setStatus,
     view,
@@ -78,7 +91,7 @@ export function useLibrary() {
     query,
     setQuery,
     increment,
-    reload: load,
+    reload,
     continueReading,
   }
 }

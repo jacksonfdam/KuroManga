@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 
-import { Button, Icon, Toggle, type IconName } from '../../ui'
+import { Button, ErrorState, Icon, NoticeBar, Skeleton, Toggle, type IconName } from '../../ui'
 import { ProviderCard } from './ProviderCard'
 import { PipelineFields } from './PipelineFields'
 import { SourceCard } from './SourceCard'
@@ -40,11 +40,23 @@ function SectionHeader({
 }
 
 export function SettingsPage() {
-  const { data, draft, dirty, saving, notice, setField, restoreDefaults, save, connect, disconnect, sync, integration } =
+  const { data, error, reload, draft, dirty, saving, notice, setField, restoreDefaults, save, connect, disconnect, sync, integration } =
     useSettings()
 
+  // Without this the screen sat on "Loading…" forever: the fetch had no catch
+  // at all, so a failed request left the only other branch unreachable.
+  if (!data && error) {
+    return <ErrorState title="Couldn't load the settings" detail={error} onRetry={reload} />
+  }
+
   if (!data) {
-    return <p className="text-body-sm text-on-surface-variant">Loading…</p>
+    return (
+      <div className="flex flex-col gap-space-lg">
+        <Skeleton className="h-28 w-full" />
+        <Skeleton className="h-64 w-full" />
+        <Skeleton className="h-64 w-full" />
+      </div>
+    )
   }
 
   const mal = integration('mal')
@@ -61,6 +73,7 @@ export function SettingsPage() {
 
   return (
     <div className="flex flex-col gap-space-xl pb-24">
+      {error && <NoticeBar tone="error" text={`Couldn't refresh the settings: ${error}`} onRetry={reload} />}
       <div className="rounded-xl bg-surface-container p-space-lg shadow-xl">
         <div className="flex flex-col gap-space-xs">
           <span className="w-fit rounded-full bg-surface-container-high px-space-sm py-0.5 font-mono text-label-sm uppercase tracking-wider text-primary">

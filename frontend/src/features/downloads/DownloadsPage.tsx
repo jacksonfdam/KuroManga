@@ -1,4 +1,4 @@
-import { Badge, EmptyState } from '../../ui'
+import { Badge, EmptyState, ErrorState, NoticeBar, Skeleton } from '../../ui'
 import { JobRow } from './JobRow'
 import { useDownloads } from './useDownloads'
 
@@ -9,15 +9,37 @@ import { useDownloads } from './useDownloads'
 // planning and dropped — done, running, pending and failed sit in the same
 // emotional register as those four.
 export function DownloadsPage() {
-  const { jobs, counts, openJob, events, toggle, retry } = useDownloads()
+  const { jobs, counts, loaded, error, reload, notice, openJob, events, toggle, retry } = useDownloads()
+
+  // "Queue is empty" and "we could not read the queue" look identical from the
+  // outside and mean opposite things: one says the pipeline is idle, the other
+  // says nothing is known about it.
+  if (!loaded && error) {
+    return <ErrorState title="Couldn't load the queue" detail={error} onRetry={reload} />
+  }
+
+  if (!loaded) {
+    return (
+      <div className="flex flex-col gap-space-md">
+        <Skeleton className="h-10 w-48" />
+        {[0, 1, 2].map((slot) => (
+          <Skeleton key={slot} className="h-24 w-full" />
+        ))}
+      </div>
+    )
+  }
 
   if (jobs.length === 0) {
     return (
-      <EmptyState
-        icon="download"
-        title="Queue is empty"
-        detail="Nothing is downloading right now. Confirm a mapping in Review, or enable auto-download for a series."
-      />
+      <div className="flex flex-col gap-space-lg">
+        {error && <NoticeBar tone="error" text={`Couldn't refresh the queue: ${error}`} onRetry={reload} />}
+        {notice && <NoticeBar tone={notice.tone} text={notice.text} />}
+        <EmptyState
+          icon="download"
+          title="Queue is empty"
+          detail="Nothing is downloading right now. Confirm a mapping in Review, or enable auto-download for a series."
+        />
+      </div>
     )
   }
 
@@ -27,6 +49,8 @@ export function DownloadsPage() {
 
   return (
     <div className="flex flex-col gap-space-xl">
+      {error && <NoticeBar tone="error" text={`Couldn't refresh the queue: ${error}`} onRetry={reload} />}
+      {notice && <NoticeBar tone={notice.tone} text={notice.text} />}
       <div className="flex flex-col gap-space-sm">
         <h1 className="text-headline-lg font-extrabold tracking-tight text-on-surface">Downloads</h1>
         <div className="flex flex-wrap gap-2">

@@ -1,4 +1,4 @@
-import { Button, EmptyState } from '../../ui'
+import { Button, EmptyState, ErrorState, NoticeBar, Skeleton } from '../../ui'
 import { CandidateCard } from './CandidateCard'
 import { useReview } from './useReview'
 
@@ -7,15 +7,35 @@ import { useReview } from './useReview'
 // a cover-and-metadata aside like ContinueReading's rows, cards with the same
 // radius/shadow/tint vocabulary as CoverCard — rather than a reference render.
 export function ReviewPage({ onResolved }: { onResolved: () => void }) {
-  const { queue, current, manualUrl, setManualUrl, busy, error, confirm, search } = useReview(onResolved)
+  const { waiting, current, loaded, error, reload, notice, manualUrl, setManualUrl, busy, confirm, search } =
+    useReview(onResolved)
 
+  if (!loaded && error) {
+    return <ErrorState title="Couldn't load the review queue" detail={error} onRetry={reload} />
+  }
+
+  if (!loaded) {
+    return (
+      <div className="grid grid-cols-1 gap-space-lg lg:grid-cols-[320px_1fr]">
+        <Skeleton className="h-96 w-full" />
+        <Skeleton className="h-96 w-full" />
+      </div>
+    )
+  }
+
+  // "Nothing waiting" is a claim about the pipeline — every series has a
+  // confirmed source — so it is only ever shown when the queue genuinely came
+  // back empty. A failed load renders above, never as this.
   if (!current) {
     return (
-      <EmptyState
-        icon="check"
-        title="Nothing waiting"
-        detail="Every series has a confirmed source. New matches land here after the next sync."
-      />
+      <div className="flex flex-col gap-space-lg">
+        {error && <NoticeBar tone="error" text={`Couldn't refresh the queue: ${error}`} onRetry={reload} />}
+        <EmptyState
+          icon="check"
+          title="Nothing waiting"
+          detail="Every series has a confirmed source. New matches land here after the next sync."
+        />
+      </div>
     )
   }
 
@@ -24,18 +44,15 @@ export function ReviewPage({ onResolved }: { onResolved: () => void }) {
       <div>
         <h1 className="text-headline-lg font-extrabold tracking-tight text-on-surface">Review</h1>
         <p className="mt-1 font-mono text-label-md text-outline">
-          {queue.length} waiting · press{' '}
+          {waiting.length} waiting · press{' '}
           <kbd className="rounded bg-surface-container-high px-1 py-0.5 text-on-surface">1</kbd>–
           <kbd className="rounded bg-surface-container-high px-1 py-0.5 text-on-surface">9</kbd> to confirm a
           candidate
         </p>
       </div>
 
-      {error && (
-        <div className="rounded-xl bg-error-container/20 px-space-md py-space-sm text-body-sm text-error">
-          {error}
-        </div>
-      )}
+      {error && <NoticeBar tone="error" text={`Couldn't refresh the queue: ${error}`} onRetry={reload} />}
+      {notice && <NoticeBar tone={notice.tone} text={notice.text} />}
 
       <div className="grid grid-cols-1 gap-space-lg lg:grid-cols-[320px_1fr]">
         <aside className="flex h-fit flex-col gap-space-md rounded-xl bg-surface-container-low p-space-lg shadow-card">

@@ -1,6 +1,6 @@
 import { Link, useParams } from 'react-router-dom'
 
-import { Badge, Button, EmptyState, Icon, ProgressBar, Skeleton, StatusPill } from '../../ui'
+import { Badge, Button, EmptyState, ErrorState, Icon, NoticeBar, ProgressBar, Skeleton, StatusPill } from '../../ui'
 import { formatChapter, formatSeriesFormat, relativeTime } from '../../lib/format'
 import { ChapterTable } from './ChapterTable'
 import { DownloadControls } from './DownloadControls'
@@ -46,18 +46,7 @@ export function SeriesDetailPage() {
 
   // The first load failed and there is nothing to fall back to yet.
   if (!detail && error) {
-    return (
-      <EmptyState
-        icon="warning"
-        title="Couldn't load this series"
-        detail={error}
-        action={
-          <Button variant="surface" icon="sync" onClick={reload}>
-            Retry
-          </Button>
-        }
-      />
-    )
+    return <ErrorState title="Couldn't load this series" detail={error} onRetry={reload} />
   }
 
   if (!detail) {
@@ -89,14 +78,7 @@ export function SeriesDetailPage() {
           queuing) says so here instead of collapsing to the not-found or
           first-load error screens above, which would throw the page away
           over a transient failure. */}
-      {error && (
-        <div className="flex flex-wrap items-center justify-between gap-space-sm rounded-xl bg-error-container/20 px-space-md py-space-sm text-body-sm text-error">
-          <span>Couldn't refresh this series: {error}</span>
-          <Button variant="surface" size="sm" icon="sync" onClick={reload}>
-            Retry
-          </Button>
-        </div>
-      )}
+      {error && <NoticeBar tone="error" text={`Couldn't refresh this series: ${error}`} onRetry={reload} />}
 
       <section className="flex flex-col gap-space-lg sm:flex-row">
         <div className="aspect-[2/3] w-40 shrink-0 overflow-hidden rounded-lg bg-surface-container-highest shadow-card sm:w-48">
