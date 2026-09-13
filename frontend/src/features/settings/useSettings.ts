@@ -18,22 +18,36 @@ const DEFAULT_VALUES: Record<string, string> = {
   comick_enabled: 'false',
 }
 
+// A save failure must not read like a save success — the sticky bar renders
+// this tone as an error, not the neutral/success styling "notice" used to get
+// regardless of which one it was.
+export interface Notice {
+  text: string
+  tone: 'info' | 'error'
+}
+
 export function useSettings() {
   const [data, setData] = useState<SettingsPayload | null>(null)
   const [draft, setDraft] = useState<Record<string, string>>({})
   const [integrations, setIntegrations] = useState<Integration[]>([])
   const [saving, setSaving] = useState(false)
-  const [notice, setNotice] = useState<string | null>(null)
+  const [notice, setNotice] = useState<Notice | null>(null)
+
+  const refreshIntegrations = useCallback(() => {
+    // The source cards and the header strip both read this endpoint, so a
+    // change here (a save, a connect, a disconnect) has to be re-fetched
+    // through the same call rather than inferred from local/draft state, or
+    // the two can end up disagreeing about whether a provider is connected.
+    api.integrations().then(setIntegrations).catch(() => undefined)
+  }, [])
 
   const load = useCallback(() => {
     api.settings().then((payload) => {
       setData(payload)
       setDraft(payload.values)
     })
-    // Provider state comes from this same endpoint the header strip reads, so
-    // the two can never disagree about whether a provider is authenticated.
-    api.integrations().then(setIntegrations).catch(() => undefined)
-  }, [])
+    refreshIntegrations()
+  }, [refreshIntegrations])
 
   useEffect(load, [load])
 
@@ -58,18 +72,21 @@ export function useSettings() {
       .then((payload) => {
         setData((current) => (current ? { ...current, values: payload.values } : current))
         setDraft(payload.values)
-        setNotice('Settings saved')
+        setNotice({ text: 'Settings saved', tone: 'info' })
+        // comick_url/comick_enabled may have just changed; the Comick card's
+        // health state has to catch up to what was actually saved.
+        refreshIntegrations()
       })
-      .catch((error) => setNotice(String(error)))
+      .catch((error) => setNotice({ text: String(error), tone: 'error' }))
       .finally(() => setSaving(false))
-  }, [draft])
+  }, [draft, refreshIntegrations])
 
   const connect = useCallback(async (provider: string) => {
     try {
       const { url } = await api.authStart(provider)
       window.location.href = url
     } catch (error) {
-      setNotice(String(error))
+      setNotice({ text: String(error), tone: 'error' })
     }
   }, [])
 
@@ -81,7 +98,10 @@ export function useSettings() {
   )
 
   const sync = useCallback((provider: string) => {
-    api.sync(provider).then(() => setNotice(`${provider}: sync queued`))
+    api
+      .sync(provider)
+      .then(() => setNotice({ text: `${provider}: sync queued`, tone: 'info' }))
+      .catch((error) => setNotice({ text: String(error), tone: 'error' }))
   }, [])
 
   const integration = useCallback(

@@ -126,9 +126,9 @@ export function SettingsPage() {
             icon="download"
             title="MangaDex API"
             subtitle="https://api.mangadex.org"
-            tone={data.sources.mangadex?.authenticated ? 'ok' : 'neutral'}
+            tone={mangadex?.state === 'ok' ? 'ok' : 'neutral'}
             statusLabel={
-              data.sources.mangadex?.authenticated
+              mangadex?.state === 'ok'
                 ? `Authenticated${data.sources.mangadex.username ? ` as ${data.sources.mangadex.username}` : ''}`
                 : 'Anonymous mode'
             }
@@ -143,8 +143,8 @@ export function SettingsPage() {
             icon="server"
             title="Comick"
             subtitle="Self-hosted source API"
-            tone={draft.comick_url ? 'ok' : 'neutral'}
-            statusLabel={draft.comick_url ? 'URL configured' : 'URL not set'}
+            tone={comick?.state === 'ok' ? 'ok' : 'neutral'}
+            statusLabel={comick?.state === 'ok' ? 'URL configured' : 'URL not set'}
           >
             <div className="flex flex-col gap-space-xs">
               <label htmlFor="comick-url" className="text-body-sm text-on-surface-variant">
@@ -201,11 +201,19 @@ export function SettingsPage() {
       <div className="sticky bottom-6 z-40 mt-space-md w-full">
         <div className="flex flex-col items-center justify-between gap-space-md rounded-xl bg-surface-container-lowest/90 p-space-md shadow-2xl backdrop-blur-xl sm:flex-row">
           <div className="flex items-center gap-space-sm">
-            <span className={`h-3 w-3 rounded-full ${dirty ? 'bg-warning' : 'bg-secondary'}`} />
+            <span
+              className={`h-3 w-3 rounded-full ${
+                notice?.tone === 'error' ? 'bg-error' : dirty ? 'bg-warning' : 'bg-secondary'
+              }`}
+            />
             <span className="flex items-center gap-1 text-body-sm text-on-surface-variant">
               Configuration status:
-              <strong className="font-mono text-label-sm font-semibold text-on-surface">
-                {notice ?? (dirty ? 'Unsaved changes' : 'No pending changes')}
+              <strong
+                className={`font-mono text-label-sm font-semibold ${
+                  notice?.tone === 'error' ? 'text-error' : 'text-on-surface'
+                }`}
+              >
+                {notice?.text ?? (dirty ? 'Unsaved changes' : 'No pending changes')}
               </strong>
             </span>
           </div>
