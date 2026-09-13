@@ -1,9 +1,9 @@
-import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
-import { Badge, Button, Card, EmptyState, Icon, ProgressBar, Skeleton, StatusPill, Toggle } from '../../ui'
+import { Badge, Button, EmptyState, Icon, ProgressBar, Skeleton, StatusPill } from '../../ui'
 import { formatChapter, formatSeriesFormat, relativeTime } from '../../lib/format'
 import { ChapterTable } from './ChapterTable'
+import { DownloadControls } from './DownloadControls'
 import { MappingPanel } from './MappingPanel'
 import { SyncTargets } from './SyncTargets'
 import { totalChapters, useSeriesDetail } from './useSeriesDetail'
@@ -21,8 +21,12 @@ import { totalChapters, useSeriesDetail } from './useSeriesDetail'
 export function SeriesDetailPage() {
   const { id } = useParams<{ id: string }>()
   const seriesId = Number(id)
-  const { detail, notFound, reload, toggleAutoDownload, download, research } = useSeriesDetail(seriesId)
+  const { detail, notFound, error, reload, toggleAutoDownload, download, research } =
+    useSeriesDetail(seriesId)
 
+  // A 404 is the only case worth replacing the screen for — the series
+  // itself is gone. Any other failure (a dropped connection, a 500) is
+  // handled below, where it must not throw away a page already on screen.
   if (notFound) {
     return (
       <EmptyState
@@ -35,6 +39,22 @@ export function SeriesDetailPage() {
               Back to library
             </Button>
           </Link>
+        }
+      />
+    )
+  }
+
+  // The first load failed and there is nothing to fall back to yet.
+  if (!detail && error) {
+    return (
+      <EmptyState
+        icon="warning"
+        title="Couldn't load this series"
+        detail={error}
+        action={
+          <Button variant="surface" icon="sync" onClick={reload}>
+            Retry
+          </Button>
         }
       />
     )
@@ -63,6 +83,20 @@ export function SeriesDetailPage() {
         <Icon name="chevron" className="h-4 w-4 rotate-90" />
         Back to library
       </Link>
+
+      {/* A page already showing real data stays showing it — a failed
+          background refresh (e.g. the reload DownloadControls fires after
+          queuing) says so here instead of collapsing to the not-found or
+          first-load error screens above, which would throw the page away
+          over a transient failure. */}
+      {error && (
+        <div className="flex flex-wrap items-center justify-between gap-space-sm rounded-xl bg-error-container/20 px-space-md py-space-sm text-body-sm text-error">
+          <span>Couldn't refresh this series: {error}</span>
+          <Button variant="surface" size="sm" icon="sync" onClick={reload}>
+            Retry
+          </Button>
+        </div>
+      )}
 
       <section className="flex flex-col gap-space-lg sm:flex-row">
         <div className="aspect-[2/3] w-40 shrink-0 overflow-hidden rounded-lg bg-surface-container-highest shadow-card sm:w-48">
@@ -134,86 +168,5 @@ export function SeriesDetailPage() {
         </aside>
       </div>
     </div>
-  )
-}
-
-// Kept local rather than a fifth component file: it is two thin bindings
-// around endpoints the library screen already exercises (setAutoDownload,
-// download), not a piece of the reference's own layout. Reference shows an
-// auto-computed "Batch Size 20: Caps 149-160" preview and a Komga rescan
-// button; neither is a real number or endpoint this API exposes, so the
-// range is a plain form instead of a precomputed silhouette.
-function DownloadControls({
-  autoDownload,
-  onToggleAutoDownload,
-  onDownload,
-  onQueued,
-}: {
-  autoDownload: boolean
-  onToggleAutoDownload: (enabled: boolean) => Promise<void>
-  onDownload: (from?: number, to?: number) => Promise<{ queued: number }>
-  onQueued: () => void
-}) {
-  const [from, setFrom] = useState('')
-  const [to, setTo] = useState('')
-  const [status, setStatus] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
-
-  const submit = async () => {
-    setBusy(true)
-    setStatus(null)
-    try {
-      const result = await onDownload(from ? Number(from) : undefined, to ? Number(to) : undefined)
-      setStatus(
-        result.queued > 0
-          ? `Queued ${result.queued} chapter${result.queued === 1 ? '' : 's'}.`
-          : 'Nothing to queue in that range.',
-      )
-      onQueued()
-    } catch (error) {
-      setStatus(String(error))
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  return (
-    <Card as="section" elevated className="flex flex-col gap-space-sm">
-      <h2 className="text-title-md text-on-surface">Downloads</h2>
-      <Toggle
-        checked={autoDownload}
-        onChange={(checked) => {
-          onToggleAutoDownload(checked).catch(() => undefined)
-        }}
-        label="Auto-download new chapters"
-      />
-      <div className="flex flex-col gap-space-xs border-t border-surface-container-highest/40 pt-space-sm">
-        <span className="font-mono text-label-sm text-on-surface-variant">Download a range</span>
-        <div className="flex items-center gap-space-xs">
-          <input
-            name="download-from-chapter"
-            aria-label="From chapter"
-            placeholder="From"
-            inputMode="decimal"
-            value={from}
-            onChange={(event) => setFrom(event.target.value)}
-            className="w-full rounded-lg bg-surface-container-lowest px-3 py-2 text-body-sm text-on-surface placeholder:text-outline focus:outline-none focus:ring-1 focus:ring-primary"
-          />
-          <input
-            name="download-to-chapter"
-            aria-label="To chapter"
-            placeholder="To"
-            inputMode="decimal"
-            value={to}
-            onChange={(event) => setTo(event.target.value)}
-            className="w-full rounded-lg bg-surface-container-lowest px-3 py-2 text-body-sm text-on-surface placeholder:text-outline focus:outline-none focus:ring-1 focus:ring-primary"
-          />
-        </div>
-        <Button variant="primary" size="sm" icon="download" disabled={busy} onClick={submit} className="w-fit">
-          Queue download
-        </Button>
-        {status && <p className="font-mono text-label-sm text-outline">{status}</p>}
-      </div>
-    </Card>
   )
 }
