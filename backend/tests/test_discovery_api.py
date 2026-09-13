@@ -142,6 +142,31 @@ async def test_approving_marks_the_suggestion_added(client, suggestion_id):
     assert row.series_id is not None
 
 
+async def test_approving_records_the_chosen_status_for_komga_scan_to_read(client, suggestion_id):
+    await client.post(
+        f"/api/suggestions/{suggestion_id}/add", json={"status": "completed", "download": False}
+    )
+    async with get_sessionmaker()() as session:
+        chosen_status = (
+            await session.execute(text("select meta ->> 'chosen_status' from suggestion"))
+        ).scalar_one()
+    assert chosen_status == "completed"
+
+
+async def test_approving_an_already_added_suggestion_is_a_conflict(client, suggestion_id):
+    await client.post(
+        f"/api/suggestions/{suggestion_id}/add", json={"status": "reading", "download": False}
+    )
+    response = await client.post(
+        f"/api/suggestions/{suggestion_id}/add", json={"status": "reading", "download": False}
+    )
+    assert response.status_code == 409
+
+    async with get_sessionmaker()() as session:
+        count = (await session.execute(text("select count(*) from series"))).scalar_one()
+    assert count == 1
+
+
 async def test_a_dismissed_suggestion_leaves_the_new_list(client, suggestion_id):
     await client.post(f"/api/suggestions/{suggestion_id}/dismiss")
     assert (await client.get("/api/suggestions?state=new")).json() == []

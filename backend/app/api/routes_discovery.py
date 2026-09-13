@@ -1,5 +1,6 @@
 """Discovery screen: what to read next, and what happens when you say yes."""
 
+import json
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -108,29 +109,20 @@ async def add_suggestion(suggestion_id: int, body: AddIn, session: Session) -> d
     alias = normalize(row.title)
     aliases = [alias] if alias else []
 
-    primary = ListEntryDTO(
-        provider=Provider(row.provider),
-        media_id=row.provider_media_id,
-        status=body.status,
-        title_english=row.title,
-        total_chapters=row.total_chapters,
-        cover_url=row.cover_url,
-    )
-    series_id = await create_series(session, primary, aliases)
-
-    for provider, media_id in ids.items():
-        await upsert_entry(
-            session,
-            ListEntryDTO(
-                provider=Provider(provider),
-                media_id=media_id,
-                status=body.status,
-                title_english=row.title,
-                total_chapters=row.total_chapters,
-                cover_url=row.cover_url,
-            ),
-            series_id,
+    entries = [
+        ListEntryDTO(
+            provider=Provider(provider),
+            media_id=media_id,
+            status=body.status,
+            title_english=row.title,
+            total_chapters=row.total_chapters,
+            cover_url=row.cover_url,
         )
+        for provider, media_id in ids.items()
+    ]
+    series_id = await create_series(session, entries[0], aliases)
+    for entry in entries:
+        await upsert_entry(session, entry, series_id)
 
     job_ids: list[int | None] = [
         await repo.enqueue(
@@ -183,17 +175,24 @@ async def add_suggestion(suggestion_id: int, body: AddIn, session: Session) -> d
             text("update series set auto_download = true where id = :id"), {"id": series_id}
         )
 
+    # chosen_status/download survive here because komga_scan reads chosen_status
+    # back off an added suggestion to decide whether its books started read.
     await session.execute(
         text(
             """
             update suggestion
                set state = 'added',
                    series_id = :series_id,
+                   meta = coalesce(meta, '{}'::jsonb) || cast(:extra as jsonb),
                    updated_at = now()
              where id = :id
             """
         ),
-        {"id": suggestion_id, "series_id": series_id},
+        {
+            "id": suggestion_id,
+            "series_id": series_id,
+            "extra": json.dumps({"chosen_status": str(body.status), "download": body.download}),
+        },
     )
     await session.commit()
     return {
