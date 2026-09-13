@@ -36,16 +36,28 @@ select s.id, s.canonical_title, s.slug, s.needs_review, s.meta, s.komga_series_i
        s.auto_download,
        coalesce(m.source_site, '') as source_site,
        coalesce(m.source_url, '') as source_url,
-       count(c.id) filter (where c.state = 'downloaded') as downloaded,
-       count(c.id) as known,
-       count(c.id) filter (where c.state in ('queued', 'downloading')) as in_flight,
-       count(c.id) filter (where c.state = 'failed') as failed,
+       coalesce(max(ch.downloaded), 0) as downloaded,
+       coalesce(max(ch.known), 0) as known,
+       coalesce(max(ch.in_flight), 0) as in_flight,
+       coalesce(max(ch.failed), 0) as failed,
        array_remove(array_agg(distinct e.provider), null) as providers,
        max(e.total_chapters) as total_chapters
   from series s
   left join source_mapping m on m.series_id = s.id and m.active
-  left join chapter c on c.series_id = s.id
   left join list_entry e on e.series_id = s.id
+  left join (
+      -- Chapter stats grouped on their own, one row per series, so joining
+      -- them alongside list_entry (also one-to-many on series) never lets the
+      -- two relations cross-multiply each other's rows. See #34: a series
+      -- synced from two providers used to count every chapter twice.
+      select series_id,
+             count(*) filter (where state = 'downloaded') as downloaded,
+             count(*) as known,
+             count(*) filter (where state in ('queued', 'downloading')) as in_flight,
+             count(*) filter (where state = 'failed') as failed
+        from chapter
+       group by series_id
+  ) ch on ch.series_id = s.id
  group by s.id, m.source_site, m.source_url
  order by s.canonical_title
 """
