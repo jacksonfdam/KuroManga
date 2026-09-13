@@ -5,7 +5,7 @@ from typing import Annotated, Any
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -377,11 +377,21 @@ class SearchAddIn(AddIn):
     provider: Provider
     media_id: str
     title: str
-    alt_ids: dict[str, str] = {}
+    # Keyed by Provider, so an unknown provider is a 422 here rather than a
+    # ValueError deep inside the approval, where it would read as a 500.
+    alt_ids: dict[Provider, str] = {}
     cover_url: str | None = None
     total_chapters: int | None = None
     year: int | None = None
     publishing_status: str | None = None
+
+    @model_validator(mode="after")
+    def alt_ids_are_other_providers(self) -> "SearchAddIn":
+        # The approval merges these over the primary id, so this key would
+        # silently replace the manga the user actually picked.
+        if self.provider in self.alt_ids:
+            raise ValueError(f"alt_ids cannot repeat the primary provider {self.provider}")
+        return self
 
 
 def anime_payload(anime: UnmatchedAnime) -> dict[str, Any]:

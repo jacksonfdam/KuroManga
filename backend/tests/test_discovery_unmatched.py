@@ -673,6 +673,25 @@ async def test_two_anime_with_no_title_at_all_are_not_one_anime(client):
     assert (await client.post(f"/api/discovery/unmatched/{first}/hide")).status_code == 404
 
 
+async def test_an_alt_id_cannot_overwrite_the_manga_the_user_picked(client):
+    """It merges over the primary id, so this would add a different manga."""
+    anime_id = await insert_anime("anilist", "21")
+    response = await client.post(
+        f"/api/discovery/unmatched/{anime_id}/add",
+        json=candidate_body(alt_ids={"anilist": "99999"}),
+    )
+    assert response.status_code == 422
+
+
+async def test_an_unknown_provider_in_alt_ids_is_a_bad_request_not_a_crash(client):
+    anime_id = await insert_anime("anilist", "21")
+    response = await client.post(
+        f"/api/discovery/unmatched/{anime_id}/add",
+        json=candidate_body(alt_ids={"kitsu": "1"}),
+    )
+    assert response.status_code == 422
+
+
 async def test_dismissing_a_title_match_gives_the_anime_back(client):
     """The user added the wrong manga and said so. The anime is unanswered again."""
     anime_id = await insert_anime("anilist", "21")
