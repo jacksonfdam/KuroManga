@@ -27,7 +27,7 @@ select j.id, j.type, j.state, j.priority, j.attempts, j.max_attempts, j.last_err
   from job j
   left join series s on s.id = j.series_id
   left join chapter c on c.id = (j.payload ->> 'chapter_id')::bigint
- where (:state is null or j.state = :state)
+ where (cast(:state as text) is null or j.state = cast(:state as text))
  order by case j.state when 'leased' then 0 when 'pending' then 1 else 2 end,
           j.priority, j.created_at desc
  limit :limit

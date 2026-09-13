@@ -79,7 +79,11 @@ Falta da spec:
   MyAnimeList e AniList. As duas escritas (`push_progress`) já estão implementadas
   nos provedores; falta o handler que as chama.
 
-Um ponto a confirmar no primeiro uso real: as flags do binário `manga-downloader`.
-O comando é montado em `app/downloader/runner.py:build_command` e o parse da saída
-fica no mesmo módulo, cobertos por testes — se a versão instalada usar outras flags,
-a correção é local.
+As flags do binário `manga-downloader` foram conferidas contra o `--help` da versão
+1.9.0 (`--format`, `--language`, `--output-dir`). O comando é montado em
+`app/downloader/runner.py:build_command` e o parse da saída fica no mesmo módulo,
+cobertos por testes — se uma versão futura mudar as flags, a correção é local.
+
+O que ainda não foi exercido contra a rede: uma busca real no MangaDex e um
+download real. As duas bordas rodam de fixtures nos testes; o primeiro uso com
+listas conectadas é que fecha essa verificação.
