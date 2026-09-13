@@ -105,7 +105,9 @@ export function AppShell() {
           section calls for compact navigation pinned to the bottom, so this mirrors
           the header's breakpoint rather than inventing a separate tablet layout. */}
       <main className="pb-20 pt-20 xl:pb-0">
-        <div className="mx-auto flex max-w-canvas flex-col gap-space-xl px-margin py-space-xl">
+        {/* DESIGN.md's responsive section: 1rem outer margin below 640px, 2rem at
+            and above it — space-md and margin are exactly those tokens. */}
+        <div className="mx-auto flex max-w-canvas flex-col gap-space-xl px-space-md py-space-xl sm:px-margin">
           <Outlet context={refresh} />
         </div>
       </main>
