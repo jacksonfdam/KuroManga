@@ -313,14 +313,21 @@ def parse_manga_search(data: dict[str, Any]) -> list[MangaMeta]:
     The order is kept because the caller re-scores against the anime's own titles,
     and a stable input order is what makes that ranking reproducible.
 
-    Formats are filtered exactly as `parse_relations` filters them. The anime this
-    search serves are disproportionately light novel adaptations, where the novel
-    is AniList's top hit under the exact anime title, and a format nobody declared
-    is one nobody can vouch for either.
+    Formats are filtered exactly as `parse_relations` filters them: a light novel
+    or one-shot is dropped, because the anime this search serves are
+    disproportionately light novel adaptations, where the novel is AniList's top
+    hit under the exact anime title. A *missing* format is not the same claim -
+    AniList returns `format: null` for entries it has not classified, and hiding
+    those with no trace is worse than showing them marked "format unknown" for
+    the user to judge, so only a format that is present and known-not-manga is
+    dropped.
     """
     results: list[MangaMeta] = []
     for media in (data.get("Page") or {}).get("media", []) or []:
-        if not media.get("id") or media.get("format") not in MANGA_FORMATS:
+        if not media.get("id"):
+            continue
+        media_format = media.get("format") or None
+        if media_format is not None and media_format not in MANGA_FORMATS:
             continue
         title = media.get("title") or {}
         results.append(
@@ -331,7 +338,7 @@ def parse_manga_search(data: dict[str, Any]) -> list[MangaMeta]:
                 total_chapters=media.get("chapters"),
                 year=(media.get("startDate") or {}).get("year"),
                 publishing_status=media.get("status"),
-                format=media.get("format"),
+                format=media_format,
             )
         )
     return results

@@ -97,6 +97,33 @@ def test_anilist_search_drops_a_one_shot(fixture):
     assert "125307" not in ids
 
 
+def test_anilist_search_keeps_a_result_with_no_declared_format(fixture):
+    """Synthetic edge case: live searches checked did not return `format: null`.
+
+    AniList does return it for entries it has not classified, and a candidate
+    the user can see on AniList's own site should not vanish with no trace just
+    because it is unclassified there too.
+    """
+    payload = {
+        "Page": {
+            "media": [
+                {
+                    "id": 999001,
+                    "format": None,
+                    "title": {"romaji": "Mystery Title", "english": None},
+                    "coverImage": {"large": None},
+                    "chapters": None,
+                    "status": "RELEASING",
+                    "startDate": {"year": None},
+                }
+            ]
+        }
+    }
+    results = parse_anilist_search(payload)
+    assert [r.media_id for r in results] == ["999001"]
+    assert results[0].format is None
+
+
 def test_mal_search_returns_manga_metadata(fixture):
     """Recorded from the live API: q=Vinland Saga, limit 10."""
     results = parse_mal_search(fixture("mal_manga_search.json"))
@@ -132,3 +159,31 @@ def test_mal_search_ignores_an_empty_english_title(fixture):
 def test_mal_search_speaks_anilist_publishing_vocabulary(fixture):
     """One merged candidate carries one badge, so `finished` cannot stay lowercase."""
     assert parse_mal_search(fixture("mal_manga_search.json"))[0].publishing_status == "FINISHED"
+
+
+def test_mal_search_keeps_a_result_with_an_unmapped_media_type(fixture):
+    """Synthetic edge case: hitting the live MAL search requires a client id this
+    environment does not have, so this is built by hand rather than recorded.
+    A `media_type` `MEDIA_TYPE_MAP` has never heard of is the map's gap, not a
+    claim that the title is a novel - it should survive with `format` unset.
+    """
+    payload = {
+        "data": [
+            {
+                "node": {
+                    "id": 999002,
+                    "title": "Mystery Title",
+                    "main_picture": {"large": None},
+                    "alternative_titles": {"synonyms": [], "en": "", "ja": ""},
+                    "num_chapters": None,
+                    "start_date": "",
+                    "status": "currently_publishing",
+                    "media_type": "webtoon_special",
+                }
+            }
+        ],
+        "paging": {},
+    }
+    results = parse_mal_search(payload)
+    assert [r.media_id for r in results] == ["999002"]
+    assert results[0].format is None

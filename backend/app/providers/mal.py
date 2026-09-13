@@ -283,13 +283,19 @@ def parse_manga_search(page: dict[str, Any]) -> list[MangaMeta]:
     """Pure parser for a manga title search, in the order MyAnimeList ranked it.
 
     Formats are filtered the way AniList's are, for the same reason: a search for
-    an anime's title surfaces the light novel it was adapted from first.
+    an anime's title surfaces the light novel it was adapted from first. But a
+    `media_type` the map does not know is not a claim that the result is a
+    novel - it is the map's gap, not MyAnimeList's - so only a `media_type` that
+    resolves to a known non-manga format is dropped; an unmapped or missing one
+    is kept with `format` unset for the user to judge.
     """
     results: list[MangaMeta] = []
     for item in page.get("data", []) or []:
         node = item.get("node") or {}
+        if not node.get("id"):
+            continue
         media_format = MEDIA_TYPE_MAP.get(node.get("media_type") or "")
-        if not node.get("id") or media_format not in MANGA_FORMATS:
+        if media_format is not None and media_format not in MANGA_FORMATS:
             continue
         alt = node.get("alternative_titles") or {}
         # `en` comes back as an empty string far more often than it comes back
