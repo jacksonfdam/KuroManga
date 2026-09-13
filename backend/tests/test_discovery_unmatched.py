@@ -12,9 +12,10 @@ from sqlalchemy import text
 
 from app.api.main import app
 from app.db import get_sessionmaker
+from app.discovery.unmatched import merge_candidates
 from app.enums import ListStatus, Provider
 from app.providers.anilist import parse_manga_search as parse_anilist_search
-from app.providers.base import AnimeEntryDTO
+from app.providers.base import AnimeEntryDTO, MangaMeta
 from app.providers.mal import parse_manga_search as parse_mal_search
 
 pytestmark = pytest.mark.asyncio
@@ -292,6 +293,39 @@ async def test_a_candidate_says_what_format_it_is(client, providers_answer):
     anime_id = await insert_anime("anilist", "21")
     body = (await client.post(f"/api/discovery/unmatched/{anime_id}/search")).json()
     assert body["candidates"][0]["format"] == "MANGA"
+
+
+async def test_one_provider_answering_a_title_twice_offers_both_answers():
+    """A serialisation and its collected edition share a name and are two books.
+
+    Folding the second into the first as an alt id would overwrite the id of a
+    manga the user can no longer pick at all.
+    """
+    found = [
+        (Provider.ANILIST, MangaMeta(media_id="1", title="Berserk", format="MANGA")),
+        (Provider.ANILIST, MangaMeta(media_id="2", title="Berserk", format="MANGA")),
+        (Provider.MAL, MangaMeta(media_id="3", title="Berserk", format="MANGA")),
+    ]
+    candidates = merge_candidates(found, ["Berserk"])
+
+    assert [(str(c.provider), c.media_id) for c in candidates] == [
+        ("anilist", "1"),
+        ("anilist", "2"),
+    ]
+    # Across providers nothing changed: the first of each still merges.
+    assert candidates[0].alt_ids == {"mal": "3"}
+    assert candidates[1].alt_ids == {}
+
+
+async def test_the_order_of_two_identical_titles_is_stable():
+    """Same title, same score: only the id can settle it, and it has to."""
+    found = [
+        (Provider.ANILIST, MangaMeta(media_id="2", title="Berserk", format="MANGA")),
+        (Provider.ANILIST, MangaMeta(media_id="1", title="Berserk", format="MANGA")),
+    ]
+    once = merge_candidates(found, ["Berserk"])
+    twice = merge_candidates(list(reversed(found)), ["Berserk"])
+    assert [c.media_id for c in once] == [c.media_id for c in twice]
 
 
 async def test_adding_a_searched_candidate_records_a_title_match_not_an_adaptation(client):

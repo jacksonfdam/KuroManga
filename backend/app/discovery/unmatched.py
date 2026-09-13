@@ -141,29 +141,50 @@ def merge_candidates(
     """
     candidates: list[MangaCandidate] = []
     for group in _group_by_title(found, lambda pair: pair[1].title).values():
-        primary_provider, primary_meta = next(
-            (pair for pair in group if pair[0] is Provider.ANILIST), group[0]
-        )
-        candidates.append(
-            MangaCandidate(
-                provider=primary_provider,
-                media_id=primary_meta.media_id,
-                title=primary_meta.title,
-                score=round(max(best_similarity(titles, meta.title) for _, meta in group), 4),
-                cover_url=_best(group, primary_meta, "cover_url"),
-                total_chapters=_best(group, primary_meta, "total_chapters"),
-                year=_best(group, primary_meta, "year"),
-                publishing_status=_best(group, primary_meta, "publishing_status"),
-                format=_best(group, primary_meta, "format"),
-                alt_ids={
-                    str(provider): meta.media_id
-                    for provider, meta in group
-                    if provider is not primary_provider
-                },
+        for members in _one_manga_each(group):
+            primary_provider, primary_meta = next(
+                (pair for pair in members if pair[0] is Provider.ANILIST), members[0]
             )
-        )
-    # Ties are broken by title so the same search twice produces the same order.
-    return sorted(candidates, key=lambda c: (-c.score, c.title))
+            candidates.append(
+                MangaCandidate(
+                    provider=primary_provider,
+                    media_id=primary_meta.media_id,
+                    title=primary_meta.title,
+                    score=round(max(best_similarity(titles, meta.title) for _, meta in members), 4),
+                    cover_url=_best(members, primary_meta, "cover_url"),
+                    total_chapters=_best(members, primary_meta, "total_chapters"),
+                    year=_best(members, primary_meta, "year"),
+                    publishing_status=_best(members, primary_meta, "publishing_status"),
+                    format=_best(members, primary_meta, "format"),
+                    alt_ids={
+                        str(provider): meta.media_id
+                        for provider, meta in members
+                        if provider is not primary_provider
+                    },
+                )
+            )
+    # Two rows sharing a title now share a score too, so the id is what finally
+    # settles the order: the same search twice has to produce the same list.
+    return sorted(candidates, key=lambda c: (-c.score, c.title, str(c.provider), c.media_id))
+
+
+def _one_manga_each(group: list) -> list[list]:
+    """Split a title group into the distinct manga it actually holds.
+
+    One provider answering the same title twice is answering with two manga - a
+    serialisation and its collected edition, a story and its spin-off under the
+    same name - and folding the second into the first as an alt id would replace
+    an id that names a different book, leaving it unpickable. Only ids from
+    different providers ever merge, paired by the rank each provider gave them.
+    """
+    by_provider: dict[Provider, list] = {}
+    for pair in group:
+        by_provider.setdefault(pair[0], []).append(pair)
+    depth = max(len(rows) for rows in by_provider.values())
+    return [
+        [rows[rank] for rows in by_provider.values() if rank < len(rows)]
+        for rank in range(depth)
+    ]
 
 
 def _best(group: list, primary: MangaMeta, attribute: str):
