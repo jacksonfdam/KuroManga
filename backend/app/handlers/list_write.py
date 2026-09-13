@@ -106,13 +106,19 @@ async def handle(ctx: JobContext) -> None:
                 await get_source(provider).set_status(token, media_id, status)
         except NotConnected as exc:
             await record_result(ctx.session, suggestion_id, target, ok=False, error=str(exc))
+            await ctx.session.commit()
+            # A disconnected account will not become connected on a retry, so this
+            # stops the whole job here rather than burning attempts against it; the
+            # other targets stay pending and are picked up once it is reconnected.
             raise PermanentError(f"{target} is not connected") from exc
         except Exception as exc:  # noqa: BLE001 - one target's failure is not the others'
             await record_result(ctx.session, suggestion_id, target, ok=False, error=str(exc)[:300])
+            await ctx.session.commit()
             failures.append(f"{target}: {exc}")
             await ctx.log(f"{target} write failed: {exc}", level="warning")
             continue
         await record_result(ctx.session, suggestion_id, target, ok=True, error=None)
+        await ctx.session.commit()
         await ctx.log(f"{target} set to {status}")
 
     if failures:
