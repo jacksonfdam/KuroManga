@@ -100,11 +100,39 @@ export function AppShell() {
           </div>
         </div>
       </header>
-      <main className="pt-20">
+      {/* The header nav is `hidden xl:flex` (verbatim from the design spec's desktop
+          mockups), which left nothing below 1280px — DESIGN.md's own responsive
+          section calls for compact navigation pinned to the bottom, so this mirrors
+          the header's breakpoint rather than inventing a separate tablet layout. */}
+      <main className="pb-20 pt-20 xl:pb-0">
         <div className="mx-auto flex max-w-canvas flex-col gap-space-xl px-margin py-space-xl">
           <Outlet context={refresh} />
         </div>
       </main>
+      <nav className="fixed inset-x-0 bottom-0 z-50 flex items-center justify-around border-t border-white/5 bg-surface-container-lowest/95 px-gutter py-space-xs backdrop-blur-xl xl:hidden">
+        {NAV.map((item) => (
+          <NavLink
+            key={item.to}
+            to={item.to}
+            aria-label={item.label}
+            className={({ isActive }) =>
+              `flex flex-col items-center gap-0.5 rounded-lg px-space-sm py-space-xs transition-colors ${
+                isActive ? 'text-primary' : 'text-on-surface-variant hover:text-on-surface'
+              }`
+            }
+          >
+            <span className="relative">
+              <Icon name={item.icon} />
+              {item.badge && badges[item.badge] > 0 && (
+                <span className="absolute -right-2 -top-1.5">
+                  <Badge tone="secondary">{badges[item.badge]}</Badge>
+                </span>
+              )}
+            </span>
+            <span className="font-mono text-label-sm">{item.label}</span>
+          </NavLink>
+        ))}
+      </nav>
     </div>
   )
 }
