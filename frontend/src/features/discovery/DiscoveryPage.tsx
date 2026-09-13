@@ -1,7 +1,13 @@
 import { useEffect, useState } from 'react'
 
-import { api, ListStatusValue, Suggestion, SuggestionSource } from '../../lib/api'
-import { DEFAULT_STATUS, STATUSES, downloadsByDefault } from '../../listStatus'
+import { api, Suggestion, SuggestionSource } from '../../lib/api'
+import {
+  DEFAULT_STATUS,
+  STATUS_LABEL,
+  STATUS_ORDER,
+  downloadsByDefault,
+  type ListStatus,
+} from '../../lib/format'
 import { useJobEvents } from '../../lib/useEvents'
 import { Unmatched } from '../unmatched/UnmatchedPage'
 
@@ -47,7 +53,7 @@ export function DiscoveryPage({ onChanged }: { onChanged: () => void }) {
   const [unmatchedTotal, setUnmatchedTotal] = useState<number | null>(null)
   const [items, setItems] = useState<Suggestion[]>([])
   const [writeFailures, setWriteFailures] = useState<Suggestion[]>([])
-  const [choice, setChoice] = useState<Record<number, { status: ListStatusValue; download: boolean }>>({})
+  const [choice, setChoice] = useState<Record<number, { status: ListStatus; download: boolean }>>({})
   const [busy, setBusy] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
@@ -81,7 +87,7 @@ export function DiscoveryPage({ onChanged }: { onChanged: () => void }) {
   const settingFor = (item: Suggestion) =>
     choice[item.id] ?? { status: DEFAULT_STATUS, download: downloadsByDefault(DEFAULT_STATUS) }
 
-  const setStatus = (item: Suggestion, status: ListStatusValue) =>
+  const setStatus = (item: Suggestion, status: ListStatus) =>
     setChoice((current) => ({
       ...current,
       [item.id]: { status, download: downloadsByDefault(status) },
@@ -192,11 +198,11 @@ export function DiscoveryPage({ onChanged }: { onChanged: () => void }) {
                 Status
                 <select
                   value={settingFor(item).status}
-                  onChange={(event) => setStatus(item, event.target.value as ListStatusValue)}
+                  onChange={(event) => setStatus(item, event.target.value as ListStatus)}
                 >
-                  {STATUSES.map((status) => (
-                    <option key={status.value} value={status.value}>
-                      {status.label}
+                  {STATUS_ORDER.map((status) => (
+                    <option key={status} value={status}>
+                      {STATUS_LABEL[status]}
                     </option>
                   ))}
                 </select>

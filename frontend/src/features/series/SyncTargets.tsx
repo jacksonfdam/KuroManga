@@ -1,8 +1,8 @@
 import { Card, StatusPill } from '../../ui'
 import type { SeriesEntry } from '../../lib/api'
-import { PROVIDER_LABEL, formatChapter, relativeTime, type ListStatus } from '../../lib/format'
+import { PROVIDER_LABEL, STATUS_ORDER, formatChapter, relativeTime } from '../../lib/format'
 
-const KNOWN_STATUSES = new Set<ListStatus>(['reading', 'plan_to_read', 'completed', 'on_hold', 'dropped'])
+const KNOWN_STATUSES = new Set(STATUS_ORDER)
 
 // Markup reference: "Sincronia Multi-Destino" in
 // .redesign/detalhes_do_mang_gest_o_de_pipeline_sincronia_multi_destino/code.html.

@@ -2,13 +2,18 @@ import { useCallback, useEffect, useState } from 'react'
 
 import {
   api,
-  type ListStatusValue,
   type SearchCandidate,
   type SearchProviderError,
   type UnmatchedAnime,
   type UnmatchedSearch,
 } from '../../lib/api'
-import { DEFAULT_STATUS, STATUSES, downloadsByDefault } from '../../listStatus'
+import {
+  DEFAULT_STATUS,
+  STATUS_LABEL,
+  STATUS_ORDER,
+  downloadsByDefault,
+  type ListStatus,
+} from '../../lib/format'
 
 // A row grows tall once its candidates are open, so a page is kept short enough
 // that the pager under it stays reachable.
@@ -136,7 +141,7 @@ export function Unmatched({
   const [searching, setSearching] = useState<number | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [choice, setChoice] = useState<
-    Record<string, { status: ListStatusValue; download: boolean }>
+    Record<string, { status: ListStatus; download: boolean }>
   >({})
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<Notice | null>(null)
@@ -197,7 +202,7 @@ export function Unmatched({
   const settingFor = (key: string) =>
     choice[key] ?? { status: DEFAULT_STATUS, download: downloadsByDefault(DEFAULT_STATUS) }
 
-  const setStatus = (key: string, status: ListStatusValue) =>
+  const setStatus = (key: string, status: ListStatus) =>
     setChoice((current) => ({ ...current, [key]: { status, download: downloadsByDefault(status) } }))
 
   const setDownload = (key: string, download: boolean) =>
@@ -310,11 +315,11 @@ export function Unmatched({
             <select
               value={setting.status}
               disabled={blocked}
-              onChange={(event) => setStatus(key, event.target.value as ListStatusValue)}
+              onChange={(event) => setStatus(key, event.target.value as ListStatus)}
             >
-              {STATUSES.map((status) => (
-                <option key={status.value} value={status.value}>
-                  {status.label}
+              {STATUS_ORDER.map((status) => (
+                <option key={status} value={status}>
+                  {STATUS_LABEL[status]}
                 </option>
               ))}
             </select>

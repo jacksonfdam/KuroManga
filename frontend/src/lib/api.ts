@@ -181,8 +181,6 @@ export interface Suggestion {
   }[]
 }
 
-export type ListStatusValue = 'reading' | 'plan_to_read' | 'completed' | 'on_hold' | 'dropped'
-
 /** One anime from the list that no relation could turn into a manga. */
 export interface UnmatchedAnime {
   id: number
@@ -331,7 +329,7 @@ export const api = {
       (body) => body.integrations,
     ),
   suggestions: (state = 'new') => request<Suggestion[]>(`/api/suggestions?state=${state}`),
-  addSuggestion: (id: number, status: ListStatusValue, download: boolean) =>
+  addSuggestion: (id: number, status: ListStatus, download: boolean) =>
     request<{ ok: boolean; series_id: number; needs_review: boolean }>(
       `/api/suggestions/${id}/add`,
       { method: 'POST', body: JSON.stringify({ status, download }) },
@@ -360,7 +358,7 @@ export const api = {
   addUnmatched: (
     id: number,
     candidate: SearchCandidate,
-    status: ListStatusValue,
+    status: ListStatus,
     download: boolean,
   ) =>
     request<UnmatchedAdded>(`/api/discovery/unmatched/${id}/add`, {

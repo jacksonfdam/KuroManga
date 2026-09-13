@@ -16,6 +16,34 @@ export const STATUS_LABEL: Record<ListStatus, string> = {
   dropped: 'Dropped',
 }
 
+/**
+ * The order the five statuses are offered in. STATUS_LABEL is a map and a map
+ * has no order, so the picker needs this list — but it must not carry labels of
+ * its own, or the two would drift a wording at a time.
+ *
+ * The two controls every "add this to my lists" card carries live here for the
+ * same reason: a suggestion and a searched-for title are the same decision, and
+ * the screens would otherwise drift apart one default at a time.
+ */
+export const STATUS_ORDER: ListStatus[] = [
+  'reading',
+  'plan_to_read',
+  'completed',
+  'on_hold',
+  'dropped',
+]
+
+// A suggestion is something the user has not started, so the default status
+// must not claim otherwise.
+export const DEFAULT_STATUS: ListStatus = 'plan_to_read'
+
+// Only what is being read now downloads unasked. Planning to read something is
+// not asking for its whole backlog on disk tonight.
+export const DOWNLOADS_BY_DEFAULT: ListStatus[] = ['reading']
+
+export const downloadsByDefault = (status: ListStatus): boolean =>
+  DOWNLOADS_BY_DEFAULT.includes(status)
+
 /** Chapter numbers are decimals. 12.00 reads as 12; 12.50 must stay 12.5. */
 export function formatChapter(value: number): string {
   return Number.isInteger(value) ? String(value) : String(Number(value.toFixed(2)))
