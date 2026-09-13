@@ -36,6 +36,28 @@ export interface Candidate {
   score: number
 }
 
+export interface SeriesChapter {
+  number: number
+  title: string | null
+  state: string
+  file_path: string | null
+}
+
+export interface SeriesEntry {
+  provider: string
+  provider_media_id: string
+  status: ListStatus | null
+  user_progress_chapter: number
+  updated_at: string | null
+}
+
+export interface SeriesDetail {
+  series: Series
+  mapping: { source_site: string; source_url: string } | null
+  chapters: SeriesChapter[]
+  entries: SeriesEntry[]
+}
+
 export interface ReviewPayload {
   series: {
     id: number
@@ -103,6 +125,7 @@ export const api = {
   series: (state?: string) =>
     request<Series[]>(`/api/series${state ? `?state=${state}` : ''}`),
   chapters: (id: number) => request<unknown[]>(`/api/series/${id}/chapters`),
+  seriesDetail: (id: number) => request<SeriesDetail>(`/api/series/${id}`),
   candidates: (id: number) => request<ReviewPayload>(`/api/series/${id}/candidates`),
   confirmMapping: (id: number, sourceUrl: string) =>
     request<{ ok: boolean }>(`/api/series/${id}/mapping`, {
