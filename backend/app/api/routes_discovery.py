@@ -160,6 +160,14 @@ async def add_suggestion(suggestion_id: int, body: AddIn, session: Session) -> d
             )
             needs_review = False
 
+    # The answer to "download now" is recorded whatever the mapping did. An
+    # unconfident match goes to Review, and confirming the source there enqueues
+    # CHAPTER_DISCOVER but sets no flag; without this the user would review the
+    # series and still never get the downloads they asked for.
+    await session.execute(
+        text("update series set auto_download = :enabled where id = :id"),
+        {"enabled": body.download, "id": series_id},
+    )
     if body.download and not needs_review:
         job_ids.append(
             await repo.enqueue(
@@ -170,9 +178,6 @@ async def add_suggestion(suggestion_id: int, body: AddIn, session: Session) -> d
                 series_id=series_id,
                 dedupe_key=f"chapter_discover:{series_id}",
             )
-        )
-        await session.execute(
-            text("update series set auto_download = true where id = :id"), {"id": series_id}
         )
 
     # chosen_status/download survive here because komga_scan reads chosen_status

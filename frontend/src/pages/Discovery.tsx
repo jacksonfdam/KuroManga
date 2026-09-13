@@ -28,6 +28,7 @@ export function Discovery({ onChanged }: { onChanged: () => void }) {
   const [choice, setChoice] = useState<Record<number, { status: ListStatusValue; download: boolean }>>({})
   const [busy, setBusy] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
 
   const load = () => {
     api.suggestions('new').then(setItems).catch((e) => setError(String(e)))
@@ -52,8 +53,15 @@ export function Discovery({ onChanged }: { onChanged: () => void }) {
     const { status, download } = settingFor(item)
     setBusy(item.id)
     try {
-      await api.addSuggestion(item.id, status, download)
+      const result = await api.addSuggestion(item.id, status, download)
       setItems((current) => current.filter((s) => s.id !== item.id))
+      // The card goes away either way, so the only chance to say the mapping is
+      // pending is here: nothing downloads until the source is confirmed.
+      setNotice(
+        result.needs_review
+          ? `${item.title}: nenhuma fonte ficou confiável o bastante. A série está esperando em Review — confirme a fonte lá${download ? ' e o download começa' : ''}.`
+          : null,
+      )
       onChanged()
     } catch (e) {
       setError(String(e))
@@ -82,6 +90,7 @@ export function Discovery({ onChanged }: { onChanged: () => void }) {
         <button onClick={() => api.refreshDiscovery().then(load)}>Procurar agora</button>
       </header>
       {error && <p className="row-error">{error}</p>}
+      {notice && <p className="notice">{notice}</p>}
       {items.length === 0 && <p className="empty">Nada novo. A lista de anime já virou mangá.</p>}
       <div className="grid">
         {items.map((item) => (

@@ -18,7 +18,14 @@ META = {
     "mangadex_uuid": "uuid-1",
     "sources": [{"site": "mangadex", "url": "https://mangadex.org/title/uuid-1",
                  "chapters": 210, "score": 0.98}],
-    "best": {"site": "mangadex", "url": "https://mangadex.org/title/uuid-1", "score": 0.98},
+    "best": {"site": "mangadex", "url": "https://mangadex.org/title/uuid-1", "score": 0.98,
+             "title": "Vinland Saga"},
+}
+
+UNCONFIDENT = {
+    **META,
+    "best": {"site": "mangadex", "url": "https://mangadex.org/title/uuid-9", "score": 0.62,
+             "title": "Vinland Saga: After"},
 }
 
 
@@ -28,15 +35,8 @@ async def client():
         yield http
 
 
-@pytest.fixture
-async def suggestion_id():
+async def insert_suggestion(meta: dict) -> int:
     async with get_sessionmaker()() as session:
-        await session.execute(
-            text(
-                "truncate job, job_event, suggestion, list_entry, source_mapping, series "
-                "restart identity cascade"
-            )
-        )
         new_id = (
             await session.execute(
                 text(
@@ -48,11 +48,29 @@ async def suggestion_id():
                     returning id
                     """
                 ),
-                {"meta": json.dumps(META)},
+                {"meta": json.dumps(meta)},
             )
         ).scalar_one()
         await session.commit()
-    yield new_id
+    return new_id
+
+
+@pytest.fixture(autouse=True)
+async def clean():
+    async with get_sessionmaker()() as session:
+        await session.execute(
+            text(
+                "truncate job, job_event, suggestion, list_entry, source_mapping, series "
+                "restart identity cascade"
+            )
+        )
+        await session.commit()
+    yield
+
+
+@pytest.fixture
+async def suggestion_id():
+    yield await insert_suggestion(META)
 
 
 async def test_the_screen_lists_new_suggestions_best_first(client, suggestion_id):
@@ -130,6 +148,23 @@ async def test_downloading_now_queues_discovery(client, suggestion_id):
             row[0] for row in (await session.execute(text("select type from job"))).all()
         ]
     assert "chapter_discover" in types
+
+
+async def test_an_unconfident_match_still_records_that_downloads_were_asked_for(client):
+    """Review enqueues the discovery job but sets no flag, so the flag is set here."""
+    unconfident_id = await insert_suggestion(UNCONFIDENT)
+    body = (
+        await client.post(
+            f"/api/suggestions/{unconfident_id}/add", json={"status": "reading", "download": True}
+        )
+    ).json()
+    assert body["needs_review"] is True
+
+    async with get_sessionmaker()() as session:
+        auto = (await session.execute(text("select auto_download from series"))).scalar_one()
+        types = [row[0] for row in (await session.execute(text("select type from job"))).all()]
+    assert auto is True
+    assert "chapter_discover" not in types
 
 
 async def test_approving_marks_the_suggestion_added(client, suggestion_id):
