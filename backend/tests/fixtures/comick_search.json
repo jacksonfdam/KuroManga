@@ -1,25 +1,29 @@
 {
   "results": [
     {
-      "source": "asurascan",
-      "manga": [
-        {
-          "id": "vinland-saga",
-          "title": "Vinland Saga",
-          "url": "https://asuracomic.net/series/vinland-saga",
-          "coverImage": "https://asura/cover.jpg",
-          "latestChapter": 210,
-          "lastUpdated": "2026-08-01"
-        },
-        {
-          "id": "vinland-saga-side",
-          "title": "Vinland Saga Side Story",
-          "url": "https://asuracomic.net/series/vinland-saga-side",
-          "coverImage": null,
-          "latestChapter": 0,
-          "lastUpdated": "2026-01-01"
-        }
-      ]
+      "id": "01J76XY7KWP8KX5RFGVZY5TR95",
+      "title": "Attack on Titan",
+      "url": "https://weebcentral.com/series/01J76XY7KWP8KX5RFGVZY5TR95/Shingeki-No-Kyojin",
+      "coverImage": "https://temp.compsci88.com/cover/fallback/01J76XY7KWP8KX5RFGVZY5TR95.jpg",
+      "latestChapter": 139,
+      "lastUpdated": ""
+    },
+    {
+      "id": "01J76XY96VAMB0N3PKBY7N4P84",
+      "title": "Attack on Titan - Before the Fall",
+      "url": "https://weebcentral.com/series/01J76XY96VAMB0N3PKBY7N4P84/Shingeki-No-Kyojin-Before-The-Fall",
+      "coverImage": "https://temp.compsci88.com/cover/fallback/01J76XY96VAMB0N3PKBY7N4P84.jpg",
+      "latestChapter": 65,
+      "lastUpdated": ""
+    },
+    {
+      "id": "01J76XY9V5RF61F56F8SCNYZAE",
+      "title": "Attack on Titan - No Regrets",
+      "url": "https://weebcentral.com/series/01J76XY9V5RF61F56F8SCNYZAE/Shingeki-No-Kyojin-Birth-Of-Levi",
+      "coverImage": "https://temp.compsci88.com/cover/fallback/01J76XY9V5RF61F56F8SCNYZAE.jpg",
+      "latestChapter": 8,
+      "lastUpdated": ""
     }
-  ]
+  ],
+  "source": "WeebCentral"
 }
