@@ -56,13 +56,12 @@ export function Discovery({ onChanged }: { onChanged: () => void }) {
     api.suggestions('new').then(setItems).catch((e) => setError(String(e)))
     // The card is gone by the time LIST_WRITE finishes, so a rejected status or a
     // stale token would otherwise never reach the user.
+    // Asked of the database rather than filtered here: ranked and capped at a
+    // hundred, a failure on an unpopular title dropped out of the page once a
+    // hundred suggestions had been added, and the user never heard about it.
     api
-      .suggestions('added')
-      // A skipped target is an absence, not a failure: MangaDex without personal
-      // credentials is the default setup, and it has nothing to say to the user.
-      .then((added) =>
-        setWriteFailures(added.filter((s) => s.write_results.some((r) => !r.ok && !r.skipped))),
-      )
+      .suggestions('added', { writeFailed: true })
+      .then(setWriteFailures)
       .catch((e) => setError(String(e)))
   }
 

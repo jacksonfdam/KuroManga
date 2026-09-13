@@ -68,7 +68,18 @@ async def list_suggestions(
     state: Annotated[str, Query()] = "new",
     limit: Annotated[int, Query(ge=1, le=200)] = 100,
     offset: Annotated[int, Query(ge=0)] = 0,
+    write_failed: Annotated[bool, Query()] = False,
 ) -> list[dict[str, Any]]:
+    """`write_failed` is what the banner asks for.
+
+    Ranked and capped, a rejected status write on an unpopular title falls out of
+    the page once a hundred suggestions have been added, and the user never hears
+    that their account was not updated. Asking the database for the failures
+    themselves is bounded by how many there are, not by where they rank.
+
+    A skipped target is an absence, not a failure: MangaDex without personal
+    credentials is the default setup and has nothing to say to the user.
+    """
     result = await session.execute(
         text(
             """
@@ -76,11 +87,19 @@ async def list_suggestions(
                    rank_score, series_id, meta
               from suggestion
              where state = :state
+               and (not :write_failed or exists (
+                       select 1
+                         from jsonb_array_elements(
+                                  coalesce(meta -> 'write_results', '[]'::jsonb)
+                              ) as result
+                        where coalesce((result ->> 'ok')::boolean, false) is false
+                          and coalesce((result ->> 'skipped')::boolean, false) is false
+                   ))
              order by rank_score desc, title
              limit :limit offset :offset
             """
         ),
-        {"state": state, "limit": limit, "offset": offset},
+        {"state": state, "limit": limit, "offset": offset, "write_failed": write_failed},
     )
     suggestions = []
     for row in result.all():

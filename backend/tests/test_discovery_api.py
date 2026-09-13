@@ -456,3 +456,48 @@ async def test_approving_with_downloads_starts_following_a_series_that_was_not(
     async with get_sessionmaker()() as session:
         auto = (await session.execute(text("select auto_download from series"))).scalar_one()
     assert auto is True
+
+
+async def insert_added(media_id: str, rank: float, write_results: list[dict]) -> int:
+    async with get_sessionmaker()() as session:
+        new_id = (
+            await session.execute(
+                text(
+                    """
+                    insert into suggestion (provider, provider_media_id, alt_ids, title,
+                                            state, rank_score, meta)
+                    values ('anilist', :media_id, '{}'::jsonb, :title,
+                            'added', :rank, cast(:meta as jsonb))
+                    returning id
+                    """
+                ),
+                {
+                    "media_id": media_id,
+                    "title": f"Added {media_id}",
+                    "rank": rank,
+                    "meta": json.dumps({**META, "write_results": write_results}),
+                },
+            )
+        ).scalar_one()
+        await session.commit()
+    return new_id
+
+
+async def test_the_failed_write_banner_finds_a_failure_however_badly_it_ranks(client):
+    """Ranked and capped, a low-ranked failure fell out of the page it was read from."""
+    await insert_added("9001", 0.99, [{"target": "anilist", "ok": True, "skipped": False}])
+    failed = await insert_added(
+        "9002", 0.01, [{"target": "mal", "ok": False, "skipped": False, "error": "401"}]
+    )
+
+    body = (await client.get("/api/suggestions?state=added&write_failed=true&limit=1")).json()
+    assert [s["id"] for s in body] == [failed]
+
+
+async def test_a_skipped_target_is_an_absence_and_not_a_failure(client):
+    """MangaDex without personal credentials is the default setup, not bad news."""
+    await insert_added(
+        "9003", 0.5, [{"target": "mangadex", "ok": False, "skipped": True, "error": "no token"}]
+    )
+    body = (await client.get("/api/suggestions?state=added&write_failed=true")).json()
+    assert body == []
