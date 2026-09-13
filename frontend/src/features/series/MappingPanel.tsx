@@ -17,14 +17,20 @@ export function MappingPanel({
   onResearch: () => Promise<unknown>
 }) {
   const [status, setStatus] = useState<'idle' | 'busy' | 'queued'>('idle')
+  const [error, setError] = useState<string | null>(null)
 
   const research = async () => {
     setStatus('busy')
+    setError(null)
     try {
       await onResearch()
       setStatus('queued')
-    } catch {
+    } catch (err) {
+      // Reverting the button label without saying why reads as broken, not
+      // declined — the download-range form already surfaces its own
+      // rejection text, and this control has to match it.
       setStatus('idle')
+      setError(err instanceof Error ? err.message : String(err))
     }
   }
 
@@ -63,6 +69,7 @@ export function MappingPanel({
       >
         {status === 'queued' ? 'Search queued' : mapping ? 'Re-run search' : 'Find a source'}
       </Button>
+      {error && <p className="font-mono text-label-sm text-error">{error}</p>}
     </Card>
   )
 }
