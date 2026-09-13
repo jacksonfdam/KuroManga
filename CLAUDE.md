@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A self-hosted pipeline that reads manga reading lists from MyAnimeList and AniList, resolves each
+KuroManga is a self-hosted pipeline that reads manga reading lists from MyAnimeList and AniList, resolves each
 entry to a source site URL through a mapping the user confirms by hand, downloads chapters as CBZ
 with `ComicInfo.xml` embedded, and hands the library to Komga for reading.
 
@@ -45,7 +45,7 @@ Stack (from the repo root): `docker compose up -d --build`. The interface is on 
 ## Rebuilding after a code change
 
 `api`, `worker` and `bootstrap` are the same program with different entrypoints and share
-`image: manga-pipeline:local`. Build once and recreate the containers that matter:
+`image: kuromanga:local`. Build once and recreate the containers that matter:
 
 ```bash
 docker compose build api && docker compose up -d --force-recreate api worker

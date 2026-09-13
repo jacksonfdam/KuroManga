@@ -1,4 +1,4 @@
-# manga pipeline
+# KuroManga
 
 Lê suas listas de mangá no MyAnimeList e no AniList, resolve cada entrada para uma
 URL de site de origem com a sua confirmação, baixa os capítulos que faltam em CBZ

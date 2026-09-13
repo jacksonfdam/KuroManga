@@ -1,5 +1,5 @@
 [project]
-name = "manga-pipeline"
+name = "kuromanga"
 version = "0.1.0"
 requires-python = ">=3.12"
 dependencies = [

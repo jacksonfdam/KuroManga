@@ -1,4 +1,4 @@
-name: manga
+name: kuromanga
 
 x-logging: &logging
   driver: json-file
@@ -25,7 +25,7 @@ services:
 
   api:
     build: ./backend
-    image: manga-pipeline:local
+    image: kuromanga:local
     restart: unless-stopped
     environment:
       POSTGRES_HOST: postgres
@@ -61,7 +61,7 @@ services:
 
   worker:
     build: ./backend
-    image: manga-pipeline:local
+    image: kuromanga:local
     restart: unless-stopped
     environment:
       POSTGRES_HOST: postgres
@@ -108,7 +108,7 @@ services:
 
   bootstrap:
     build: ./backend
-    image: manga-pipeline:local
+    image: kuromanga:local
     restart: "no"
     environment:
       LIBRARY_PATH: ${LIBRARY_PATH:-/manga}
