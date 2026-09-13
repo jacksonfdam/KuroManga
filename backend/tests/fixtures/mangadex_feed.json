@@ -1,0 +1,9 @@
+{
+  "total": 3,
+  "data": [
+    {"id": "c1", "attributes": {"chapter": "1", "title": "Start", "volume": "1", "translatedLanguage": "en"}},
+    {"id": "c2", "attributes": {"chapter": "1", "title": "Start (dup)", "volume": "1", "translatedLanguage": "en"}},
+    {"id": "c3", "attributes": {"chapter": "12.5", "title": null, "volume": "2", "translatedLanguage": "en"}},
+    {"id": "c4", "attributes": {"chapter": null, "title": "Oneshot", "volume": null, "translatedLanguage": "en"}}
+  ]
+}

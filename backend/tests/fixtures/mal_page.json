@@ -1,0 +1,15 @@
+{
+  "data": [
+    {
+      "node": {
+        "id": 7001,
+        "title": "Tousou Kikou",
+        "main_picture": {"large": "https://example.test/mal.jpg"},
+        "alternative_titles": {"synonyms": ["Escape Mechanism"], "en": "Escape Machine", "ja": "逃走機構"},
+        "num_chapters": 40
+      },
+      "list_status": {"status": "reading", "num_chapters_read": 9}
+    }
+  ],
+  "paging": {}
+}

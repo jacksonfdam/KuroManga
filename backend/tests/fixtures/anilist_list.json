@@ -1,0 +1,32 @@
+{
+  "MediaListCollection": {
+    "lists": [
+      {
+        "entries": [
+          {
+            "status": "CURRENT",
+            "progress": 12,
+            "media": {
+              "id": 30013,
+              "chapters": 40,
+              "synonyms": ["Alt Spelling"],
+              "title": {"romaji": "Tousou Kikou", "english": "Escape Machine", "native": "逃走機構"},
+              "coverImage": {"large": "https://example.test/cover.jpg"}
+            }
+          },
+          {
+            "status": "PLANNING",
+            "progress": 0,
+            "media": {
+              "id": 44,
+              "chapters": null,
+              "synonyms": [],
+              "title": {"romaji": "Shizuka na Umi", "english": null, "native": null},
+              "coverImage": null
+            }
+          }
+        ]
+      }
+    ]
+  }
+}
