@@ -11,6 +11,7 @@ const ICONS = {
   sparkle: 'M12 2l2.4 6.6L21 11l-6.6 2.4L12 20l-2.4-6.6L3 11l6.6-2.4z',
   chart: 'M4 20V10h4v10zm6 0V4h4v16zm6 0v-6h4v6z',
   warning: 'M1 21h22L12 2zm12-3h-2v-2h2zm0-4h-2v-4h2z',
+  chevron: 'M16.59 8.59 12 13.17 7.41 8.59 6 10l6 6 6-6z',
 } as const
 
 export type IconName = keyof typeof ICONS

@@ -1,8 +1,8 @@
 import { Navigate, Route, Routes, useOutletContext } from 'react-router-dom'
 
+import { DownloadsPage } from '../features/downloads/DownloadsPage'
 import { LibraryPage } from '../features/library/LibraryPage'
-import { Downloads } from '../pages/Downloads'
-import { Review } from '../pages/Review'
+import { ReviewPage } from '../features/review/ReviewPage'
 import { Settings } from '../pages/Settings'
 import { AppShell } from './AppShell'
 
@@ -15,7 +15,7 @@ import { AppShell } from './AppShell'
 // onResolved is wired to the same refresh AppShell passes down as context.
 function ReviewRoute() {
   const refresh = useOutletContext<() => void>()
-  return <Review onResolved={refresh} />
+  return <ReviewPage onResolved={refresh} />
 }
 
 export function AppRoutes() {
@@ -25,7 +25,7 @@ export function AppRoutes() {
         <Route index element={<Navigate to="/library" replace />} />
         <Route path="library" element={<LibraryPage />} />
         <Route path="review" element={<ReviewRoute />} />
-        <Route path="downloads" element={<Downloads />} />
+        <Route path="downloads" element={<DownloadsPage />} />
         <Route path="settings" element={<Settings />} />
       </Route>
     </Routes>
