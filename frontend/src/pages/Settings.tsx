@@ -13,7 +13,7 @@ const FIELDS: Array<{ key: string; label: string; hint?: string }> = [
   },
   {
     key: 'cron_anime_list_sync',
-    label: 'Sync da lista de anime',
+    label: 'Anime list sync schedule (cron)',
     hint: 'worker restart required',
   },
   { key: 'auto_download_new', label: 'Search sources for new entries (true/false)' },

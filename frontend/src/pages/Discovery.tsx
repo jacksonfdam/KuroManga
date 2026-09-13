@@ -4,23 +4,23 @@ import { api, ListStatusValue, Suggestion } from '../api'
 import { useJobEvents } from '../useEvents'
 
 const STATUSES: { value: ListStatusValue; label: string }[] = [
-  { value: 'reading', label: 'Lendo' },
-  { value: 'plan_to_read', label: 'Planejo ler' },
-  { value: 'completed', label: 'Completo' },
-  { value: 'on_hold', label: 'Em espera' },
-  { value: 'dropped', label: 'Dropado' },
+  { value: 'reading', label: 'Reading' },
+  { value: 'plan_to_read', label: 'Plan to read' },
+  { value: 'completed', label: 'Completed' },
+  { value: 'on_hold', label: 'On hold' },
+  { value: 'dropped', label: 'Dropped' },
 ]
 
 const DOWNLOADS_BY_DEFAULT: ListStatusValue[] = ['reading', 'plan_to_read']
 
 function reasonOf(suggestion: Suggestion): string {
   const { origin_title, origin_status, total_episodes } = suggestion.reason
-  if (!origin_title) return 'Relacionado a um anime da sua lista'
-  const episodes = total_episodes ? ` (${total_episodes} episódios)` : ''
-  const watched = origin_status === 'completed' ? `anime completo${episodes}` : `anime em andamento${episodes}`
+  if (!origin_title) return 'Related to an anime on your list'
+  const episodes = total_episodes ? ` (${total_episodes} episodes)` : ''
+  const watched = origin_status === 'completed' ? `completed anime${episodes}` : `airing anime${episodes}`
   const chapters = suggestion.total_chapters
-  const beyond = chapters ? ` — mangá vai até o capítulo ${chapters}` : ''
-  return `de ${origin_title}, ${watched}${beyond}`
+  const beyond = chapters ? ` — manga goes up to chapter ${chapters}` : ''
+  return `from ${origin_title}, ${watched}${beyond}`
 }
 
 function whenOf(at?: string): string {
@@ -76,7 +76,7 @@ export function Discovery({ onChanged }: { onChanged: () => void }) {
       // pending is here: nothing downloads until the source is confirmed.
       setNotice(
         result.needs_review
-          ? `${item.title}: nenhuma fonte ficou confiável o bastante. A série está esperando em Review — confirme a fonte lá${download ? ' e o download começa' : ''}.`
+          ? `${item.title}: no source was reliable enough. The series is waiting in Review — confirm the source there${download ? ' and the download starts' : ''}.`
           : null,
       )
       onChanged()
@@ -104,13 +104,13 @@ export function Discovery({ onChanged }: { onChanged: () => void }) {
     <section>
       <header className="page-head">
         <h1>Discovery</h1>
-        <button onClick={() => api.refreshDiscovery().then(load)}>Procurar agora</button>
+        <button onClick={() => api.refreshDiscovery().then(load)}>Search now</button>
       </header>
       {error && <p className="row-error">{error}</p>}
       {notice && <p className="notice">{notice}</p>}
       {writeFailures.length > 0 && (
         <div className="panel">
-          <h2>Status não gravado em todas as listas</h2>
+          <h2>Status not saved to every list</h2>
           {writeFailures.map((item) => (
             <p key={item.id} className="row-error">
               {item.title} —{' '}
@@ -118,14 +118,16 @@ export function Discovery({ onChanged }: { onChanged: () => void }) {
                 .filter((result) => !result.ok && !result.skipped)
                 .map(
                   (result) =>
-                    `${result.target}: ${result.error ?? 'falha sem detalhe'}${whenOf(result.at)}`,
+                    `${result.target}: ${result.error ?? 'failure with no details'}${whenOf(result.at)}`,
                 )
                 .join(' · ')}
             </p>
           ))}
         </div>
       )}
-      {items.length === 0 && <p className="empty">Nada novo. A lista de anime já virou mangá.</p>}
+      {items.length === 0 && (
+        <p className="empty">Nothing new. Everything on the anime list already has a manga match.</p>
+      )}
       <div className="grid">
         {items.map((item) => (
           <article className="card" key={item.id}>
@@ -161,14 +163,14 @@ export function Discovery({ onChanged }: { onChanged: () => void }) {
                 checked={settingFor(item).download}
                 onChange={(event) => setDownload(item, event.target.checked)}
               />
-              Baixar agora
+              Download now
             </label>
             <div className="actions">
               <button disabled={busy === item.id} onClick={() => add(item)}>
-                Adicionar
+                Add
               </button>
               <button className="ghost" disabled={busy === item.id} onClick={() => dismiss(item)}>
-                Dispensar
+                Dismiss
               </button>
             </div>
           </article>
