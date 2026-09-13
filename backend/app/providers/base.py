@@ -121,6 +121,12 @@ class ListSource(ABC):
     #: False while a provider is read only. Nothing will be written to it.
     writable: bool = True
 
+    #: False for a provider whose `search_manga` is the base no-op below. The
+    #: title search route reads this instead of asking every provider for a
+    #: token just to learn it cannot search, so a provider that only reads a
+    #: library (MangaBaka) is never asked and never shows up as a failure.
+    can_search: bool = False
+
     @classmethod
     def static_credential(cls) -> str | None:
         """The configured credential, for providers that do not use OAuth."""

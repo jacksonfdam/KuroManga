@@ -542,7 +542,8 @@ async def search_unmatched(anime_id: int, session: Session) -> dict[str, Any]:
 
     found: list[tuple[Provider, MangaMeta]] = []
     errors: list[dict[str, str]] = []
-    for provider in Provider:
+    searchable = [provider for provider in Provider if get_source(provider).can_search]
+    for provider in searchable:
         try:
             token = await access_token_for(session, provider)
             results = await get_source(provider).search_manga(token, anime.search_title)

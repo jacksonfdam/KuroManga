@@ -84,6 +84,7 @@ ANIME_STATUS_MAP = {
 
 class MyAnimeListSource(ListSource):
     provider = Provider.MAL
+    can_search = True
 
     def __init__(self, client: httpx.AsyncClient | None = None) -> None:
         self._client = client

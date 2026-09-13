@@ -150,6 +150,7 @@ mutation ($mediaId: Int, $status: MediaListStatus) {
 
 class AniListSource(ListSource):
     provider = Provider.ANILIST
+    can_search = True
 
     def __init__(self, client: httpx.AsyncClient | None = None) -> None:
         self._client = client

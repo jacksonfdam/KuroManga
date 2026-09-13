@@ -15,6 +15,7 @@ from app.api.main import app
 from app.db import get_sessionmaker
 from app.discovery.unmatched import merge_candidates
 from app.enums import ListStatus, Provider
+from app.providers import get_source
 from app.providers.anilist import parse_manga_search as parse_anilist_search
 from app.providers.base import AnimeEntryDTO, MangaMeta
 from app.providers.mal import parse_manga_search as parse_mal_search
@@ -116,6 +117,8 @@ async def insert_suggestion_from(provider: str, media_id: str, meta: dict | None
 class FakeSource:
     """The recorded search responses, parsed by the real parsers."""
 
+    can_search = True
+
     def __init__(self, results):
         self.results = results
         self.queries: list[str] = []
@@ -125,6 +128,12 @@ class FakeSource:
         return self.results
 
 
+class _UnsearchableFakeSource:
+    """Stands in for a provider like MangaBaka: present, but not askable."""
+
+    can_search = False
+
+
 def _answer(monkeypatch, fixture, slug: str):
     suffix = f"_{slug}" if slug else ""
     sources = {
@@ -132,6 +141,7 @@ def _answer(monkeypatch, fixture, slug: str):
             parse_anilist_search(fixture(f"anilist_manga_search{suffix}.json"))
         ),
         Provider.MAL: FakeSource(parse_mal_search(fixture(f"mal_manga_search{suffix}.json"))),
+        Provider.MANGABAKA: _UnsearchableFakeSource(),
     }
 
     async def token(session, provider):
@@ -300,6 +310,32 @@ async def test_a_disconnected_provider_says_so_and_the_other_still_answers(
         }
     ]
     assert [c["provider"] for c in body["candidates"]] == ["mal", "mal"]
+
+
+async def test_a_provider_without_search_is_never_asked(client, monkeypatch):
+    """The fan-out is gated by the capability, not by a hard-coded pair of names.
+
+    A fifth provider that cannot search must fall out of this the same way
+    MangaBaka does today: nobody has to remember to add it to an exclusion list.
+    """
+    asked: list[Provider] = []
+
+    async def record(session, provider):
+        asked.append(provider)
+        raise NotConnected(f"{provider} is not connected")
+
+    monkeypatch.setattr("app.api.routes_discovery.access_token_for", record)
+    anime_id = await insert_anime("anilist", "21")
+    body = (await client.post(f"/api/discovery/unmatched/{anime_id}/search")).json()
+
+    searchable = {p for p in Provider if get_source(p).can_search}
+    non_searchable = {p for p in Provider if not get_source(p).can_search}
+    assert non_searchable  # the rule is only meaningful while one exists to exclude
+
+    assert set(asked) == searchable
+    assert not (set(asked) & non_searchable)
+    assert {e["provider"] for e in body["errors"]} == {str(p) for p in searchable}
+    assert not ({e["provider"] for e in body["errors"]} & {str(p) for p in non_searchable})
 
 
 async def test_a_rate_limited_provider_is_told_apart_from_a_broken_one(
