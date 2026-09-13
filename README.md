@@ -32,7 +32,8 @@ catalogadas, sem consumir disco.
 ## Discovery
 
 Além das listas de mangá, o pipeline lê suas listas de *anime* no MAL e no
-AniList, num cron próprio (a cada 12 horas por padrão, ajustável em Settings).
+AniList, num cron próprio (a cada 12 horas por padrão, ajustável em Settings; o
+botão *Procurar agora*, na tela Discovery, força uma passagem na hora).
 O AniList já devolve, na mesma consulta da lista, quais mangás cada anime
 adapta; o MyAnimeList só expõe essa relação por anime, então essa consulta
 extra é feita apenas para os títulos que o AniList não resolveu.
