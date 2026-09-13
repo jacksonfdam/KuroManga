@@ -1,13 +1,18 @@
 """Building suggestions: what is excluded, and what survives a rebuild."""
 
+import json
+
 import pytest
 from sqlalchemy import text
 
 from app.db import get_sessionmaker
 from app.discovery.seeds import Origin, Seed
-from app.enums import ListStatus, Provider
+from app.enums import JobType, ListStatus, Provider
+from app.handlers import suggest_build as build
+from app.handlers.base import JobContext
 from app.handlers.suggest_build import already_known, upsert_suggestion
 from app.providers.anilist import parse_manga_meta
+from app.queue import repo
 
 pytestmark = pytest.mark.asyncio
 
@@ -19,7 +24,10 @@ SEED = Seed(Provider.ANILIST, "3000", "Vinland Saga", "SOURCE", ORIGIN, {"mal": 
 async def clean():
     async with get_sessionmaker()() as session:
         await session.execute(
-            text("truncate suggestion, anime_entry, list_entry, series restart identity cascade")
+            text(
+                "truncate job, job_event, suggestion, anime_entry, list_entry, series "
+                "restart identity cascade"
+            )
         )
         await session.commit()
     yield
@@ -145,3 +153,108 @@ def test_the_mangadex_uuid_is_kept_even_when_another_site_is_preferred():
 
 def test_no_candidates_writes_neither_key_rather_than_writing_nulls():
     assert source_summary([]) == {"sources": []}
+
+
+class FakeSource:
+    """Counts what the build actually goes to the network for."""
+
+    site = "fake"
+
+    def __init__(self) -> None:
+        self.searched: list[str] = []
+
+    async def search(self, titles, limit=5):
+        self.searched.append(titles[0])
+        return []
+
+
+async def insert_anime(session, anime_id: str, manga_id: str, title: str) -> None:
+    await session.execute(
+        text(
+            """
+            insert into anime_entry (provider, provider_media_id, title_romaji, title_english,
+                                     synonyms, status, progress_episode, total_episodes,
+                                     cover_url, related_manga, raw, updated_at)
+            values ('anilist', :anime_id, :title, :title, '[]'::jsonb, 'completed', 24, 24,
+                    null, cast(:related as jsonb), '{}'::jsonb, now())
+            """
+        ),
+        {
+            "anime_id": anime_id,
+            "title": title,
+            "related": json.dumps(
+                [
+                    {
+                        "provider": "anilist",
+                        "media_id": manga_id,
+                        "relation": "SOURCE",
+                        "title": title,
+                        "format": "MANGA",
+                    }
+                ]
+            ),
+        },
+    )
+
+
+async def run_build(*, commit_at_end: bool = True) -> None:
+    """`commit_at_end=False` discards the handler's session the way a failed job does."""
+    async with get_sessionmaker()() as session:
+        await repo.enqueue(session, JobType.SUGGEST_BUILD, {})
+        await session.commit()
+        job = await repo.lease(session)
+        await session.commit()
+        try:
+            await build.handle(JobContext(session=session, job=job))
+        finally:
+            if commit_at_end:
+                await session.commit()
+            else:
+                await session.rollback()
+
+
+async def test_a_dismissed_suggestion_is_never_searched_for_again(monkeypatch):
+    """Dismissal already sticks; what leaked was a search per source, on every run."""
+    source = FakeSource()
+    monkeypatch.setattr(build, "all_sources", lambda: [source])
+    async with get_sessionmaker()() as session:
+        await insert_anime(session, "21", "3000", "Vinland Saga")
+        await insert_anime(session, "22", "4001", "Kaijuu 8-gou")
+        await session.execute(
+            text(
+                """
+                insert into suggestion (provider, provider_media_id, title, state, alt_ids, meta)
+                values ('anilist', '3000', 'Vinland Saga', 'dismissed', '{}'::jsonb, '{}'::jsonb)
+                """
+            )
+        )
+        await session.commit()
+
+    await run_build()
+
+    assert source.searched == ["Kaijuu 8-gou"]
+
+
+async def test_a_manga_that_is_already_a_local_series_is_not_searched_for(monkeypatch):
+    """The alias exclusion is what keeps Discovery off manga the library already has."""
+    source = FakeSource()
+    monkeypatch.setattr(build, "all_sources", lambda: [source])
+    async with get_sessionmaker()() as session:
+        await insert_anime(session, "21", "3000", "Vinland Saga")
+        await session.execute(
+            text(
+                """
+                insert into series (canonical_title, slug, needs_review, meta, created_at)
+                values ('Vinland Saga', 'vinland-saga', false,
+                        '{"aliases": ["vinland saga"]}'::jsonb, now())
+                """
+            )
+        )
+        await session.commit()
+
+    await run_build()
+
+    assert source.searched == []
+    async with get_sessionmaker()() as session:
+        count = (await session.execute(text("select count(*) from suggestion"))).scalar_one()
+    assert count == 0

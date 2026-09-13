@@ -47,6 +47,19 @@ async def already_known(session: AsyncSession) -> set[tuple[str, str]]:
     return {(row.provider, row.provider_media_id) for row in result.all()}
 
 
+async def already_dismissed(session: AsyncSession) -> set[tuple[str, str]]:
+    """Answered once is answered.
+
+    The upsert never touches state, so a dismissal survives a rebuild either way.
+    Skipping the seed is about the cost: otherwise every dismissal adds a search
+    per source to every future run, for ever.
+    """
+    result = await session.execute(
+        text("select provider, provider_media_id from suggestion where state = 'dismissed'")
+    )
+    return {(row.provider, row.provider_media_id) for row in result.all()}
+
+
 async def already_a_series(session: AsyncSession, title: str) -> bool:
     alias = normalize(title)
     if not alias:
@@ -162,17 +175,18 @@ async def handle(ctx: JobContext) -> None:
     await ctx.log(f"{len(seeds)} manga relations across {len(rows)} anime", pct=20)
 
     known = await already_known(ctx.session)
+    dismissed = await already_dismissed(ctx.session)
     wanted: list[Seed] = []
     for seed in seeds:
         ids = {(str(seed.provider), seed.media_id)} | {
             (provider, media_id) for provider, media_id in seed.alt_ids.items()
         }
-        if ids & known:
+        if ids & known or ids & dismissed:
             continue
         if await already_a_series(ctx.session, seed.title):
             continue
         wanted.append(seed)
-    await ctx.log(f"{len(wanted)} not already on a list", pct=40)
+    await ctx.log(f"{len(wanted)} still worth looking up", pct=40)
 
     meta: dict[str, MangaMeta] = {}
     anilist_ids = [s.media_id for s in wanted if s.provider is Provider.ANILIST]
