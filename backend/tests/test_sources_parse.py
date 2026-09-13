@@ -22,6 +22,18 @@ def test_search_scores_against_every_known_title(fixture):
     assert by_alt[0].title == "Escape Machine"
 
 
+def test_an_empty_last_chapter_becomes_no_count_not_an_empty_string(fixture):
+    """Postgres types this column as an integer, so a stray "" fails at bind time."""
+    candidates = parse_search(fixture("mangadex_search.json"), ["Escape Machine Side Story"])
+    empty = next(c for c in candidates if c.title == "Escape Machine Side Story")
+    assert empty.chapter_count is None
+
+
+def test_a_present_last_chapter_is_read_as_an_integer(fixture):
+    candidates = parse_search(fixture("mangadex_search.json"), ["Escape Machine"])
+    assert candidates[0].chapter_count == 40
+
+
 def test_feed_skips_entries_without_a_chapter_number(fixture):
     chapters = parse_feed(fixture("mangadex_feed.json"))
     assert all(chapter.number is not None for chapter in chapters)

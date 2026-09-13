@@ -3,22 +3,50 @@
     {
       "id": "aaaa-1111",
       "attributes": {
-        "title": {"en": "Escape Machine"},
-        "altTitles": [{"ja": "逃走機構"}, {"en": "Escape Mechanism"}],
+        "title": {
+          "en": "Escape Machine"
+        },
+        "altTitles": [
+          {
+            "ja": "逃走機構"
+          },
+          {
+            "en": "Escape Mechanism"
+          }
+        ],
         "year": 2019,
         "lastChapter": "40"
       },
       "relationships": [
-        {"type": "cover_art", "attributes": {"fileName": "cover.png"}}
+        {
+          "type": "cover_art",
+          "attributes": {
+            "fileName": "cover.png"
+          }
+        }
       ]
     },
     {
       "id": "bbbb-2222",
       "attributes": {
-        "title": {"en": "Totally Different Title"},
+        "title": {
+          "en": "Totally Different Title"
+        },
         "altTitles": [],
         "year": 2004,
         "lastChapter": null
+      },
+      "relationships": []
+    },
+    {
+      "id": "cccc-3333",
+      "attributes": {
+        "title": {
+          "en": "Escape Machine Side Story"
+        },
+        "altTitles": [],
+        "year": null,
+        "lastChapter": ""
       },
       "relationships": []
     }

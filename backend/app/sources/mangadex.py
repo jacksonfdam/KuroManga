@@ -57,7 +57,7 @@ def parse_search(payload: dict[str, Any], titles: list[str]) -> list[Candidate]:
                 source_url=f"https://mangadex.org/title/{manga_id}",
                 title=_title_of(attributes),
                 cover_url=_cover_url(manga_id, item.get("relationships") or []),
-                chapter_count=attributes.get("lastChapter") and _to_int(attributes["lastChapter"]),
+                chapter_count=_to_int(attributes.get("lastChapter")),
                 year=attributes.get("year"),
                 score=round(score, 4),
                 alt_titles=_alt_titles(attributes),
