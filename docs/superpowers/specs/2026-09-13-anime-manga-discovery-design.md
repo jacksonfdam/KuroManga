@@ -220,15 +220,17 @@ Completed would zero the chapter read on the way back.
 A `comick` service in `docker-compose.yml`, from the repository's image, with no environment
 variable. A new setting, `COMICK_API_URL`, default `http://comick:3000`.
 
-`app/sources/comick_client.py` is pure HTTP — `search(query, sources)`, `chapters(url, source)`,
+`app/sources/comick_client.py` is pure HTTP — `search(query, source)`, `chapters(url, source)`,
 `sources()`, `health()` — testable from fixtures like the other clients.
 
-The registered sources come out of the intersection between what comick knows how to search and what
-`manga-downloader` knows how to download. The initial set is **asurascan** and **weebcentral**: they
-are in both catalogues and they are the two comick already proxies through `/api/proxy/html`. Each
-one becomes a `Source` registered by a parameterised subclass `ComickSource(site, domains)`, so that
-`source_for_url` keeps resolving a hand-pasted URL and `download_chapter` does not change a line.
-Adding a third site later is one entry in the registration table.
+The registered sources come out of the intersection between what comick can search *server-side* and
+what `manga-downloader` knows how to download. comick also proxies asurascan through
+`/api/proxy/html`, but asurascan is flagged `clientOnly` and, checked against the running service,
+its scrape returns zero results outside a browser — it only works through the companion userscript,
+which this pipeline does not run. The registered set is **weebcentral** alone. It becomes a `Source`
+registered by a parameterised subclass `ComickSource(site, domains)`, so that `source_for_url` keeps
+resolving a hand-pasted URL and `download_chapter` does not change a line. Adding a site later is one
+entry in the registration table, and only once its scrape works from the server.
 
 MangaDex stays preferred on the tie-break: a documented API, reliable chapter numbering and personal
 authentication already configured.
@@ -394,6 +396,24 @@ renews the lease per unit (one seed; twenty anime).
   not enough — every dismissal added one search per source to every future cycle.
 - `source_summary` omits the keys it did not find instead of writing them null. The upsert merges
   `meta` shallowly, so a cycle with MangaDex down would erase the UUID the status write depends on.
+
+### comick's search contract is `source`, singular, and a flat list
+
+The fixtures this was first built against were invented rather than recorded against the pinned
+service, and got the contract wrong in two ways: the client sent `{"query", "sources": [...]}`
+(plural) instead of `{"query", "source": "<one id>"}`, and the parser expected `results` to be
+per-source groups holding a `manga` list. Neither shape exists. A single `source` gets back a flat
+`results` list for that scraper; the grouped, `manga`-keyed NDJSON shape only appears when `source`
+is omitted or `"all"` — a branch this client never takes on purpose. With the plural key, `source`
+was always undefined server-side, the endpoint always took the streaming branch, and
+`payload["results"]` never matched what `parse_search` looked for: comick contributed zero
+candidates, silently, and the tests never caught it because they were checked against the same
+invented shape. Fixed by sending singular `source` and reading `results` flat; the fixtures were
+re-recorded from the live service.
+
+Checking the live service also settled which sites belong in `SITES`: asurascan is registered on
+comick but answers with an empty `results` list for every query run from the server, because its
+scrape only runs through a browser userscript. It is not in `SITES`, see above.
 
 ### comick pinned to a commit
 

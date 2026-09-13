@@ -69,10 +69,12 @@ still comes only from the existing `progress_push` cron, which only moves forwar
 Discovery writes status, never the chapter read.
 
 To find a source for each suggestion the pipeline searches MangaDex and the bundled `comick`
-service, which covers sites MangaDex does not have: today asurascan and weebcentral. comick
-answers with search results and chapter lists only, with no page-image endpoint, so
-downloads from those sites still go through the `manga-downloader` binary, which already
-knew how to fetch them. If comick is down, Discovery loses those sources from the search
+service, which covers a site MangaDex does not have: today weebcentral. comick also knows
+about asurascan, but asurascan is not registered here — it is reachable only from inside a
+browser, through the companion userscript, and returns nothing when comick scrapes it
+server-side. comick answers with search results and chapter lists only, with no page-image
+endpoint, so downloads from weebcentral still go through the `manga-downloader` binary, which
+already knew how to fetch them. If comick is down, Discovery loses that source from the search
 rather than breaking.
 
 ## Running it
