@@ -119,10 +119,41 @@ or nothing. Partial results are kept and the remainder requeued.
 - **Tests dispose the SQLAlchemy engine between cases** (`tests/conftest.py`). asyncpg connections
   belong to the loop that opened them, and pytest-asyncio gives each test its own.
 
-## Conventions
+## Working agreement
 
-Code, comments and commit messages are English. `README.md` and the spec are Portuguese, matching the
-user. Commits are small and single-purpose, and the message says *why*, not what the diff shows.
+KuroManga is open source and **everything in the repository is written in English**: code, comments,
+commit messages, issues, pull requests, documentation and the interface. Conversation with the
+maintainer happens in English too, whichever language he writes in.
 
-Comments explain the reason a line exists, never what it does. Several in this repo record a failure
-that cost real time; keep them.
+Credit for the project belongs to Jackson Mafra. Nothing in this repository may credit, mention or
+otherwise reference the tools used to write it — not in commits, not in pull requests, not in
+issues, not in code comments. Commits read as the maintainer's own work.
+
+Git identity is set per repository to the personal account:
+
+```bash
+git config user.name "Jackson Mafra"
+git config user.email "jacksonfdam@gmail.com"
+gh auth switch --user jacksonfdam   # two accounts are logged in; the other one is work
+```
+
+### Commits
+
+Micro commits: one focused change each, self-contained and buildable. The subject is imperative and
+scoped (`feat(queue):`, `fix(api):`, `docs:`, `chore:`). The body says *why*, never what the diff
+already shows. No trailers of any kind.
+
+### Every feature
+
+1. Open a GitHub issue describing the change, with labels, assigned to `jacksonfdam`.
+2. Branch from `main`.
+3. Micro commits on the branch.
+4. Open a pull request that closes the issue, with labels, assigned to `jacksonfdam`.
+
+Labels in use: `feature`, `bug`, `docs`, `infra`, `dependencies`, plus an area label
+(`area:queue`, `area:providers`, `area:sources`, `area:downloader`, `area:komga`, `area:web`).
+
+### Comments
+
+Comments explain the reason a line exists, never what it does. Several in this repository record a
+failure that cost real time; keep them.
