@@ -66,7 +66,7 @@ class AddIn(BaseModel):
 async def list_suggestions(
     session: Session,
     state: Annotated[str, Query()] = "new",
-    limit: Annotated[int, Query(le=200)] = 100,
+    limit: Annotated[int, Query(ge=1, le=200)] = 100,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> list[dict[str, Any]]:
     result = await session.execute(
