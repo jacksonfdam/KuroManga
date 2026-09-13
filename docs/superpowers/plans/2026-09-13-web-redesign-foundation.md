@@ -21,7 +21,7 @@
 - A progress write that would move a provider backwards is never sent.
 - Commits: imperative, scoped subject (`feat(web):`, `feat(api):`, `chore:`). Body says why. No trailers of any kind, no tool attribution.
 - Alembic is not on PATH. Invoke it as `python -m alembic`, including from subprocesses in tests.
-- Backend tests need the throwaway Postgres on port 5433. Prefix commands with `POSTGRES_HOST=localhost POSTGRES_PORT=5433`.
+- Backend tests need a throwaway Postgres. Prefix commands with `POSTGRES_HOST=localhost POSTGRES_PORT=5434`, not the `5433` that `CLAUDE.md` documents. The container on 5433 is shared with other worktrees and has been migrated past this branch's Alembic chain by the discovery branch; a database whose schema is ahead of the branch under test makes the tests lie about the branch. The isolated container is `manga-pg-web-redesign`.
 
 ## File Structure
 
@@ -331,7 +331,7 @@ async def test_integration_health_reports_unauthenticated_without_tokens(client)
 - [ ] **Step 2: Run the tests to verify they fail**
 
 ```bash
-cd backend && POSTGRES_HOST=localhost POSTGRES_PORT=5433 .venv/bin/python -m pytest \
+cd backend && POSTGRES_HOST=localhost POSTGRES_PORT=5434 .venv/bin/python -m pytest \
   tests/test_api.py -k integration_health -q
 ```
 
@@ -411,7 +411,7 @@ In `backend/app/api/main.py`, import `routes_health` alongside the existing rout
 - [ ] **Step 5: Run the tests to verify they pass**
 
 ```bash
-cd backend && POSTGRES_HOST=localhost POSTGRES_PORT=5433 .venv/bin/python -m pytest \
+cd backend && POSTGRES_HOST=localhost POSTGRES_PORT=5434 .venv/bin/python -m pytest \
   tests/test_api.py -k integration_health -q
 ```
 
@@ -810,7 +810,7 @@ async def test_progress_cannot_move_backwards(client):
 - [ ] **Step 2: Run the tests to verify they fail**
 
 ```bash
-cd backend && POSTGRES_HOST=localhost POSTGRES_PORT=5433 .venv/bin/python -m pytest \
+cd backend && POSTGRES_HOST=localhost POSTGRES_PORT=5434 .venv/bin/python -m pytest \
   tests/test_progress_write.py tests/test_api.py -k "progress or status_and_progress" -q
 ```
 
@@ -955,7 +955,7 @@ Match `repo.enqueue`'s real signature — read `app/queue/repo.py` and follow ho
 - [ ] **Step 6: Run the tests to verify they pass**
 
 ```bash
-cd backend && POSTGRES_HOST=localhost POSTGRES_PORT=5433 .venv/bin/python -m pytest tests -q
+cd backend && POSTGRES_HOST=localhost POSTGRES_PORT=5434 .venv/bin/python -m pytest tests -q
 ```
 
 Expected: PASS, the whole suite, no regressions in `test_api.py` or `test_progress_push.py`.
@@ -1187,7 +1187,7 @@ async def test_settings_expose_the_new_pipeline_keys(client):
 - [ ] **Step 2: Run it to verify it fails**
 
 ```bash
-cd backend && POSTGRES_HOST=localhost POSTGRES_PORT=5433 .venv/bin/python -m pytest \
+cd backend && POSTGRES_HOST=localhost POSTGRES_PORT=5434 .venv/bin/python -m pytest \
   tests/test_api.py -k new_pipeline_keys -q
 ```
 
@@ -1209,7 +1209,7 @@ with defaults `"0 */12 * * *"`, `""`, `False`, `8`. Twelve hours for the anime s
 - [ ] **Step 4: Run it to verify it passes**
 
 ```bash
-cd backend && POSTGRES_HOST=localhost POSTGRES_PORT=5433 .venv/bin/python -m pytest \
+cd backend && POSTGRES_HOST=localhost POSTGRES_PORT=5434 .venv/bin/python -m pytest \
   tests/test_api.py -q
 ```
 
@@ -1291,7 +1291,7 @@ async def test_series_detail_for_a_missing_series_is_a_404(client):
 - [ ] **Step 2: Run it to verify it fails**
 
 ```bash
-cd backend && POSTGRES_HOST=localhost POSTGRES_PORT=5433 .venv/bin/python -m pytest \
+cd backend && POSTGRES_HOST=localhost POSTGRES_PORT=5434 .venv/bin/python -m pytest \
   tests/test_api.py -k series_detail -q
 ```
 
@@ -1342,7 +1342,7 @@ async def series_detail(series_id: int, session: Session) -> dict[str, Any]:
 - [ ] **Step 4: Run it to verify it passes**
 
 ```bash
-cd backend && POSTGRES_HOST=localhost POSTGRES_PORT=5433 .venv/bin/python -m pytest tests -q
+cd backend && POSTGRES_HOST=localhost POSTGRES_PORT=5434 .venv/bin/python -m pytest tests -q
 ```
 
 Expected: PASS, whole suite.
