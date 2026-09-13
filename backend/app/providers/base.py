@@ -72,6 +72,18 @@ class AnimeEntryDTO:
 
 
 @dataclass(frozen=True)
+class MangaMeta:
+    """What a suggestion card shows, fetched once the seed has cleared exclusion."""
+
+    media_id: str
+    title: str
+    cover_url: str | None = None
+    total_chapters: int | None = None
+    year: int | None = None
+    publishing_status: str | None = None
+
+
+@dataclass(frozen=True)
 class TokenSet:
     access_token: str
     refresh_token: str | None = None

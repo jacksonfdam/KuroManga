@@ -7,11 +7,37 @@ import httpx
 
 from app.config import get_settings
 from app.enums import ListStatus, Provider
-from app.providers.base import AnimeEntryDTO, ListEntryDTO, ListSource, RelatedManga, TokenSet
+from app.providers.base import (
+    AnimeEntryDTO,
+    ListEntryDTO,
+    ListSource,
+    MangaMeta,
+    RelatedManga,
+    TokenSet,
+)
 
 API_URL = "https://graphql.anilist.co"
 AUTHORIZE_URL = "https://anilist.co/api/v2/oauth/authorize"
 TOKEN_URL = "https://anilist.co/api/v2/oauth/token"
+
+# AniList allows roughly 90 requests a minute; batching keeps a suggestion
+# rebuild well under that instead of one request per candidate.
+META_PAGE = 50
+
+MANGA_META_QUERY = """
+query ($ids: [Int]) {
+  Page(perPage: 50) {
+    media(id_in: $ids, type: MANGA) {
+      id
+      title { romaji english }
+      coverImage { large }
+      chapters
+      status
+      startDate { year }
+    }
+  }
+}
+"""
 
 STATUS_MAP = {
     "CURRENT": ListStatus.READING,
@@ -129,6 +155,17 @@ class AniListSource(ListSource):
         data = await self._post(access_token, ANIME_LIST_QUERY, {"userId": user_id})
         return parse_anime_list(data)
 
+    async def fetch_manga_meta(self, access_token: str, ids: list[str]) -> dict[str, MangaMeta]:
+        """Batched: one request per 50 ids, not one per suggestion."""
+        collected: dict[str, MangaMeta] = {}
+        numeric = [int(i) for i in ids if str(i).isdigit()]
+        for start in range(0, len(numeric), META_PAGE):
+            data = await self._post(
+                access_token, MANGA_META_QUERY, {"ids": numeric[start : start + META_PAGE]}
+            )
+            collected.update(parse_manga_meta(data))
+        return collected
+
     async def push_progress(self, access_token: str, media_id: str, chapter: int) -> None:
         await self._post(
             access_token, PROGRESS_MUTATION, {"mediaId": int(media_id), "progress": chapter}
@@ -208,6 +245,23 @@ def parse_list(data: dict[str, Any]) -> list[ListEntryDTO]:
                 )
             )
     return entries
+
+
+def parse_manga_meta(data: dict[str, Any]) -> dict[str, MangaMeta]:
+    """Pure parser: id to metadata, for the suggestion cards."""
+    meta: dict[str, MangaMeta] = {}
+    for media in (data.get("Page") or {}).get("media", []) or []:
+        title = media.get("title") or {}
+        media_id = str(media.get("id"))
+        meta[media_id] = MangaMeta(
+            media_id=media_id,
+            title=title.get("english") or title.get("romaji") or "",
+            cover_url=(media.get("coverImage") or {}).get("large"),
+            total_chapters=media.get("chapters"),
+            year=(media.get("startDate") or {}).get("year"),
+            publishing_status=media.get("status"),
+        )
+    return meta
 
 
 def parse_relations(media: dict[str, Any]) -> list[RelatedManga]:

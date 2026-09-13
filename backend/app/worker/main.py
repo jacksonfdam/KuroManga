@@ -23,6 +23,7 @@ from app.handlers import (  # noqa: F401
     list_sync,
     match_search,
     progress_push,
+    suggest_build,
 )
 from app.queue import repo
 from app.worker.runner import reclaim_loop, work_loop
