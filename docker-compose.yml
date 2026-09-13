@@ -1,0 +1,84 @@
+name: manga
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    logging: *logging
+
+  api:
+    build: ./backend
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      POSTGRES_HOST: postgres
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn app.api.main:app --host 0.0.0.0 --port 8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ${LIBRARY_PATH_HOST:-./data/manga}:/manga:ro
+    logging: *logging
+
+  worker:
+    build: ./backend
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      POSTGRES_HOST: postgres
+    command: python -m app.worker.main
+    # Same uid as komga, so the files this writes are the files komga can read.
+    user: "${PUID:-1000}:${PGID:-1000}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      api:
+        condition: service_started
+    volumes:
+      - ${LIBRARY_PATH_HOST:-./data/manga}:/manga
+    logging: *logging
+
+  web:
+    build: ./frontend
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    depends_on:
+      - api
+    logging: *logging
+
+  komga:
+    image: gotson/komga:latest
+    restart: unless-stopped
+    environment:
+      - TZ=${TZ:-Europe/Lisbon}
+    user: "${PUID:-1000}:${PGID:-1000}"
+    volumes:
+      - komga_config:/config
+      - ${LIBRARY_PATH_HOST:-./data/manga}:/manga:ro
+    ports:
+      - "25600:25600"
+    logging: *logging
+
+volumes:
+  pgdata:
+  komga_config:

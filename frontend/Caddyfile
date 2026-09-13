@@ -1,0 +1,17 @@
+:80 {
+	encode gzip
+	root * /srv
+
+	# The interface talks to nothing but this API.
+	handle /api/* {
+		reverse_proxy api:8000 {
+			# Progress arrives over SSE; buffering it would defeat the point.
+			flush_interval -1
+		}
+	}
+
+	handle {
+		try_files {path} /index.html
+		file_server
+	}
+}
