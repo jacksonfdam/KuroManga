@@ -8,7 +8,7 @@ from both must read both, and a series synced from one must not lose the
 fields that one does report.
 """
 
-from app.api.series_metadata import metadata_of
+from app.api.list_raw import metadata_of
 
 ANILIST_RAW = {
     "status": "CURRENT",
