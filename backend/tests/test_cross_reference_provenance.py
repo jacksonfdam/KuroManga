@@ -15,6 +15,7 @@ from app.handlers.list_sync import (
     assertions,
     is_authoritative,
     merge_assertions,
+    normalize_assertions,
     record_cross_references,
     resolve_series,
     upsert_entry,
@@ -131,3 +132,100 @@ async def test_resolution_still_finds_a_series_through_hearsay():
 
     assert second == first
     assert created is False
+
+
+def test_a_stored_string_reads_as_an_assertion_nobody_is_on_record_for():
+    normalized = normalize_assertions({"mal": "7001"})
+    assert normalized == {"mal": {"id": "7001", "by": None}}
+    assert not is_authoritative("mal", normalized["mal"])
+
+
+def test_a_stored_string_merges_and_firsthand_knowledge_replaces_it():
+    """The outage: every entry in the live database was still a bare string."""
+    merged = merge_assertions(
+        normalize_assertions({"mal": "9999"}), {"mal": {"id": "7001", "by": "mal"}}
+    )
+    assert merged["mal"] == {"id": "7001", "by": "mal"}
+
+
+def test_a_stored_string_does_not_overwrite_firsthand_knowledge():
+    merged = merge_assertions(
+        normalize_assertions({"mal": {"id": "7001", "by": "mal"}}),
+        {"mal": {"id": "9999", "by": "mangabaka"}},
+    )
+    assert merged["mal"] == {"id": "7001", "by": "mal"}
+
+
+def test_a_row_holding_both_shapes_normalizes_each_on_its_own_terms():
+    normalized = normalize_assertions({"mal": "7001", "anilist": {"id": "30013", "by": "anilist"}})
+    assert normalized["mal"] == {"id": "7001", "by": None}
+    assert normalized["anilist"] == {"id": "30013", "by": "anilist"}
+
+
+async def test_a_series_carrying_the_old_shape_syncs_without_raising():
+    """The reproduction, against a row written the way the live database holds them."""
+    async with get_sessionmaker()() as session:
+        seed = dto(Provider.MAL, "7001")
+        series_id, _ = await resolve_series(session, seed)
+        await upsert_entry(session, seed, series_id)
+        await session.execute(
+            text(
+                """
+                update series
+                   set meta = jsonb_set(meta, '{cross_refs}',
+                           '{"mal": "7001", "anilist": "30013"}'::jsonb)
+                 where id = :id
+                """
+            ),
+            {"id": series_id},
+        )
+        await session.commit()
+
+        await record_cross_references(session, series_id, dto(Provider.MAL, "7001"))
+        await session.commit()
+
+        stored = (
+            await session.execute(
+                text("select meta -> 'cross_refs' from series where id = :id"),
+                {"id": series_id},
+            )
+        ).scalar_one()
+
+    assert stored["mal"] == {"id": "7001", "by": "mal"}
+    assert stored["anilist"] == {"id": "30013", "by": None}
+
+
+async def test_a_mixed_row_keeps_the_firsthand_entry_it_already_had():
+    async with get_sessionmaker()() as session:
+        seed = dto(Provider.MAL, "7001")
+        series_id, _ = await resolve_series(session, seed)
+        await upsert_entry(session, seed, series_id)
+        await session.execute(
+            text(
+                """
+                update series
+                   set meta = jsonb_set(meta, '{cross_refs}',
+                           '{"mal": {"id": "7001", "by": "mal"},
+                             "anilist": "30013"}'::jsonb)
+                 where id = :id
+                """
+            ),
+            {"id": series_id},
+        )
+        await session.commit()
+
+        liar = dto(Provider.MANGABAKA, "1238", cross_refs={"mal": "9999", "anilist": "40000"})
+        await record_cross_references(session, series_id, liar)
+        await session.commit()
+
+        stored = (
+            await session.execute(
+                text("select meta -> 'cross_refs' from series where id = :id"),
+                {"id": series_id},
+            )
+        ).scalar_one()
+
+    assert stored["mal"] == {"id": "7001", "by": "mal"}
+    # Nobody was on record for the old entry, so hearsay is free to correct it.
+    assert stored["anilist"] == {"id": "40000", "by": "mangabaka"}
+    assert stored["mangabaka"] == {"id": "1238", "by": "mangabaka"}

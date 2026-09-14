@@ -81,6 +81,24 @@ def assertions(dto: ListEntryDTO) -> dict[str, dict[str, str]]:
     return stated
 
 
+def normalize_assertions(stored: dict[str, object]) -> dict[str, dict[str, str | None]]:
+    """Read what is stored as assertions, whichever shape it was written in.
+
+    Cross references recorded before provenance existed are bare identifier
+    strings: an id, and no record of who stated it. They are normalised here, at
+    the one point stored references re-enter this module, so the merge rules go
+    on comparing assertions instead of asking what shape each value is.
+
+    Unknown authorship is deliberately not authoritative. A provider's firsthand
+    statement about its own database must be able to replace an entry nobody is
+    on record as having made, and that is what provenance is for.
+    """
+    return {
+        provider: {"id": value, "by": None} if isinstance(value, str) else value
+        for provider, value in stored.items()
+    }
+
+
 def is_authoritative(provider: str, assertion: dict[str, str]) -> bool:
     """True when the provider identified is the one that made the statement."""
     return assertion.get("by") == provider
@@ -175,7 +193,7 @@ async def record_cross_references(
         )
     ).scalar_one_or_none()
 
-    merged = merge_assertions(held or {}, incoming)
+    merged = merge_assertions(normalize_assertions(held or {}), incoming)
     await session.execute(
         text(
             """
