@@ -1,6 +1,17 @@
 import { useEffect, useRef } from 'react'
 
-type Handler = (event: { event: string; job_id: number; pct: number | null; message: string }) => void
+export interface JobEvent {
+  event: string
+  job_id: number
+  pct: number | null
+  message: string
+  /** Both are null on `job.progress` ticks and on a job the queue could not
+      hand to a handler; only the outcome frames identify what finished. */
+  job_type: string | null
+  series_id: number | null
+}
+
+type Handler = (event: JobEvent) => void
 
 /**
  * Subscribe to the server-sent job stream. The stream is driven by Postgres

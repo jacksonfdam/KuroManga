@@ -31,6 +31,8 @@ export function SeriesDetailPage() {
   const seriesId = Number(id)
   const {
     detail,
+    queuedChapter,
+    refusal,
     notFound,
     error,
     reload,
@@ -115,6 +117,8 @@ export function SeriesDetailPage() {
             detail={detail}
             total={total}
             minutesPerChapter={detail.reading_minutes_per_chapter}
+            queued={queuedChapter}
+            refusal={refusal}
             onProgress={setProgress}
             onStatus={setListStatus}
           />

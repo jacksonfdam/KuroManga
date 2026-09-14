@@ -34,6 +34,8 @@ export function ProgressManager({
   detail,
   total,
   minutesPerChapter,
+  queued,
+  refusal,
   onProgress,
   onStatus,
 }: {
@@ -42,6 +44,10 @@ export function ProgressManager({
   /** `reading_minutes_per_chapter` from settings. The remaining-time figure is
    * derived from it and is labelled an estimate, because it is one. */
   minutesPerChapter: number | null
+  /** The chapter the queue took, while no worker has written it yet. */
+  queued: number | null
+  /** Why the last chapter write was refused, whether on the click or later. */
+  refusal: string | null
   onProgress: (next: number) => Promise<void>
   onStatus: (status: ListStatus) => Promise<void>
 }) {
@@ -71,6 +77,7 @@ export function ProgressManager({
         )}
       </div>
       {statusError && <NoticeBar tone="error" text={statusError} />}
+      {refusal && <NoticeBar tone="error" text={refusal} />}
 
       <div className="grid grid-cols-1 gap-space-lg md:grid-cols-2">
         <div className="flex flex-col gap-space-sm">
@@ -105,6 +112,15 @@ export function ProgressManager({
           </div>
           {total != null && (
             <ProgressBar value={series.progress} max={total} tone="secondary" />
+          )}
+          {/* The number above is one the queue took, not one the lists hold.
+              Said plainly, because this screen is where a user checks what the
+              providers were actually told. */}
+          {queued != null && (
+            <p className="flex items-center gap-space-xs font-mono text-label-sm text-tertiary">
+              <Icon name="sync" className="h-3 w-3" />
+              Chapter {formatChapter(queued)} queued — waiting to reach your lists
+            </p>
           )}
           {remaining != null && (
             <p className="font-mono text-label-sm text-outline">
