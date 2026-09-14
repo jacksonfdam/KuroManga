@@ -183,3 +183,127 @@ async def test_a_save_that_lands_after_the_job_is_leased_still_writes_the_second
         await session.commit()
 
     assert written == [("mal", "Reread 120 first.", ["favourite"])]
+
+
+async def test_writing_the_note_updates_the_anilist_entry_s_stored_raw(monkeypatch):
+    """`GET /api/series/{id}` builds its metadata block out of `list_entry.raw`,
+    which list_sync only refreshes every six hours. Without this, a
+    successful write reads as lost until the next sync: the API keeps
+    answering with the note the user just replaced."""
+    async with get_sessionmaker()() as session:
+        await session.execute(
+            text(
+                """
+                insert into series (canonical_title, slug, needs_review, meta)
+                values ('Eleceed', 'eleceed', false, '{}'::jsonb)
+                """
+            )
+        )
+        await session.execute(
+            text(
+                """
+                insert into list_entry
+                       (provider, provider_media_id, series_id, status,
+                        user_progress_chapter, synonyms, raw)
+                values ('anilist', '7', 1, 'reading', 280, '[]'::jsonb,
+                        '{"media": {"title": {"romaji": "Eleceed"}}, "notes": "old note"}'::jsonb)
+                """
+            )
+        )
+        await session.execute(
+            text(
+                """
+                insert into provider_token (provider, access_token, refresh_token, expires_at)
+                values ('anilist', 'token', null, null)
+                """
+            )
+        )
+        await repo.enqueue(
+            session,
+            JobType.NOTES_WRITE,
+            {"series_id": 1, "notes": "Reread 120 first.", "tags": []},
+            series_id=1,
+            dedupe_key="notes_write:1",
+        )
+        await session.commit()
+        job = await repo.lease(session)
+        assert job is not None
+
+    monkeypatch.setattr(
+        notes_write, "get_source", lambda provider: RecordingSource([], provider)
+    )
+
+    async with get_sessionmaker()() as session:
+        await notes_write.handle(JobContext(session=session, job=job))
+        await session.commit()
+
+    async with get_sessionmaker()() as session:
+        raw = (
+            await session.execute(text("select raw from list_entry where id = 1"))
+        ).scalar_one()
+    assert raw["notes"] == "Reread 120 first."
+    # The rest of the payload the provider sent is untouched — this is a
+    # targeted update, not a replacement of the record.
+    assert raw["media"]["title"]["romaji"] == "Eleceed"
+
+
+async def test_writing_the_note_updates_the_mal_entry_s_stored_comments_and_tags(monkeypatch):
+    """MyAnimeList nests the note under `list_status.comments` and the personal
+    tags under `list_status.tags` - a different shape from AniList's top-level
+    `notes`, and `series_metadata.py` reads exactly this shape back."""
+    async with get_sessionmaker()() as session:
+        await session.execute(
+            text(
+                """
+                insert into series (canonical_title, slug, needs_review, meta)
+                values ('Eleceed', 'eleceed', false, '{}'::jsonb)
+                """
+            )
+        )
+        await session.execute(
+            text(
+                """
+                insert into list_entry
+                       (provider, provider_media_id, series_id, status,
+                        user_progress_chapter, synonyms, raw)
+                values ('mal', '7', 1, 'reading', 280, '[]'::jsonb,
+                        '{"node": {"title": "Eleceed"},
+                          "list_status": {"comments": "old note", "tags": ["old"]}}'::jsonb)
+                """
+            )
+        )
+        await session.execute(
+            text(
+                """
+                insert into provider_token (provider, access_token, refresh_token, expires_at)
+                values ('mal', 'token', null, null)
+                """
+            )
+        )
+        await repo.enqueue(
+            session,
+            JobType.NOTES_WRITE,
+            {"series_id": 1, "notes": "Reread 120 first.", "tags": ["favourite"]},
+            series_id=1,
+            dedupe_key="notes_write:1",
+        )
+        await session.commit()
+        job = await repo.lease(session)
+        assert job is not None
+
+    monkeypatch.setattr(
+        notes_write, "get_source", lambda provider: RecordingSource([], provider)
+    )
+
+    async with get_sessionmaker()() as session:
+        await notes_write.handle(JobContext(session=session, job=job))
+        await session.commit()
+
+    async with get_sessionmaker()() as session:
+        raw = (
+            await session.execute(text("select raw from list_entry where id = 1"))
+        ).scalar_one()
+    assert raw["list_status"]["comments"] == "Reread 120 first."
+    assert raw["list_status"]["tags"] == ["favourite"]
+    # The rest of the payload the provider sent is untouched.
+    assert raw["node"]["title"] == "Eleceed"

@@ -6,6 +6,7 @@ is skipped, not failed - one provider without the field must not stop the note
 reaching the one that has it.
 """
 
+import json
 from typing import Any
 
 from sqlalchemy import text
@@ -57,7 +58,7 @@ async def handle(ctx: JobContext) -> None:
     result = await ctx.session.execute(
         text(
             """
-            select e.provider, e.provider_media_id,
+            select e.id, e.provider, e.provider_media_id,
                    t.provider is not null as connected
               from list_entry e
               left join provider_token t on t.provider = e.provider
@@ -86,8 +87,52 @@ async def handle(ctx: JobContext) -> None:
         except NotSupported as failure:
             await ctx.log(str(failure), level="warning")
             continue
+        # The local row follows the provider write, not the click: list_sync
+        # only runs every six hours, and without this the API would keep
+        # answering with the note the user just replaced until then, which
+        # reads as the save having been lost. The next sync overwrites this
+        # with the provider's own copy regardless, so this is a stand-in for
+        # that copy, not a second record of it drifting alongside.
+        await _store_note_locally(ctx, entry.id, entry.provider, notes, tags)
         written += 1
         await ctx.log(f"note written to {entry.provider}")
 
     if written == 0:
         raise PermanentError(f"series {series_id}: no list keeps a note")
+
+
+async def _store_note_locally(
+    ctx: JobContext, entry_id: int, provider: str, notes: str, tags: list[str]
+) -> None:
+    """Write the note into `list_entry.raw` at the key `series_metadata.py` reads.
+
+    Each provider nests it differently: AniList carries `notes` at the top of
+    the entry, MyAnimeList under `list_status.comments` (and `list_status.tags`
+    for the personal tags AniList has no equivalent of). A provider this
+    handler does not recognise is left untouched rather than guessed at.
+    """
+    if provider == str(Provider.ANILIST):
+        await ctx.session.execute(
+            text(
+                """
+                update list_entry
+                   set raw = jsonb_set(raw, '{notes}', cast(:notes as jsonb))
+                 where id = :id
+                """
+            ),
+            {"notes": json.dumps(notes), "id": entry_id},
+        )
+    elif provider == str(Provider.MAL):
+        await ctx.session.execute(
+            text(
+                """
+                update list_entry
+                   set raw = jsonb_set(
+                           jsonb_set(raw, '{list_status,comments}', cast(:notes as jsonb)),
+                           '{list_status,tags}', cast(:tags as jsonb)
+                       )
+                 where id = :id
+                """
+            ),
+            {"notes": json.dumps(notes), "tags": json.dumps(tags), "id": entry_id},
+        )
