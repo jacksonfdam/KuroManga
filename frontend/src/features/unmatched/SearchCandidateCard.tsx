@@ -27,7 +27,10 @@ export function SearchCandidateCard({
 
   return (
     <article className="flex gap-space-md rounded-xl bg-surface-container-low p-space-md shadow-card">
-      <div className="aspect-[2/3] w-16 shrink-0 overflow-hidden rounded-lg bg-surface-container-highest">
+      {/* self-start, or the flex row stretches the cover to the card's height and
+          object-cover crops the art to a sliver. The content column keeps
+          stretching so the action block can still sit at the bottom. */}
+      <div className="aspect-[2/3] w-16 shrink-0 self-start overflow-hidden rounded-lg bg-surface-container-highest">
         {candidate.cover_url && (
           <img
             src={candidate.cover_url}
