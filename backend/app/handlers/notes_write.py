@@ -74,6 +74,7 @@ async def handle(ctx: JobContext) -> None:
     written = 0
     for entry in entries:
         if not entry.connected:
+            await ctx.log(f"{entry.provider} is not connected; skipped", level="warning")
             continue
         try:
             token = await access_token_for(ctx.session, Provider(entry.provider))
@@ -123,12 +124,21 @@ async def _store_note_locally(
             {"notes": json.dumps(notes), "id": entry_id},
         )
     elif provider == str(Provider.MAL):
+        # jsonb_set only ever creates the final path segment, not an absent
+        # parent: an entry synced before `list_status` existed on it (or one
+        # whose raw was flattened by an older code path) has no such object,
+        # and the plain nested jsonb_set below would silently write nothing.
+        # The inner jsonb_set materialises `{list_status}` first, defaulting
+        # to `{}` when it is not already there, so the write always lands.
         await ctx.session.execute(
             text(
                 """
                 update list_entry
                    set raw = jsonb_set(
-                           jsonb_set(raw, '{list_status,comments}', cast(:notes as jsonb)),
+                           jsonb_set(
+                               jsonb_set(raw, '{list_status}', coalesce(raw -> 'list_status', '{}'::jsonb)),
+                               '{list_status,comments}', cast(:notes as jsonb)
+                           ),
                            '{list_status,tags}', cast(:tags as jsonb)
                        )
                  where id = :id
