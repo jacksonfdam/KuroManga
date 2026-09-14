@@ -71,7 +71,9 @@ select s.id, s.canonical_title, s.slug, s.needs_review, s.meta, s.komga_series_i
        coalesce(max(ch.failed), 0) as failed,
        array_remove(array_agg(distinct e.provider), null) as providers,
        max(e.total_chapters) as total_chapters,
-       (array_agg(e.status order by e.updated_at desc))[1] as status,
+       (array_agg(e.status order by
+           (e.provider = any(cast(:writable as text[]))) desc,
+           e.updated_at desc))[1] as status,
        coalesce(max(e.user_progress_chapter), 0) as progress,
        max(e.updated_at) as updated_at,
        (array_agg(e.raw order by e.updated_at desc))[1] as raw
@@ -109,7 +111,9 @@ select s.id, s.canonical_title, s.slug, s.needs_review, s.meta, s.komga_series_i
        count(c.id) filter (where c.state = 'failed') as failed,
        array_remove(array_agg(distinct e.provider), null) as providers,
        max(e.total_chapters) as total_chapters,
-       (array_agg(e.status order by e.updated_at desc))[1] as status,
+       (array_agg(e.status order by
+           (e.provider = any(cast(:writable as text[]))) desc,
+           e.updated_at desc))[1] as status,
        coalesce(max(e.user_progress_chapter), 0) as progress,
        max(e.updated_at) as updated_at,
        (array_agg(e.raw order by e.updated_at desc))[1] as raw
@@ -208,7 +212,7 @@ async def list_series(
     session: Session,
     state: Annotated[str | None, Query()] = None,
 ) -> list[dict[str, Any]]:
-    result = await session.execute(text(LIST_SQL))
+    result = await session.execute(text(LIST_SQL), {"writable": writable_providers()})
     series = []
     for row in result.all():
         item = _row_to_series(row)
@@ -273,7 +277,9 @@ async def _set_review_ignored(
 
 @router.get("/{series_id}")
 async def series_detail(series_id: int, session: Session) -> dict[str, Any]:
-    result = await session.execute(text(LIST_SQL_ONE), {"id": series_id})
+    result = await session.execute(
+        text(LIST_SQL_ONE), {"id": series_id, "writable": writable_providers()}
+    )
     row = result.first()
     if row is None:
         raise HTTPException(status_code=404, detail="series not found")
@@ -690,6 +696,17 @@ async def queue_status_write(session: AsyncSession, series_id: int, status: List
     )
 
 
+def writable_providers() -> list[str]:
+    """List providers the pipeline can write to, asked of the providers.
+
+    A status the user can change is one that lands somewhere we write. A
+    read-only provider's status is something we were told, and it must not
+    outrank something the user did — which is what ordering purely by recency
+    let it do, every time that provider synced.
+    """
+    return [str(p) for p in Provider if get_source(p).writable]
+
+
 def status_write_destinations() -> list[str]:
     """Where a status write actually lands, asked of the providers themselves.
 
@@ -699,8 +716,7 @@ def status_write_destinations() -> list[str]:
     someone a change reached a service it never touched is worse than saying
     nothing.
     """
-    reachable = [str(p) for p in Provider if get_source(p).writable]
-    return [*reachable, "komga"]
+    return [*writable_providers(), "komga"]
 
 
 @router.post("/{series_id}/status")

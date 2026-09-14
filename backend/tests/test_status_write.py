@@ -241,3 +241,51 @@ async def test_the_written_status_is_the_one_the_library_shows(client, monkeypat
 
     assert written == [("mal", "on_hold")]
     assert shown == "on_hold"
+
+
+async def test_a_read_only_provider_does_not_decide_what_the_series_reads_as(client):
+    """The status shown is one the user can change.
+
+    A series carries one entry per provider. Ordering purely by recency let a
+    read-only provider win simply by having synced last, so a status the user set
+    would revert with nothing on screen to explain it. A writable provider's
+    status is the one their action lands in, and it outranks anything we were
+    merely told.
+    """
+    async with get_sessionmaker()() as session:
+        await session.execute(
+            text(
+                """
+                insert into series (canonical_title, slug, needs_review, meta)
+                values ('Eleceed', 'eleceed', false, '{}'::jsonb)
+                """
+            )
+        )
+        # The read-only entry is both newest and in disagreement: exactly the
+        # state a sync of that provider leaves behind after a status change.
+        await session.execute(
+            text(
+                """
+                insert into list_entry
+                       (provider, provider_media_id, series_id, status,
+                        user_progress_chapter, synonyms, raw, updated_at)
+                values ('mal', '7', 1, 'on_hold', 280, '[]'::jsonb, '{}'::jsonb,
+                        now() - interval '1 hour'),
+                       ('mangabaka', '9', 1, 'reading', 280, '[]'::jsonb, '{}'::jsonb,
+                        now())
+                """
+            )
+        )
+        await session.commit()
+
+    rows = (await client.get("/api/series")).json()
+    assert [row["status"] for row in rows] == ["on_hold"]
+
+    detail = (await client.get("/api/series/1")).json()
+    assert detail["series"]["status"] == "on_hold"
+    # The per-provider rows still report what each service holds: the aggregate
+    # is a summary, not a claim that every list agrees.
+    assert {e["provider"]: e["status"] for e in detail["entries"]} == {
+        "mal": "on_hold",
+        "mangabaka": "reading",
+    }
