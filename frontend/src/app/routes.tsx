@@ -7,6 +7,7 @@ import { LibraryPage } from '../features/library/LibraryPage'
 import { ReviewPage } from '../features/review/ReviewPage'
 import { SeriesDetailPage } from '../features/series/SeriesDetailPage'
 import { SettingsPage } from '../features/settings/SettingsPage'
+import { StatsPage } from '../features/stats/StatsPage'
 import { UnmatchedPage } from '../features/unmatched/UnmatchedPage'
 import { AppShell } from './AppShell'
 
@@ -16,11 +17,13 @@ import { AppShell } from './AppShell'
 // the shelf. It lives at `/` rather than at `/home` so there is one address
 // for the front page instead of a redirect and a duplicate.
 //
-// /stats is still absent: its endpoint exists but its screen does not, and a
-// nav item that leads nowhere is worse than a nav that grows later. The anime
-// Discovery could not match get their own route rather than a tab inside it,
-// because the two are different questions and the shell's nav is where this
-// interface names a screen.
+// /stats is the second screen #16 asked for and #48 left unbuilt. It was
+// deliberately absent while `GET /api/stats` had nothing consuming it, on the
+// grounds that a nav item leading nowhere is worse than a nav that grows
+// later; the screen exists now, so it is named in the nav like any other. The
+// anime Discovery could not match get their own route rather than a tab inside
+// it, because the two are different questions and the shell's nav is where
+// this interface names a screen.
 
 // Confirming a mapping should clear the shell's review badge immediately
 // rather than waiting for the next SSE-triggered refresh, so Review's
@@ -35,6 +38,7 @@ export function AppRoutes() {
     <Routes>
       <Route element={<AppShell />}>
         <Route index element={<HomePage />} />
+        <Route path="stats" element={<StatsPage />} />
         <Route path="library" element={<LibraryPage />} />
         <Route path="series/:id" element={<SeriesDetailPage />} />
         <Route path="discovery" element={<DiscoveryPage />} />
