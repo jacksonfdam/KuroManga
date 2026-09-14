@@ -1,6 +1,7 @@
 import { useState } from 'react'
 
 import { Button, Card, Icon } from '../../ui'
+import { messageOf } from '../../lib/api'
 import { PROVIDER_LABEL } from '../../lib/format'
 
 // Markup reference: the "Pipeline & Mapeamento" block in
@@ -30,7 +31,7 @@ export function MappingPanel({
       // declined — the download-range form already surfaces its own
       // rejection text, and this control has to match it.
       setStatus('idle')
-      setError(err instanceof Error ? err.message : String(err))
+      setError(messageOf(err))
     }
   }
 
