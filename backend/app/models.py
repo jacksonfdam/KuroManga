@@ -52,6 +52,11 @@ class Series(Base):
     # Downloading is opt in. Discovery still runs, so the interface can show what
     # exists before anything is fetched.
     auto_download: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # Set when the user tells Review to stop asking about this series. Nothing
+    # else reads it: the series keeps its list entries, its Komga folder and its
+    # place in every sync, and an unmapped series was already downloading
+    # nothing. Null is the normal state, so the review queue is the default.
+    review_ignored_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     meta: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
     created_at: Mapped[datetime] = _now()
 
