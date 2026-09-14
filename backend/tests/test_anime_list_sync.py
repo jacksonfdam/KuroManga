@@ -177,3 +177,32 @@ async def test_a_mal_sync_does_not_flatten_an_already_recorded_discard():
         {"provider": "anilist", "media_id": "4000", "relation": "SOURCE",
          "title": "Mushoku Tensei (LN)", "format": "NOVEL"}
     ]
+
+
+async def test_an_anilist_resync_that_finds_nothing_replaces_a_stored_discard():
+    """The transition the coalesce fix has to allow, not just avoid breaking:
+    a row already holding a real discarded relation - the light novel got
+    dropped from the anime's relations, or reclassified - resynced by AniList,
+    which is the provider that gets to answer this question. The column has
+    to become "[]", not keep the stale entry and not go back to NULL either."""
+    async with get_sessionmaker()() as session:
+        await session.execute(
+            text(
+                """
+                insert into anime_entry (provider, provider_media_id, title_romaji, status,
+                                         related_manga, discarded_relations, raw)
+                values ('anilist', '21', 'Vinland Saga', 'completed', '[]'::jsonb,
+                        '[{"provider": "anilist", "media_id": "4000", "relation": "SOURCE",
+                           "title": "Mushoku Tensei (LN)", "format": "NOVEL"}]'::jsonb,
+                        '{}'::jsonb)
+                """
+            )
+        )
+        await session.commit()
+
+        await upsert_anime(session, dto(discarded=[]))
+        await session.commit()
+        row = (
+            await session.execute(text("select discarded_relations from anime_entry"))
+        ).one()
+    assert row.discarded_relations == []
