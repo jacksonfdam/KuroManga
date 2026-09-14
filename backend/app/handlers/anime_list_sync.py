@@ -30,9 +30,10 @@ async def upsert_anime(session: AsyncSession, dto: AnimeEntryDTO) -> None:
             """
             insert into anime_entry (provider, provider_media_id, title_romaji, title_english,
                                      synonyms, status, progress_episode, total_episodes,
-                                     cover_url, related_manga, raw, updated_at)
+                                     cover_url, related_manga, discarded_relations, raw, updated_at)
             values (:provider, :media_id, :romaji, :english, cast(:synonyms as jsonb), :status,
-                    :progress, :total, :cover, cast(:related as jsonb), cast(:raw as jsonb), now())
+                    :progress, :total, :cover, cast(:related as jsonb),
+                    cast(:discarded as jsonb), cast(:raw as jsonb), now())
             on conflict (provider, provider_media_id) do update
                set title_romaji = excluded.title_romaji,
                    title_english = excluded.title_english,
@@ -46,6 +47,13 @@ async def upsert_anime(session: AsyncSession, dto: AnimeEntryDTO) -> None:
                        then excluded.related_manga
                        else anime_entry.related_manga
                    end,
+                   -- Written unconditionally, unlike related_manga above: this
+                   -- is what turns NULL into "[]" the moment an anime resyncs,
+                   -- whether or not it found anything to discard. Guarding it
+                   -- the same way related_manga is guarded would leave a row
+                   -- that legitimately has nothing to discard anymore stuck
+                   -- reporting whatever a previous sync found.
+                   discarded_relations = excluded.discarded_relations,
                    raw = excluded.raw,
                    updated_at = now()
             """
@@ -62,6 +70,9 @@ async def upsert_anime(session: AsyncSession, dto: AnimeEntryDTO) -> None:
             "cover": dto.cover_url,
             "related": json.dumps(
                 [{**asdict(r), "provider": str(r.provider)} for r in dto.related_manga]
+            ),
+            "discarded": json.dumps(
+                [{**asdict(r), "provider": str(r.provider)} for r in dto.discarded_relations]
             ),
             "raw": json.dumps(dto.raw or {}),
         },
