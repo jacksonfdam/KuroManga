@@ -1,7 +1,7 @@
 """give the cross references still stored as bare strings a provenance
 
-Revision ID: 0008_normalize_legacy_cross_refs
-Revises: 0007_progress_event_series_index
+Revision ID: 0009_normalize_legacy_cross_refs
+Revises: 0008_anime_discarded_relations
 Create Date: 2026-09-14
 """
 
@@ -9,8 +9,8 @@ from collections.abc import Sequence
 
 from alembic import op
 
-revision: str = "0008_normalize_legacy_cross_refs"
-down_revision: str | None = "0007_progress_event_series_index"
+revision: str = "0009_normalize_legacy_cross_refs"
+down_revision: str | None = "0008_anime_discarded_relations"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
