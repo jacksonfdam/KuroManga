@@ -85,7 +85,7 @@ async def handle(ctx: JobContext) -> None:
 async def _store_note_locally(
     ctx: JobContext, entry_id: int, provider: str, notes: str, tags: list[str]
 ) -> None:
-    """Write the note into `list_entry.raw` at the key `series_metadata.py` reads.
+    """Write the note into `list_entry.raw` at the key `list_raw.py` reads.
 
     Each provider nests it differently: AniList carries `notes` at the top of
     the entry, MyAnimeList under `list_status.comments` (and `list_status.tags`
