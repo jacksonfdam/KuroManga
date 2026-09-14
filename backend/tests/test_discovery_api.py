@@ -145,7 +145,7 @@ async def test_a_series_that_is_already_mapped_keeps_the_mapping_it_has(client, 
                 text(
                     """
                     insert into series (canonical_title, slug, needs_review, meta, created_at)
-                    values ('Vinland Saga', 'vinland-saga', false,
+                    values ('Vinland Saga', 'vinland-saga', true,
                             '{"aliases": ["vinland saga"]}'::jsonb, now())
                     returning id
                     """
@@ -178,6 +178,51 @@ async def test_a_series_that_is_already_mapped_keeps_the_mapping_it_has(client, 
             )
         ).all()
     assert [row[0] for row in rows] == ["asurascan"]
+
+
+async def test_a_series_answered_as_mapped_stops_waiting_on_the_review_screen(
+    client, suggestion_id
+):
+    """Answering `needs_review: false` while the flag stays set is two truths at once."""
+    async with get_sessionmaker()() as session:
+        series_id = (
+            await session.execute(
+                text(
+                    """
+                    insert into series (canonical_title, slug, needs_review, meta, created_at)
+                    values ('Vinland Saga', 'vinland-saga', true,
+                            '{"aliases": ["vinland saga"]}'::jsonb, now())
+                    returning id
+                    """
+                )
+            )
+        ).scalar_one()
+        await session.execute(
+            text(
+                """
+                insert into source_mapping (series_id, source_site, source_url, active,
+                                            confirmed_at)
+                values (:id, 'asurascan', 'https://asuracomic.net/series/vs', true, now())
+                """
+            ),
+            {"id": series_id},
+        )
+        await session.commit()
+
+    body = (
+        await client.post(
+            f"/api/suggestions/{suggestion_id}/add", json={"status": "reading", "download": False}
+        )
+    ).json()
+    assert body["needs_review"] is False
+
+    async with get_sessionmaker()() as session:
+        flag = (
+            await session.execute(
+                text("select needs_review from series where id = :id"), {"id": series_id}
+            )
+        ).scalar_one()
+    assert flag is False
 
 
 async def test_approving_queues_the_status_write(client, suggestion_id):
@@ -456,3 +501,48 @@ async def test_approving_with_downloads_starts_following_a_series_that_was_not(
     async with get_sessionmaker()() as session:
         auto = (await session.execute(text("select auto_download from series"))).scalar_one()
     assert auto is True
+
+
+async def insert_added(media_id: str, rank: float, write_results: list[dict]) -> int:
+    async with get_sessionmaker()() as session:
+        new_id = (
+            await session.execute(
+                text(
+                    """
+                    insert into suggestion (provider, provider_media_id, alt_ids, title,
+                                            state, rank_score, meta)
+                    values ('anilist', :media_id, '{}'::jsonb, :title,
+                            'added', :rank, cast(:meta as jsonb))
+                    returning id
+                    """
+                ),
+                {
+                    "media_id": media_id,
+                    "title": f"Added {media_id}",
+                    "rank": rank,
+                    "meta": json.dumps({**META, "write_results": write_results}),
+                },
+            )
+        ).scalar_one()
+        await session.commit()
+    return new_id
+
+
+async def test_the_failed_write_banner_finds_a_failure_however_badly_it_ranks(client):
+    """Ranked and capped, a low-ranked failure fell out of the page it was read from."""
+    await insert_added("9001", 0.99, [{"target": "anilist", "ok": True, "skipped": False}])
+    failed = await insert_added(
+        "9002", 0.01, [{"target": "mal", "ok": False, "skipped": False, "error": "401"}]
+    )
+
+    body = (await client.get("/api/suggestions?state=added&write_failed=true&limit=1")).json()
+    assert [s["id"] for s in body] == [failed]
+
+
+async def test_a_skipped_target_is_an_absence_and_not_a_failure(client):
+    """MangaDex without personal credentials is the default setup, not bad news."""
+    await insert_added(
+        "9003", 0.5, [{"target": "mangadex", "ok": False, "skipped": True, "error": "no token"}]
+    )
+    body = (await client.get("/api/suggestions?state=added&write_failed=true")).json()
+    assert body == []

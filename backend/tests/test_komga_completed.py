@@ -9,7 +9,7 @@ from app.db import get_sessionmaker
 from app.enums import JobType
 from app.handlers import komga_scan
 from app.handlers.base import JobContext
-from app.handlers.komga_scan import completed_series
+from app.handlers.komga_scan import completed_series, marked_books
 from app.queue import repo
 
 pytestmark = pytest.mark.asyncio
@@ -64,20 +64,22 @@ async def test_a_series_that_never_came_from_discovery_is_left_alone():
         assert await completed_series(session, series_id) is None
 
 
-async def test_a_series_already_marked_read_is_never_marked_again():
-    """The stamp is what stops a download months later from being read for the user."""
+async def test_a_book_already_marked_read_is_never_marked_again():
+    """Per book, because the user may have marked that one unread since."""
     series_id = await _series_with_status("completed")
     async with get_sessionmaker()() as session:
         await session.execute(
             text(
                 """
                 update suggestion
-                   set meta = meta || '{"komga_marked_read": true}'::jsonb
+                   set meta = meta || '{"komga_marked_books": ["book-1"]}'::jsonb
                 """
             )
         )
         await session.commit()
-        assert await completed_series(session, series_id) is None
+        assert await marked_books(session, (await completed_series(session, series_id))) == {
+            "book-1"
+        }
 
 
 class FakeBook:
@@ -160,7 +162,12 @@ async def _book_ids() -> list[str | None]:
     return [row[0] for row in rows]
 
 
-async def test_a_second_scan_does_not_mark_the_series_read_again(monkeypatch):
+async def test_a_later_batch_is_marked_read_and_the_first_one_is_not_marked_twice(monkeypatch):
+    """KOMGA_SCAN runs per download batch, so a completed series arrives over many scans.
+
+    This used to assert the opposite - that the second scan marked nothing - which
+    left a 210-chapter series with only its first batch of books read.
+    """
     series_id = await _series_with_status("completed")
     await _seed_downloaded_chapters(series_id, ["/manga/v-komga/c1.cbz"])
     client = FakeKomga([FakeBook("book-1", "/manga/v-komga/c1.cbz")])
@@ -169,6 +176,24 @@ async def test_a_second_scan_does_not_mark_the_series_read_again(monkeypatch):
     assert client.marked == ["book-1"]
 
     client.books.append(FakeBook("book-2", "/manga/v-komga/c2.cbz"))
+    await _run_scan(monkeypatch, series_id, client)
+    assert client.marked == ["book-1", "book-2"]
+
+    client.books.append(FakeBook("book-3", "/manga/v-komga/c3.cbz"))
+    await _run_scan(monkeypatch, series_id, client)
+    assert client.marked == ["book-1", "book-2", "book-3"]
+
+
+async def test_a_book_komga_refused_is_tried_again_by_the_next_scan(monkeypatch):
+    """Only what was actually marked is recorded, so a transient refusal is not final."""
+    series_id = await _series_with_status("completed")
+    await _seed_downloaded_chapters(series_id, ["/manga/v-komga/c1.cbz"])
+    client = FakeKomga([FakeBook("book-1", "/manga/v-komga/c1.cbz")], failing={"book-1"})
+
+    await _run_scan(monkeypatch, series_id, client)
+    assert client.marked == []
+
+    client.failing.clear()
     await _run_scan(monkeypatch, series_id, client)
     assert client.marked == ["book-1"]
 

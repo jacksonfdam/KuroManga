@@ -6,6 +6,7 @@ discovery trust Komga instead of the filesystem.
 """
 
 import asyncio
+import json
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -57,13 +58,7 @@ async def adopt_book_ids(session: AsyncSession, series_id: int, books) -> int:
 
 
 async def completed_series(session: AsyncSession, series_id: int) -> int | None:
-    """The suggestion id when the user added this series already finished, else None.
-
-    Marking is one-shot. This job runs after every download batch, so without the
-    stamp a chapter downloaded months later would be marked read in Komga without
-    being read, and progress_push would then carry that chapter number out to the
-    user's real accounts, where it cannot be walked back.
-    """
+    """The suggestion id when the user added this series already finished, else None."""
     result = await session.execute(
         text(
             """
@@ -71,7 +66,6 @@ async def completed_series(session: AsyncSession, series_id: int) -> int | None:
              where series_id = :series_id
                and state = 'added'
                and meta ->> 'chosen_status' = 'completed'
-               and coalesce(meta ->> 'komga_marked_read', 'false') <> 'true'
              limit 1
             """
         ),
@@ -81,17 +75,56 @@ async def completed_series(session: AsyncSession, series_id: int) -> int | None:
     return row[0] if row else None
 
 
-async def stamp_marked_read(session: AsyncSession, suggestion_id: int) -> None:
+async def marked_books(session: AsyncSession, suggestion_id: int) -> set[str]:
+    """The books this pipeline has already marked read for that suggestion.
+
+    The guard has to be the book, not the suggestion: this job runs after every
+    download batch and chapter_discover queues every batch at once, so a suggestion
+    stamped by the first scan would leave a 210-chapter series with twenty books
+    read and the rest untouched, with no later scan allowed to finish the job.
+    Per book, re-running is still safe - a book the user has since marked unread
+    is in this set and is never marked again, which is what the stamp protected.
+
+    A series stamped under the old rule carries no book list, so its next scan
+    marks the whole series read once. That is the only way a series already left
+    half unread by the stamp can heal, and it is what the user asked for when
+    they added it as completed.
+    """
+    result = await session.execute(
+        text(
+            """
+            select jsonb_array_elements_text(coalesce(meta -> 'komga_marked_books', '[]'::jsonb))
+              from suggestion where id = :id
+            """
+        ),
+        {"id": suggestion_id},
+    )
+    return {row[0] for row in result.all()}
+
+
+async def record_marked_books(
+    session: AsyncSession, suggestion_id: int, book_ids: list[str]
+) -> None:
+    """Merge in the database rather than overwrite, so two scans cannot lose each other."""
+    if not book_ids:
+        return
     await session.execute(
         text(
             """
             update suggestion
-               set meta = coalesce(meta, '{}'::jsonb) || '{"komga_marked_read": true}'::jsonb,
+               set meta = coalesce(meta, '{}'::jsonb) || jsonb_build_object(
+                       'komga_marked_books',
+                       (select coalesce(jsonb_agg(distinct book_id), '[]'::jsonb)
+                          from jsonb_array_elements_text(
+                                   coalesce(meta -> 'komga_marked_books', '[]'::jsonb)
+                                   || cast(:ids as jsonb)
+                               ) as merged(book_id))
+                   ),
                    updated_at = now()
              where id = :id
             """
         ),
-        {"id": suggestion_id},
+        {"id": suggestion_id, "ids": json.dumps(book_ids)},
     )
 
 
@@ -141,13 +174,17 @@ async def handle(ctx: JobContext) -> None:
         await ctx.log("done", pct=100)
         return
 
-    marked = 0
-    for book in books:
+    already = await marked_books(ctx.session, suggestion_id)
+    pending = [book for book in books if book.id not in already]
+    marked: list[str] = []
+    for book in pending:
         try:
             await client.set_read_progress(book.id, page=1, completed=True)
         except Exception as exc:  # noqa: BLE001 - one book is not the whole series
             await ctx.log(f"could not mark {book.filename} read: {exc}", level="warning")
             continue
-        marked += 1
-    await stamp_marked_read(ctx.session, suggestion_id)
-    await ctx.log(f"marked {marked}/{len(books)} books read: added as completed", pct=100)
+        marked.append(book.id)
+    await record_marked_books(ctx.session, suggestion_id, marked)
+    await ctx.log(
+        f"marked {len(marked)}/{len(pending)} new books read: added as completed", pct=100
+    )

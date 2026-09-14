@@ -89,3 +89,9 @@ def test_an_entry_without_an_id_never_becomes_the_string_none():
     entries = parse_anime_list(data)
     assert [e.media_id for e in entries] == ["21"]
     assert entries[0].related_manga == []
+
+
+def test_an_anime_without_an_id_never_becomes_a_seed():
+    """A "None" media id would reach a suggestion and then the user's account."""
+    page = {"data": [{"node": {"title": "No id"}, "list_status": {"status": "watching"}}]}
+    assert parse_anime_page(page) == []

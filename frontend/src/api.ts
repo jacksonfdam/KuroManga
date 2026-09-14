@@ -249,7 +249,10 @@ export const api = {
   authStart: (provider: string) => request<{ url: string }>(`/api/auth/${provider}/start`),
   disconnect: (provider: string) =>
     request<{ ok: boolean }>(`/api/auth/${provider}`, { method: 'DELETE' }),
-  suggestions: (state = 'new') => request<Suggestion[]>(`/api/suggestions?state=${state}`),
+  suggestions: (state = 'new', options: { writeFailed?: boolean } = {}) =>
+    request<Suggestion[]>(
+      `/api/suggestions?state=${state}${options.writeFailed ? '&write_failed=true' : ''}`,
+    ),
   addSuggestion: (id: number, status: ListStatusValue, download: boolean) =>
     request<{ ok: boolean; series_id: number; needs_review: boolean }>(
       `/api/suggestions/${id}/add`,
