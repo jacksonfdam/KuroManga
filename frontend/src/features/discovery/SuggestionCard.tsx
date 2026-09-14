@@ -68,25 +68,19 @@ export function SuggestionCard({
       <button
         type="button"
         onClick={onSelect}
+        aria-label={`Show details for ${item.title}`}
         className="aspect-[2/3] w-full overflow-hidden bg-surface-container-highest"
       >
         {item.cover_url && (
-          <img
-            src={item.cover_url}
-            alt={`Cover of ${item.title}`}
-            loading="lazy"
-            className="h-full w-full object-cover"
-          />
+          <img src={item.cover_url} alt="" loading="lazy" className="h-full w-full object-cover" />
         )}
       </button>
       <div className="flex flex-1 flex-col gap-space-sm p-space-md">
-        <button
-          type="button"
-          onClick={onSelect}
-          className="text-left text-title-md text-on-surface hover:underline"
-        >
-          {item.title}
-        </button>
+        <h3 className="text-title-md text-on-surface">
+          <button type="button" onClick={onSelect} className="text-left hover:underline">
+            {item.title}
+          </button>
+        </h3>
         <p className="text-body-sm text-on-surface-variant">{reasonOf(item)}</p>
         <div className="flex flex-wrap items-center gap-space-xs">
           {item.year && <span className="font-mono text-label-sm text-outline">{item.year}</span>}

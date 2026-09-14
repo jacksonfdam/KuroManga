@@ -41,26 +41,24 @@ export function AnimeRow({
       className={`flex flex-col gap-space-md rounded-xl bg-surface-container p-space-md shadow-sm ${selected ? 'ring-1 ring-primary' : ''}`}
     >
       <div className="flex flex-col gap-space-md sm:flex-row sm:items-start">
-        <div className="aspect-[2/3] w-14 shrink-0 overflow-hidden rounded-lg bg-surface-container-highest">
+        {/* Not the whole row: it already carries Search, Hide and Add below,
+            and a row-wide click target would swallow clicks meant for those. */}
+        <button
+          type="button"
+          onClick={onSelect}
+          aria-label={`Show details for ${name}`}
+          className="aspect-[2/3] w-14 shrink-0 overflow-hidden rounded-lg bg-surface-container-highest"
+        >
           {anime.cover_url && (
-            <img
-              src={anime.cover_url}
-              alt={`Cover of ${name}`}
-              loading="lazy"
-              className="h-full w-full object-cover"
-            />
+            <img src={anime.cover_url} alt="" loading="lazy" className="h-full w-full object-cover" />
           )}
-        </div>
+        </button>
         <div className="flex min-w-0 flex-1 flex-col gap-space-xs">
-          {/* Not the whole row: it already carries Search, Hide and Add below,
-              and a row-wide click target would swallow clicks meant for those. */}
-          <button
-            type="button"
-            onClick={onSelect}
-            className="text-left text-title-md text-on-surface hover:underline"
-          >
-            {name}
-          </button>
+          <h3 className="text-title-md text-on-surface">
+            <button type="button" onClick={onSelect} className="text-left hover:underline">
+              {name}
+            </button>
+          </h3>
           {anime.title_romaji && anime.title_romaji !== name && (
             <span className="font-mono text-label-sm text-outline">{anime.title_romaji}</span>
           )}
