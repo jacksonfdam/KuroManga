@@ -8,6 +8,7 @@ import { DownloadControls } from './DownloadControls'
 import { MappingPanel } from './MappingPanel'
 import { NotesPanel } from './NotesPanel'
 import { ProgressManager } from './ProgressManager'
+import { ReadingFrequency } from './ReadingFrequency'
 import { ScoreStrip } from './ScoreStrip'
 import { SeriesHeader } from './SeriesHeader'
 import { SimilarWorks } from './SimilarWorks'
@@ -19,10 +20,12 @@ type Panel = 'chapters' | 'notes' | 'characters'
 
 // The mockup's own geometry: a twelve-column hero with the cover on three,
 // then a two-column body. What the mockup shows and this does not is listed in
-// docs/superpowers/plans/2026-09-14-series-detail-complete.md — a weekday
-// reading chart, a release cadence, per-chapter release dates and page counts,
-// and a ComicInfo validation badge. None of them has a source, and an invented
-// figure that fills a gap in a mockup is worse than the gap.
+// docs/superpowers/plans/2026-09-14-series-detail-complete.md — a release
+// cadence, per-chapter release dates and page counts, and a ComicInfo
+// validation badge. None of them has a source, and an invented figure that
+// fills a gap in a mockup is worse than the gap. The weekday reading chart
+// was the one deferred item on that list rather than a dropped one, and it
+// is built now that `progress_event` has landed.
 export function SeriesDetailPage() {
   const { id } = useParams<{ id: string }>()
   const seriesId = Number(id)
@@ -115,6 +118,8 @@ export function SeriesDetailPage() {
             onProgress={setProgress}
             onStatus={setListStatus}
           />
+
+          <ReadingFrequency frequency={detail.reading_frequency} />
 
           <section className="flex flex-col gap-space-md">
             <Tabs

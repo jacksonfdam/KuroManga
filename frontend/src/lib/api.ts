@@ -115,6 +115,28 @@ export interface SeriesMetadata {
   enriched_at: string | null
 }
 
+export interface ReadingFrequencyWeekday {
+  weekday: number
+  label: string
+  chapters: number
+}
+
+/**
+ * `progress_event` fills forward only from 2026-09-13, so `first_event_at`
+ * null means this series has never had a recorded event — not that the week
+ * was quiet. The seven weekday buckets are still always present and zero
+ * where nothing landed, because inside a series that *has* been tracked a
+ * zero is a real zero, the same distinction `Velocity` draws for the log as
+ * a whole.
+ */
+export interface SeriesReadingFrequency {
+  weekdays: ReadingFrequencyWeekday[]
+  total_chapters: number
+  active_days: number
+  busiest_weekday: number | null
+  first_event_at: string | null
+}
+
 export interface SeriesDetail {
   series: Series
   metadata: SeriesMetadata
@@ -122,6 +144,7 @@ export interface SeriesDetail {
   chapters: SeriesChapter[]
   entries: SeriesEntry[]
   reading_minutes_per_chapter: number
+  reading_frequency: SeriesReadingFrequency
 }
 
 export interface ReviewPayload {

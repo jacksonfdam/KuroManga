@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app import settings_store
 from app.api.deps import db_session
 from app.api.list_raw import display_fields, metadata_of
+from app.api.reading_frequency import reading_frequency
 from app.enums import JobType, ListStatus, Provider
 from app.handlers.batching import queue_batches
 from app.handlers.media_enrich import is_stale
@@ -332,6 +333,7 @@ async def series_detail(series_id: int, session: Session) -> dict[str, Any]:
         "reading_minutes_per_chapter": await settings_store.get_int(
             session, settings_store.READING_MINUTES_PER_CHAPTER
         ),
+        "reading_frequency": await reading_frequency(session, series_id),
     }
 
     # Opening the page is what asks for the extras. A job rather than a fetch
