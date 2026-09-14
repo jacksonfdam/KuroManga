@@ -14,15 +14,17 @@ export function NotesPanel({
   onSave: (notes: string, tags: string[]) => Promise<void>
 }) {
   const [draft, setDraft] = useState(metadata.notes ?? '')
+  // Emptiness cannot stand in for "untouched": a user who clears the box to
+  // retype has an empty draft too, and refilling it from a refresh that lands
+  // in that moment throws away a deliberate clear. Only an untouched panel
+  // follows the server.
+  const [touched, setTouched] = useState(false)
   const [saving, setSaving] = useState(false)
   const [outcome, setOutcome] = useState<{ text: string; tone: 'info' | 'error' } | null>(null)
 
-  // A note that arrives from a later refresh replaces the draft only when the
-  // user has not started editing — otherwise a background reload would delete
-  // what they were halfway through typing.
   useEffect(() => {
-    setDraft((current) => (current === '' ? metadata.notes ?? '' : current))
-  }, [metadata.notes])
+    if (!touched) setDraft(metadata.notes ?? '')
+  }, [metadata.notes, touched])
 
   const save = async () => {
     setSaving(true)
@@ -30,6 +32,9 @@ export function NotesPanel({
     try {
       await onSave(draft, metadata.user_tags)
       setOutcome({ text: 'Note queued for your reading lists.', tone: 'info' })
+      // The user's note has landed; the panel can follow the server again once
+      // it round-trips back through list_sync or an edit from another device lands.
+      setTouched(false)
     } catch (failure) {
       setOutcome({ text: messageOf(failure), tone: 'error' })
     } finally {
@@ -50,7 +55,10 @@ export function NotesPanel({
         value={draft}
         maxLength={MAX_NOTE}
         rows={6}
-        onChange={(event) => setDraft(event.target.value)}
+        onChange={(event) => {
+          setTouched(true)
+          setDraft(event.target.value)
+        }}
         aria-label="Your note on this series"
         className="w-full rounded-lg bg-surface-container-lowest p-space-md text-body-md text-on-surface placeholder:text-outline focus:outline-none focus:ring-1 focus:ring-primary"
         placeholder="Kept on your own list entry, not on this server."
