@@ -1,5 +1,5 @@
-import { Icon, StatusPill } from '../../ui'
-import type { Series } from '../../lib/api'
+import { Icon } from '../../ui'
+import type { Series, SeriesState } from '../../lib/api'
 import { PROVIDER_LABEL, formatChapter, formatSeriesFormat } from '../../lib/format'
 import { totalChapters } from './useLibrary'
 import { useIncrementFlash, type FlashState } from './useIncrementFlash'
@@ -11,6 +11,26 @@ import { useIncrementFlash, type FlashState } from './useIncrementFlash'
 const FLASH: Record<NonNullable<FlashState>, string> = {
   success: 'bg-secondary text-on-secondary',
   error: 'bg-error text-on-error',
+}
+
+// The reference's fifth column is "Status Pipeline": what the pipeline is
+// doing with this series. This table showed the reading status instead, which
+// is already the filter sitting directly above it — so the row said the same
+// thing twice and never said whether a series was mapped, downloading, or
+// waiting for a human.
+const STATE_LABEL: Record<SeriesState, string> = {
+  mapped: 'Mapped',
+  needs_review: 'Needs review',
+  downloading: 'Downloading',
+  failed: 'Failed',
+}
+
+// Bracket form again: 12 is not on Tailwind's opacity scale (see StatusPill).
+const STATE_TINT: Record<SeriesState, string> = {
+  mapped: 'bg-secondary/[0.12] text-secondary',
+  needs_review: 'bg-warning/[0.12] text-warning',
+  downloading: 'bg-tertiary/[0.12] text-tertiary',
+  failed: 'bg-error/[0.12] text-error',
 }
 
 // Markup reference: "Modo Tabela Rápida" in
@@ -32,7 +52,10 @@ function SeriesRow({
   return (
     <tr className="h-16 transition-colors hover:bg-surface-container">
       <td className="px-3 text-center font-mono text-outline">{String(index + 1).padStart(2, '0')}</td>
-      <td className="px-4">
+      {/* max-w-0 is what lets the title truncate: a table cell is otherwise
+          as wide as its longest word, and one 90-character light-novel title
+          pushed the pipeline column off the right edge. */}
+      <td className="max-w-0 px-4">
         <div className="flex items-center gap-3">
           <div className="h-14 w-10 shrink-0 overflow-hidden rounded-lg bg-surface-container-highest shadow-sm">
             {row.cover_url && <img src={row.cover_url} alt="" className="h-full w-full object-cover" />}
@@ -57,6 +80,30 @@ function SeriesRow({
             ))
           )}
         </div>
+      </td>
+      <td className="px-3">
+        {/* Where the chapters come from, which the reference puts beside the
+            list providers and this table left out entirely. It is not the same
+            fact as the providers column: those are the reading lists, this is
+            the site the CBZ files are pulled from. */}
+        {row.source_site ? (
+          row.source_url ? (
+            <a
+              href={row.source_url}
+              target="_blank"
+              rel="noreferrer"
+              className="font-mono text-label-sm text-secondary hover:underline"
+            >
+              {PROVIDER_LABEL[row.source_site] ?? row.source_site}
+            </a>
+          ) : (
+            <span className="font-mono text-label-sm text-secondary">
+              {PROVIDER_LABEL[row.source_site] ?? row.source_site}
+            </span>
+          )
+        ) : (
+          <span className="font-mono text-label-sm text-outline">Not mapped</span>
+        )}
       </td>
       <td className="px-4">
         <div className="flex flex-col gap-1.5">
@@ -92,7 +139,12 @@ function SeriesRow({
         </div>
       </td>
       <td className="px-3">
-        {row.status ? <StatusPill status={row.status} /> : <span className="font-mono text-label-sm text-outline">—</span>}
+        <span
+          className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-space-sm py-0.5 font-mono text-label-sm ${STATE_TINT[row.state]}`}
+        >
+          <span className="h-1.5 w-1.5 rounded-full bg-current" />
+          {STATE_LABEL[row.state]}
+        </span>
       </td>
     </tr>
   )
@@ -107,14 +159,15 @@ export function SeriesTable({
 }) {
   return (
     <div className="w-full overflow-x-auto rounded-xl bg-surface-container-low shadow-card">
-      <table className="w-full min-w-[640px] border-collapse text-left">
+      <table className="w-full min-w-[820px] border-collapse text-left">
         <thead>
           <tr className="bg-surface-container font-mono text-label-sm uppercase tracking-wider text-outline">
             <th className="w-10 px-3 py-3 text-center">#</th>
-            <th className="px-4 py-3">Title</th>
-            <th className="w-40 px-3 py-3">Sources</th>
+            <th className="w-full px-4 py-3">Title</th>
+            <th className="w-40 px-3 py-3">Lists</th>
+            <th className="w-28 px-3 py-3">Chapter source</th>
             <th className="w-52 px-4 py-3">Progress</th>
-            <th className="w-32 px-3 py-3">Status</th>
+            <th className="w-36 px-3 py-3">Pipeline</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-surface-container-highest/20 text-body-sm">
