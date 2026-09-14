@@ -86,9 +86,16 @@ jobs:
         env:
           POSTGRES_DB: migration_guard_check
         run: |
-          git fetch origin main
+          # The checkout above is shallow and its fetch refspec is scoped to this
+          # pull request's own ref, so `git fetch origin main` updates FETCH_HEAD
+          # without necessarily creating a refs/remotes/origin/main to point at --
+          # `git worktree add ... origin/main` then fails with "invalid reference"
+          # on essentially every pull request. FETCH_HEAD is what the fetch just
+          # wrote and always exists; --detach is required because it is not a
+          # branch.
+          git fetch --depth=1 origin main
           WORKTREE="$RUNNER_TEMP/main-migrations"
-          git worktree add "$WORKTREE" origin/main
+          git worktree add --detach "$WORKTREE" FETCH_HEAD
 
           .venv/bin/python -c "
           import asyncio, asyncpg, os
