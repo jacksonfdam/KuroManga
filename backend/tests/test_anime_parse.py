@@ -25,6 +25,40 @@ def test_only_manga_relations_survive(fixture):
     assert second.related_manga[0].provider is Provider.ANILIST
 
 
+def test_a_wanted_relation_pointing_at_a_novel_is_discarded_with_its_format(fixture):
+    """SOURCE is a wanted relation type, but a NOVEL node is not a manga."""
+    second = parse_anime_list(fixture("anilist_anime_list.json"))[1]
+    assert [r.media_id for r in second.discarded_relations] == ["4000"]
+    discarded = second.discarded_relations[0]
+    assert discarded.relation == "SOURCE"
+    assert discarded.format == "NOVEL"
+    assert discarded.title == "Mushoku Tensei (LN)"
+    assert discarded.provider is Provider.ANILIST
+
+
+def test_a_relation_type_outside_wanted_relations_is_not_recorded_anywhere(fixture):
+    """SEQUEL is noise, not an answer to "why is this anime unmatched" - it is
+    dropped outright, neither kept as usable nor kept as discarded."""
+    first = parse_anime_list(fixture("anilist_anime_list.json"))[0]
+    ids = {r.media_id for r in first.related_manga} | {r.media_id for r in first.discarded_relations}
+    assert "22" not in ids
+
+
+def test_a_usable_relation_is_not_duplicated_into_the_discarded_list(fixture):
+    first, second = parse_anime_list(fixture("anilist_anime_list.json"))
+    assert "3000" not in {r.media_id for r in first.discarded_relations}
+    assert "4001" not in {r.media_id for r in second.discarded_relations}
+
+
+def test_an_anime_with_no_relations_at_all_gets_neither_list_populated():
+    media = {"id": 21, "title": {"romaji": "No Relations"}}
+    entries = parse_anime_list(
+        {"MediaListCollection": {"lists": [{"entries": [{"status": "COMPLETED", "media": media}]}]}}
+    )
+    assert entries[0].related_manga == []
+    assert entries[0].discarded_relations == []
+
+
 def test_the_relation_keeps_the_title_it_will_be_deduplicated_by(fixture):
     first = parse_anime_list(fixture("anilist_anime_list.json"))[0]
     assert first.related_manga[0].title == "Vinland Saga"
