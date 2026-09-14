@@ -56,8 +56,15 @@ export function ScoreStrip({ metadata }: { metadata: SeriesMetadata }) {
       <Cell
         key="volumes"
         label="Volumes"
-        value={`${metadata.volumes_read ?? 0} / ${metadata.volumes_total}`}
-        detail="read"
+        // volumes_read is nullable independently of the total: a provider can
+        // report how many volumes exist without reporting how many were read.
+        // "0 / 18 read" would assert a count nobody gave.
+        value={
+          metadata.volumes_read != null
+            ? `${metadata.volumes_read} / ${metadata.volumes_total}`
+            : `${metadata.volumes_total}`
+        }
+        detail={metadata.volumes_read != null ? 'read' : 'in total'}
       />
     ),
     metadata.rank != null && (
