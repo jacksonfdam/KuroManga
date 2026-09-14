@@ -13,6 +13,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    desc,
     func,
     text,
 )
@@ -238,7 +239,10 @@ class Suggestion(Base):
     __tablename__ = "suggestion"
     __table_args__ = (
         UniqueConstraint("provider", "provider_media_id", name="uq_suggestion_provider_media"),
-        Index("ix_suggestion_state_rank", "state", "rank_score"),
+        # `desc` is not decoration: the Discovery list is ordered by rank_score
+        # descending, and an index declared ascending here is a difference
+        # alembic autogenerate would offer to "fix" against the migration.
+        Index("ix_suggestion_state_rank", "state", desc("rank_score")),
     )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
