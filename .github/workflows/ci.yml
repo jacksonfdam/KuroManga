@@ -53,6 +53,72 @@ jobs:
           uv venv
           uv pip install -e ".[dev]" alembic
 
+      - name: Fail fast on more than one migration head
+        # A fork is invisible on the branch that creates it -- each migration
+        # looks correct on its own, added from whatever head existed when it was
+        # written. Checking here, before anything else runs, names the real
+        # problem instead of the wall of unrelated errors the test suite's
+        # session-scoped schema fixture produces once `alembic upgrade head` can
+        # no longer pick a head (#71).
+        run: |
+          HEADS="$(.venv/bin/python -m alembic heads)"
+          if [ "$(echo "$HEADS" | wc -l)" -ne 1 ]; then
+            echo "::error::The migration chain has more than one head:"
+            echo "$HEADS"
+            echo "Re-parent one migration onto the other by changing its down_revision to"
+            echo "the other head's revision id. Leave its own revision id alone -- that id"
+            echo "is what a database that already ran it has recorded in alembic_version,"
+            echo "so renaming it strands that database rather than fixing anything. See"
+            echo "d4fa919 for a worked example."
+            exit 1
+          fi
+
+      - name: Verify the migration applies on top of origin/main
+        # `alembic upgrade head` against an empty database only proves the chain
+        # resolves from nothing. Every real deployment upgrades a database that is
+        # already at main's head, and a migration that only works from empty would
+        # still pass the check above. This applies main's migrations first, in a
+        # separate worktree so the branch's own checkout is untouched, then the
+        # branch's migrations on top -- against a throwaway database, so the fresh
+        # one the test suite expects is left alone. A push to main has no separate
+        # base to compare against, so this only runs for a pull request.
+        if: github.event_name == 'pull_request'
+        env:
+          POSTGRES_DB: migration_guard_check
+        run: |
+          # The checkout above is shallow and its fetch refspec is scoped to this
+          # pull request's own ref, so `git fetch origin main` updates FETCH_HEAD
+          # without necessarily creating a refs/remotes/origin/main to point at --
+          # `git worktree add ... origin/main` then fails with "invalid reference"
+          # on essentially every pull request. FETCH_HEAD is what the fetch just
+          # wrote and always exists; --detach is required because it is not a
+          # branch.
+          git fetch --depth=1 origin main
+          WORKTREE="$RUNNER_TEMP/main-migrations"
+          git worktree add --detach "$WORKTREE" FETCH_HEAD
+
+          .venv/bin/python -c "
+          import asyncio, asyncpg, os
+
+          async def main():
+              conn = await asyncpg.connect(
+                  host=os.environ['POSTGRES_HOST'],
+                  port=int(os.environ['POSTGRES_PORT']),
+                  user=os.environ['POSTGRES_USER'],
+                  password=os.environ['POSTGRES_PASSWORD'],
+                  database='postgres',
+              )
+              await conn.execute('CREATE DATABASE ' + os.environ['POSTGRES_DB'])
+              await conn.close()
+
+          asyncio.run(main())
+          "
+
+          (cd "$WORKTREE/backend" && "$GITHUB_WORKSPACE/backend/.venv/bin/python" -m alembic upgrade head)
+          .venv/bin/python -m alembic upgrade head
+
+          git worktree remove "$WORKTREE" --force
+
       - name: Lint
         run: .venv/bin/ruff check app/ tests/
 
