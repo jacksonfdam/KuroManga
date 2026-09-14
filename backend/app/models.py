@@ -239,6 +239,11 @@ class AnimeEntry(Base):
     total_episodes: Mapped[int | None] = mapped_column(Integer)
     cover_url: Mapped[str | None] = mapped_column(Text)
     related_manga: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, nullable=False, default=list)
+    # Nullable, unlike related_manga: NULL means this row has not been synced
+    # since recording shipped, and "[]" means it has and nothing was discarded.
+    # See reading_frequency.first_event_at for the same distinction made the
+    # same way.
+    discarded_relations: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB)
     raw: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
     manga_dismissed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     updated_at: Mapped[datetime] = mapped_column(
