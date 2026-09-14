@@ -763,14 +763,29 @@ async def set_list_status_batch(body: BatchStatusIn, session: Session) -> dict[s
     One job per series rather than one job for the batch: a provider failing for
     one series must not strand the other twenty-nine, and each retries alone.
 
-    A series that is on no reading list is skipped rather than refused. In a
-    batch the user selected by eye, one such row is not a reason to reject the
-    other twenty-nine, and the response says which were left out so the screen
-    can say so too.
+    A series that is on no reading list — or that does not exist at all — is
+    skipped rather than refused. In a batch the user selected by eye, one such
+    row is not a reason to reject the other twenty-nine, and the response names
+    the ids that were left out so the screen can say so too. Both cases share
+    one `skipped` list because the user can do nothing different about either:
+    the id was not queued, and there is no second action to offer.
+
+    Nothing here writes to list_entry. Queueing is the whole of the route, and
+    the STATUS_WRITE handler it queues touches `status` and `updated_at` only,
+    which is what keeps a status apply from carrying progress with it.
     """
     ids = list(dict.fromkeys(body.series_ids))
     if not ids:
-        return {"ok": True, "queued": 0, "skipped": [], "destinations": status_write_destinations()}
+        # A no-op, not an error: the bar can send an empty selection while the
+        # grid is still settling, and a 4xx there is a failure toast for
+        # nothing having happened.
+        return {
+            "ok": True,
+            "status": str(body.status),
+            "queued": 0,
+            "skipped": [],
+            "destinations": status_write_destinations(),
+        }
 
     rows = await session.execute(
         text(
