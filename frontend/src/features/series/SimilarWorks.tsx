@@ -40,7 +40,7 @@ export function SimilarWorks({ items }: { items: SimilarWork[] }) {
               )}
               <span className="font-mono text-label-sm text-outline">
                 {item.score != null && (
-                  <span className="text-tertiary">★ {item.score.toFixed(2)}</span>
+                  <span className="text-tertiary">★ {item.score.toFixed(1)}</span>
                 )}
                 {item.score != null && item.chapters != null && ' · '}
                 {item.chapters != null && `${item.chapters} chapters`}

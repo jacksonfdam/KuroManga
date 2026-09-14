@@ -44,7 +44,7 @@ export function ScoreStrip({ metadata }: { metadata: SeriesMetadata }) {
       <Cell
         key="global"
         label="Global score"
-        value={`★ ${metadata.global_score.toFixed(2)}`}
+        value={`★ ${metadata.global_score.toFixed(1)}`}
         detail={metadata.vote_count != null ? `${grouped(metadata.vote_count)} votes` : null}
         tone="text-tertiary"
       />
