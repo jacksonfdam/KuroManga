@@ -8,7 +8,7 @@ you can read in a browser or on your phone.
 
 Self-hosted. One `docker compose up`. Nothing leaves your machine.
 
-![The KuroManga library](docs/images/library.png)
+<!-- Screenshot goes here: docs/images/library.png -->
 
 ---
 
