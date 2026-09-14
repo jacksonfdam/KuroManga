@@ -288,7 +288,12 @@ class ProgressEvent(Base):
     """
 
     __tablename__ = "progress_event"
-    __table_args__ = (Index("ix_progress_event_created_at", "created_at"),)
+    __table_args__ = (
+        Index("ix_progress_event_created_at", "created_at"),
+        # Backs the series detail page's per-series weekly frequency query,
+        # which filters on series_id before it ever looks at created_at.
+        Index("ix_progress_event_series_created", "series_id", "created_at"),
+    )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     series_id: Mapped[int] = mapped_column(
