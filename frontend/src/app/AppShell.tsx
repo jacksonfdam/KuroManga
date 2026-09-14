@@ -11,11 +11,12 @@ import { Icon, type IconName } from '../ui/Icon'
 
 type Integration = { name: string; state: string; detail: string | null }
 
-// Home and Stats are omitted: their screens belong to later plans (see
-// task-4..8 in this spec set), and a nav item that leads nowhere is worse than
-// a nav that grows later. Discovery and its unmatched list are routed, so they
-// are named here.
+// Home leads, because it is the front page: `/` used to redirect to the
+// library, which meant the interface had a shelf where its dashboard should
+// be. Stats is still omitted — its endpoint exists but its screen does not,
+// and a nav item that leads nowhere is worse than a nav that grows later.
 const NAV: { to: string; label: string; icon: IconName; badge?: 'review' | 'jobs' | 'suggestions' }[] = [
+  { to: '/', label: 'Home', icon: 'server' },
   { to: '/library', label: 'Library', icon: 'book' },
   { to: '/discovery', label: 'Discovery', icon: 'sparkle', badge: 'suggestions' },
   { to: '/unmatched', label: 'Unmatched', icon: 'search' },
@@ -85,6 +86,9 @@ export function AppShell() {
                 <NavLink
                   key={item.to}
                   to={item.to}
+                  // Without `end`, "/" prefix-matches every route and Home
+                  // would read as the active section on all of them.
+                  end={item.to === '/'}
                   className={({ isActive }) =>
                     `flex items-center gap-space-xs rounded-lg px-space-sm py-space-xs transition-colors ${
                       isActive
@@ -149,6 +153,7 @@ export function AppShell() {
           <NavLink
             key={item.to}
             to={item.to}
+            end={item.to === '/'}
             className={({ isActive }) =>
               `flex flex-col items-center gap-0.5 rounded-lg px-space-sm py-space-xs transition-colors ${
                 isActive ? 'text-primary' : 'text-on-surface-variant hover:text-on-surface'
