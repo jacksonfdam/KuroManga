@@ -65,10 +65,16 @@ export interface JobEvent {
 
 export interface SettingsPayload {
   values: Record<string, string>
-  providers: Record<string, { connected: boolean; configured: boolean; account_name?: string }>
+  providers: Record<string, ProviderStatus>
   sources: Record<string, SourceStatus>
   library_path: string
 }
+
+/** An OAuth provider is connected or not; a token provider just needs its
+ * environment variable set, so it has no connect/disconnect state at all. */
+export type ProviderStatus =
+  | { uses_oauth: true; connected: boolean; configured: boolean; account_name?: string }
+  | { uses_oauth: false; configured: boolean }
 
 /** MangaDex has an account; comick has none, so it only reports whether it answers. */
 export type SourceStatus =

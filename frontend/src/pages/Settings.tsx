@@ -57,7 +57,13 @@ export function Settings() {
             style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0' }}
           >
             <b style={{ width: 90 }}>{provider}</b>
-            {info.connected ? (
+            {!info.uses_oauth ? (
+              info.configured ? (
+                <span className="pill mapped">token configured</span>
+              ) : (
+                <span className="pill">{provider.toUpperCase()}_TOKEN missing in .env</span>
+              )
+            ) : info.connected ? (
               <span className="pill mapped">connected{info.account_name ? ` · ${info.account_name}` : ''}</span>
             ) : info.configured ? (
               <span className="pill needs_review">not connected</span>
@@ -68,7 +74,7 @@ export function Settings() {
             <button onClick={() => api.sync(provider).then(() => setStatus('sync queued'))}>
               Sync now
             </button>
-            {info.connected ? (
+            {!info.uses_oauth ? null : info.connected ? (
               <button onClick={() => api.disconnect(provider).then(load)}>Disconnect</button>
             ) : (
               <button className="primary" disabled={!info.configured} onClick={() => connect(provider)}>
