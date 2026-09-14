@@ -165,3 +165,79 @@ async def test_a_click_that_lands_after_the_job_is_leased_still_reaches_the_prov
         await session.commit()
 
     assert written == [("mal", "on_hold")]
+
+
+async def test_the_written_status_is_the_one_the_library_shows(client, monkeypatch):
+    """The write has to win the tie-break the library sorts by.
+
+    A series carries one entry per provider, and the library shows whichever was
+    updated most recently. A read-only provider is never written to, so if the
+    write leaves its own row's timestamp alone that row loses and the screen goes
+    on showing a status the user just changed. The change lands in the database
+    and looks like nothing happened.
+    """
+    async with get_sessionmaker()() as session:
+        await session.execute(
+            text(
+                """
+                insert into series (canonical_title, slug, needs_review, meta)
+                values ('Eleceed', 'eleceed', false, '{}'::jsonb)
+                """
+            )
+        )
+        # The read-only entry is the most recently touched, as it would be after
+        # any sync of that provider.
+        await session.execute(
+            text(
+                """
+                insert into list_entry
+                       (provider, provider_media_id, series_id, status,
+                        user_progress_chapter, synonyms, raw, updated_at)
+                values ('mal', '7', 1, 'reading', 280, '[]'::jsonb, '{}'::jsonb,
+                        now() - interval '1 hour'),
+                       ('mangabaka', '9', 1, 'reading', 280, '[]'::jsonb, '{}'::jsonb,
+                        now())
+                """
+            )
+        )
+        await session.execute(
+            text(
+                """
+                insert into provider_token (provider, access_token, refresh_token, expires_at)
+                values ('mal', 'token', null, null)
+                """
+            )
+        )
+        await repo.enqueue(
+            session,
+            JobType.STATUS_WRITE,
+            {"series_id": 1, "status": "on_hold"},
+            series_id=1,
+            dedupe_key="status_write:1",
+        )
+        await session.commit()
+        job = await repo.lease(session)
+        assert job is not None
+
+    written: list[tuple[str, str]] = []
+    monkeypatch.setattr(
+        status_write, "get_source", lambda provider: RecordingSource(written, provider)
+    )
+
+    async with get_sessionmaker()() as session:
+        await status_write.handle(JobContext(session=session, job=job))
+        await session.commit()
+
+        shown = (
+            await session.execute(
+                text(
+                    """
+                    select (array_agg(e.status order by e.updated_at desc))[1]
+                      from list_entry e where e.series_id = 1
+                    """
+                )
+            )
+        ).scalar_one()
+
+    assert written == [("mal", "on_hold")]
+    assert shown == "on_hold"

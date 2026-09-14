@@ -63,7 +63,15 @@ async def handle(ctx: JobContext) -> None:
         # The local row follows the write, not the click: a status that never
         # reached the provider must not read as synced on the next page load.
         await ctx.session.execute(
-            text("update list_entry set status = :status where id = :id"),
+            # updated_at is bumped explicitly. Its onupdate is an ORM default
+            # and this is raw SQL, so without it the row keeps its old
+            # timestamp — and the library shows whichever entry was updated most
+            # recently, which is then a provider nothing ever wrote to. The
+            # write lands in the database and the screen does not move.
+            text(
+                "update list_entry set status = :status, updated_at = now() "
+                "where id = :id"
+            ),
             {"status": str(status), "id": entry.id},
         )
         written += 1
