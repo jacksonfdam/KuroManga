@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 
-import { api, messageOf } from '../lib/api'
+import { api } from '../lib/api'
 import { useJobEvents } from '../lib/useEvents'
 import { PROVIDER_LABEL } from '../lib/format'
 import { useNotice } from '../lib/useNotice'
+import { syncLists } from '../lib/sync'
 import { Badge, Button, NoticeBar } from '../ui'
 import { Icon, type IconName } from '../ui/Icon'
 
@@ -33,13 +34,6 @@ const STATE_LABEL: Record<string, string> = {
   ok: 'reachable', unauthenticated: 'needs sign-in', unreachable: 'unreachable',
 }
 
-// Named here rather than reusing the strip's map, because the strip lists
-// every integration and only the two list providers are synced.
-const SYNCED: [string, string][] = [
-  ['mal', 'MyAnimeList'],
-  ['anilist', 'AniList'],
-]
-
 export function AppShell() {
   const [counts, setCounts] = useState<Record<string, number>>({})
   const [reviewCount, setReviewCount] = useState(0)
@@ -61,15 +55,10 @@ export function AppShell() {
   useEffect(refresh, [])
   useJobEvents(refresh)
 
-  // The shell's own primary action. An unauthenticated provider rejects, and
-  // firing both promises without looking at either meant the click reported
-  // nothing at all — allSettled so one dead provider does not hide the other
-  // one having worked.
+  // The shell's own primary action. Home's "Force scan" is the same act
+  // against the same providers, so the request itself lives in lib/sync.ts.
   const syncAll = async () => {
-    const results = await Promise.allSettled(SYNCED.map(([provider]) => api.sync(provider)))
-    const failures = results.flatMap((result, index) =>
-      result.status === 'rejected' ? [`${SYNCED[index][1]}: ${messageOf(result.reason)}`] : [],
-    )
+    const failures = await syncLists()
     if (failures.length > 0) fail(failures.join(' · '))
     else report('Sync queued for MyAnimeList and AniList')
   }
