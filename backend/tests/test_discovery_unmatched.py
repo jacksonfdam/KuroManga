@@ -408,6 +408,77 @@ def test_kimetsu_mugen_ressha_movie_and_arc_do_not_cross():
     assert _grouping(rows) == [(387, 1918), (390, 1755)]
 
 
+def test_two_seasons_each_known_to_one_provider_do_not_fold_together():
+    """The case both other guards are blind to, because neither is competitive.
+
+    MyAnimeList has the fifth season and AniList has the sixth; neither mirrors
+    the other's, so no better pair arrives to claim either row, and the
+    franchise name they both carry as a synonym used to be enough on its own.
+    One Hide button would then have answered for two anime. Both are 25
+    episodes, so the episode count separates nothing: what does is that one row
+    says fifth and the other says sixth.
+    """
+    franchise = ["My Hero Academia", "Heroaca"]
+    rows = [
+        _row(63, "mal", "Boku no Hero Academia 5th Season", "My Hero Academia Season 5",
+             franchise, total_episodes=25, media_id=40748),
+        _row(1754, "anilist", "Boku no Hero Academia 6", "My Hero Academia Season 6",
+             franchise, total_episodes=25, media_id=139630),
+    ]
+
+    assert _grouping(rows) == [(63,), (1754,)]
+    assert _grouping(list(reversed(rows))) == [(63,), (1754,)]
+
+
+def test_a_franchise_name_alone_does_not_pair_a_second_season_with_a_first():
+    """Real rows, real synonyms. The only spelling MyAnimeList's second season
+    and AniList's first agree on is the Japanese franchise title, which every
+    season of the run carries and which therefore says nothing about which
+    season either row is. AniList never listed a second season here, so nothing
+    competes for the MyAnimeList row and the ranking has nobody to prefer.
+
+    The third row is MyAnimeList's own, so it can never pair with either - it is
+    there because a spelling three rows carry is a franchise's name, and a
+    spelling only two carry is as likely to be one anime written twice.
+    """
+    jp = "僕のヒーローアカデミア"
+    rows = [
+        _row(61, "mal", "Boku no Hero Academia 2nd Season", "My Hero Academia Season 2",
+             [jp], total_episodes=25, media_id=33486),
+        _row(62, "mal", "Boku no Hero Academia 3rd Season", "My Hero Academia Season 3",
+             [jp], total_episodes=25, media_id=36456),
+        _row(1861, "anilist", "Boku no Hero Academia", "My Hero Academia",
+             [jp], total_episodes=13, media_id=21459),
+    ]
+
+    assert _grouping(rows) == [(61,), (62,), (1861,)]
+
+
+def test_a_pair_agreeing_on_nothing_but_a_franchise_name_merges_on_spelling():
+    """Real rows, real synonyms. Refusing a franchise name outright would cost
+    this: the providers write the same show `Kiss x Sis (TV)` and
+    `kiss×sis (TV)`, which normalise apart over the multiplication sign, and
+    the only key left in common is a Japanese synonym three of these four rows
+    carry. They are still one anime - one title says everything the other says
+    and adds only how it spells `x` - and the same holds for the pair below it.
+    """
+    rows = [
+        _row(399, "mal", "Kiss x Sis", None, ["Kissxsis", "キス×シス"],
+             total_episodes=12, media_id=5042),
+        _row(400, "mal", "Kiss x Sis (TV)", None,
+             ["Kiss x Sis (2010)", "Kissxsis", "キスシス"],
+             total_episodes=12, media_id=7593),
+        _row(1381, "anilist", "kiss×sis", "Kiss x Sis",
+             ["キスシス", "kiss x sis", "kiss×sis"],
+             total_episodes=12, media_id=5042),
+        _row(1846, "anilist", "kiss×sis (TV)", None,
+             ["キスシス", "kiss x sis", "kiss×sis (TV)"],
+             total_episodes=12, media_id=7593),
+    ]
+
+    assert _grouping(rows) == [(399, 1381), (400, 1846)]
+
+
 def test_a_legitimate_episode_disagreement_still_merges():
     """Demoting a mismatched pair is not forbidding it: when nothing else
     competes for either row, providers who simply count episodes differently
