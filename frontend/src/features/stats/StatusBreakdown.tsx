@@ -13,6 +13,14 @@ export function StatusBreakdown({ rows }: { rows: Stats['status_distribution'] }
   // the card.
   const total = rows.reduce((sum, row) => sum + row.count, 0)
 
+  // One series in 224 rounds to zero, and "1 · 0%" reads as a contradiction
+  // of the number beside it. A share too small to round to a percent is
+  // reported as one, not as none.
+  const share = (count: number): string => {
+    const pct = (count / total) * 100
+    return pct > 0 && pct < 0.5 ? '<1%' : `${Math.round(pct)}%`
+  }
+
   return (
     <Card as="section" elevated>
       <h2 className="text-title-md text-on-surface">Reading status</h2>
@@ -32,7 +40,7 @@ export function StatusBreakdown({ rows }: { rows: Stats['status_distribution'] }
               key: row.status,
               label: STATUS_LABEL[row.status],
               value: row.count,
-              detail: `${Math.round((row.count / total) * 100)}%`,
+              detail: share(row.count),
               tone: STATUS_TONE[row.status],
             }))}
           />
