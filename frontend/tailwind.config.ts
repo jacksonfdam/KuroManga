@@ -100,6 +100,9 @@ export default {
         card: '0 8px 24px -4px rgba(0, 0, 0, 0.45)',
         overlay: '0 20px 40px -12px rgba(208, 188, 255, 0.12)',
         glow: '0 8px 20px -2px rgba(208, 188, 255, 0.25)',
+        // The batch bar floats over the list: a deep drop to lift it off the
+        // page, and a violet halo tying it to the selection it acts on.
+        'batch-bar': '0 20px 50px rgba(0, 0, 0, 0.8), 0 0 35px rgba(139, 92, 246, 0.25)',
       },
     },
   },
