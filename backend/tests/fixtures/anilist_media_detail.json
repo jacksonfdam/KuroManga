@@ -1,0 +1,51 @@
+{
+  "Media": {
+    "rankings": [
+      { "rank": 54, "type": "RATED", "allTime": true, "context": "highest rated all time", "year": null },
+      { "rank": 16, "type": "POPULAR", "allTime": true, "context": "most popular all time", "year": null },
+      { "rank": 5, "type": "RATED", "allTime": false, "context": "highest rated", "year": 2020 }
+    ],
+    "stats": {
+      "scoreDistribution": [
+        { "score": 10, "amount": 185 },
+        { "score": 20, "amount": 106 },
+        { "score": 30, "amount": 162 },
+        { "score": 40, "amount": 209 },
+        { "score": 50, "amount": 525 },
+        { "score": 60, "amount": 847 },
+        { "score": 70, "amount": 2800 },
+        { "score": 80, "amount": 5975 },
+        { "score": 90, "amount": 11289 },
+        { "score": 100, "amount": 11302 }
+      ]
+    },
+    "characters": {
+      "edges": [
+        {
+          "role": "MAIN",
+          "node": {
+            "id": 180887,
+            "name": { "full": "Taro Sakamoto" },
+            "image": { "large": "https://example.invalid/char.png" }
+          }
+        }
+      ]
+    },
+    "recommendations": {
+      "nodes": [
+        {
+          "mediaRecommendation": {
+            "id": 105398,
+            "title": { "romaji": "Na Honjaman Level Up", "english": "Solo Leveling" },
+            "coverImage": { "large": "https://example.invalid/solo.jpg" },
+            "averageScore": 84,
+            "chapters": 179,
+            "genres": ["Action", "Adventure"],
+            "format": "MANHWA"
+          }
+        },
+        { "mediaRecommendation": null }
+      ]
+    }
+  }
+}
