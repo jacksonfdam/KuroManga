@@ -66,12 +66,16 @@ Full walkthrough in [docs/configuration.md](docs/configuration.md).
 |---|---|
 | [Features](docs/features.md) | What each screen does and how the pipeline works |
 | [Configuration](docs/configuration.md) | Credentials, environment variables and first run |
+| [All documentation](docs/README.md) | Architecture, data model, jobs and external contracts |
 
 ## Built with
 
 Python, FastAPI and PostgreSQL on the backend. React on the front. Komga for reading.
 [manga-downloader](https://github.com/elboletaire/manga-downloader) fetches chapters.
 
-## License
+## License and credits
 
 MIT. See [LICENSE](LICENSE).
+
+KuroManga orchestrates other people's work — Komga, manga-downloader, and the databases that make a
+reading list mean anything. [CREDITS.md](CREDITS.md) names them.
