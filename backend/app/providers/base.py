@@ -170,6 +170,12 @@ class ListSource(ABC):
         """Write the manga's list status, creating the entry when it is absent."""
         raise NotImplementedError
 
+    async def set_notes(
+        self, access_token: str, media_id: str, notes: str, tags: list[str]
+    ) -> None:
+        """Write the user's private note. Not every provider keeps one."""
+        raise NotSupported(f"{self.provider} keeps no private note")
+
     def search_query(self, titles: list[str]) -> str:
         """Which of the anime's spellings to hand `search_manga`.
 

@@ -1,0 +1,53 @@
+{
+  "MediaListCollection": {
+    "lists": [
+      {
+        "entries": [
+          {
+            "status": "CURRENT",
+            "progress": 148,
+            "progressVolumes": 16,
+            "score": 9.5,
+            "repeat": 0,
+            "notes": "Reread chapter 120 before the anime.",
+            "startedAt": { "year": 2024, "month": 1, "day": 12 },
+            "completedAt": { "year": null, "month": null, "day": null },
+            "updatedAt": 1729000000,
+            "media": {
+              "id": 119257,
+              "chapters": 172,
+              "volumes": 18,
+              "synonyms": [],
+              "description": "Taro Sakamoto was once the greatest hitman alive.",
+              "genres": ["Action", "Comedy"],
+              "averageScore": 91,
+              "popularity": 54291,
+              "favourites": 8123,
+              "format": "MANGA",
+              "status": "RELEASING",
+              "countryOfOrigin": "JP",
+              "siteUrl": "https://anilist.co/manga/119257",
+              "bannerImage": null,
+              "startDate": { "year": 2020, "month": 11, "day": 21 },
+              "endDate": { "year": null, "month": null, "day": null },
+              "title": {
+                "romaji": "Sakamoto Days",
+                "english": "Sakamoto Days",
+                "native": "サカモトデイズ"
+              },
+              "coverImage": { "large": "https://example.invalid/cover.jpg" },
+              "staff": {
+                "edges": [
+                  { "role": "Story & Art", "node": { "name": { "full": "Yuto Suzuki" } } }
+                ]
+              },
+              "tags": [
+                { "name": "Shounen", "rank": 92, "isGeneralSpoiler": false }
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

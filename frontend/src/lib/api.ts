@@ -51,11 +51,77 @@ export interface SeriesEntry {
   updated_at: string | null
 }
 
+export interface SeriesCredit {
+  role: string
+  name: string
+}
+
+export interface SeriesCharacter {
+  name: string
+  role: string | null
+  image_url: string | null
+}
+
+export interface SimilarWork {
+  media_id: string
+  title: string | null
+  cover_url: string | null
+  score: number | null
+  chapters: number | null
+  genres: string[]
+}
+
+/**
+ * Everything the detail screen shows that is not a column of its own. Every
+ * field is nullable because neither provider is a superset of the other: only
+ * MyAnimeList names the magazine a series runs in, only AniList reports its
+ * country of origin, and a series synced before those fields were requested
+ * reports neither. A null here is rendered as an absence, never as a zero.
+ */
+export interface SeriesMetadata {
+  native_title: string | null
+  synopsis: string | null
+  publisher: string | null
+  publication_status:
+    | 'releasing'
+    | 'finished'
+    | 'not_yet_released'
+    | 'cancelled'
+    | 'hiatus'
+    | null
+  start_year: number | null
+  end_year: number | null
+  country: string | null
+  demographic: string | null
+  site_url: string | null
+  global_score: number | null
+  vote_count: number | null
+  rank: number | null
+  popularity: number | null
+  favourites: number | null
+  user_score: number | null
+  volumes_total: number | null
+  volumes_read: number | null
+  reread_count: number | null
+  started_at: string | null
+  completed_at: string | null
+  list_updated_at: string | null
+  notes: string | null
+  user_tags: string[]
+  credits: SeriesCredit[]
+  characters: SeriesCharacter[]
+  similar: SimilarWork[]
+  providers: string[]
+  enriched_at: string | null
+}
+
 export interface SeriesDetail {
   series: Series
+  metadata: SeriesMetadata
   mapping: { source_site: string; source_url: string } | null
   chapters: SeriesChapter[]
   entries: SeriesEntry[]
+  reading_minutes_per_chapter: number
 }
 
 export interface ReviewPayload {
@@ -466,6 +532,16 @@ export const api = {
     request<{ queued: number }>(`/api/series/${id}/download`, {
       method: 'POST',
       body: JSON.stringify({ from_chapter: from ?? null, to_chapter: to ?? null }),
+    }),
+  setListStatus: (id: number, status: ListStatus) =>
+    request<{ ok: boolean; status: ListStatus; queued: boolean }>(
+      `/api/series/${id}/status`,
+      { method: 'POST', body: JSON.stringify({ status }) },
+    ),
+  saveNotes: (id: number, notes: string, tags: string[]) =>
+    request<{ ok: boolean; queued: boolean }>(`/api/series/${id}/notes`, {
+      method: 'POST',
+      body: JSON.stringify({ notes, tags }),
     }),
   jobs: (state?: string) => request<Job[]>(`/api/jobs${state ? `?state=${state}` : ''}`),
   jobCounts: () => request<Record<string, number>>('/api/jobs/counts'),

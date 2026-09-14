@@ -1,6 +1,7 @@
 import { useCallback } from 'react'
 
 import { api, type SeriesDetail } from '../../lib/api'
+import type { ListStatus } from '../../lib/format'
 import { useAsyncData } from '../../lib/useAsyncData'
 
 // total_chapters is the provider's static count and is frequently null; known
@@ -37,8 +38,82 @@ export function useSeriesDetail(id: number) {
     [id, setData],
   )
 
+  // Apply, then confirm — the same rollback-on-rejection shape
+  // toggleAutoDownload uses, so a refused write visibly reverts instead of
+  // leaving the screen showing a number the server never accepted.
+  const setProgress = useCallback(
+    async (next: number) => {
+      let previous: SeriesDetail | null = null
+      setData((current) => {
+        previous = current
+        return current
+          ? { ...current, series: { ...current.series, progress: next } }
+          : current
+      })
+      try {
+        await api.setProgress(id, next)
+      } catch (failure) {
+        if (previous) setData(previous)
+        throw failure
+      }
+    },
+    [id, setData],
+  )
+
+  const setListStatus = useCallback(
+    async (status: ListStatus) => {
+      let previous: SeriesDetail | null = null
+      setData((current) => {
+        previous = current
+        return current
+          ? { ...current, series: { ...current.series, status } }
+          : current
+      })
+      try {
+        await api.setListStatus(id, status)
+      } catch (failure) {
+        if (previous) setData(previous)
+        throw failure
+      }
+    },
+    [id, setData],
+  )
+
+  // Optimistic like the other two writes, but the note lands on a provider
+  // through a job — so what is shown is "queued", and the value the provider
+  // actually kept comes back with the next list_sync.
+  const saveNotes = useCallback(
+    async (notes: string, tags: string[]) => {
+      let previous: SeriesDetail | null = null
+      setData((current) => {
+        previous = current
+        return current
+          ? { ...current, metadata: { ...current.metadata, notes, user_tags: tags } }
+          : current
+      })
+      try {
+        await api.saveNotes(id, notes, tags)
+      } catch (failure) {
+        if (previous) setData(previous)
+        throw failure
+      }
+    },
+    [id, setData],
+  )
+
   const download = useCallback((from?: number, to?: number) => api.download(id, from, to), [id])
   const research = useCallback(() => api.research(id), [id])
 
-  return { detail, notFound, error, reload, toggleAutoDownload, download, research }
+  return {
+    detail,
+    notFound,
+    error,
+    reload,
+    toggleAutoDownload,
+    setProgress,
+    setListStatus,
+    saveNotes,
+    download,
+    research,
+  }
 }

@@ -11,6 +11,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Any
 
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.enums import JobType
@@ -54,6 +55,35 @@ class JobContext:
             series_id=series_id,
             run_after=run_after,
         )
+
+
+async def latest_payload(ctx: JobContext, job_type: JobType, series_id: int) -> dict[str, Any] | None:
+    """The payload of the most recently created pending-or-leased job of this
+    type for this series, or None when nothing is queued.
+
+    status_write and notes_write both dedupe to one job per series and rewrite
+    its payload when a second click or save arrives before the first is done —
+    including one already leased, which is why 'leased' is matched here too,
+    not only 'pending'. Ordering by id descending and taking the first is what
+    "latest" means for a value with no natural order of its own: a status or a
+    note is not greater or less than another, only newer or older. A chapter
+    number is different — it moves forward — which is why progress_write's
+    newest_requested takes a max() instead of reusing this helper.
+    """
+    result = await ctx.session.execute(
+        text(
+            """
+            select payload
+              from job
+             where type = :type and series_id = :series_id
+               and state in ('pending', 'leased')
+             order by id desc
+             limit 1
+            """
+        ),
+        {"type": str(job_type), "series_id": series_id},
+    )
+    return result.scalar_one_or_none()
 
 
 Handler = Callable[[JobContext], Awaitable[None]]

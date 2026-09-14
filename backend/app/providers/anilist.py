@@ -72,6 +72,12 @@ STATUS_MAP = {
     "DROPPED": ListStatus.DROPPED,
 }
 
+# Every field below is read by the series detail screen out of `list_entry.raw`,
+# which stores this entry verbatim. Only scalars and small objects belong here:
+# `characters`, `recommendations`, `rankings` and `stats` are per-media graphs
+# and are fetched one series at a time by the media_enrich job instead, because
+# asking for them across a seven-hundred-entry list is one response AniList
+# will not send twice.
 LIST_QUERY = """
 query ($userId: Int) {
   MediaListCollection(userId: $userId, type: MANGA) {
@@ -79,18 +85,64 @@ query ($userId: Int) {
       entries {
         status
         progress
+        progressVolumes
+        score(format: POINT_10_DECIMAL)
+        repeat
+        notes
+        startedAt { year month day }
+        completedAt { year month day }
+        updatedAt
         media {
           id
           chapters
+          volumes
           synonyms
           description(asHtml: false)
           genres
           averageScore
+          popularity
+          favourites
           format
-          startDate { year }
+          status
+          countryOfOrigin
+          siteUrl
+          bannerImage
+          startDate { year month day }
+          endDate { year month day }
           title { romaji english native }
           coverImage { large }
           staff(perPage: 4) { edges { role node { name { full } } } }
+          tags { name rank isGeneralSpoiler }
+        }
+      }
+    }
+  }
+}
+"""
+
+# Run against https://graphql.anilist.co on 2026-09-14; the recorded response is
+# tests/fixtures/anilist_media_detail.json. Everything here is a per-media object
+# graph, which is why none of it belongs in LIST_QUERY: one list response
+# carrying these for seven hundred entries is a response AniList declines to
+# send twice.
+MEDIA_DETAIL_QUERY = """
+query ($id: Int) {
+  Media(id: $id, type: MANGA) {
+    rankings { rank type allTime context year }
+    stats { scoreDistribution { score amount } }
+    characters(perPage: 12, sort: [ROLE, RELEVANCE]) {
+      edges { role node { id name { full } image { large } } }
+    }
+    recommendations(perPage: 6, sort: RATING_DESC) {
+      nodes {
+        mediaRecommendation {
+          id
+          title { romaji english }
+          coverImage { large }
+          averageScore
+          chapters
+          genres
+          format
         }
       }
     }
@@ -149,6 +201,15 @@ mutation ($mediaId: Int, $status: MediaListStatus) {
 }
 """
 
+# Notes alone. SaveMediaListEntry writes whatever fields it is handed, so
+# sending progress or status alongside would overwrite what the user set on
+# their own account with whatever this screen was holding at the time.
+NOTES_MUTATION = """
+mutation ($mediaId: Int, $notes: String) {
+  SaveMediaListEntry(mediaId: $mediaId, notes: $notes) { id notes }
+}
+"""
+
 
 class AniListSource(ListSource):
     provider = Provider.ANILIST
@@ -179,6 +240,10 @@ class AniListSource(ListSource):
         user_id, _ = await self.viewer(access_token)
         data = await self._post(access_token, LIST_QUERY, {"userId": user_id})
         return list(parse_list(data))
+
+    async def fetch_media_detail(self, access_token: str, media_id: str) -> dict[str, Any]:
+        data = await self._post(access_token, MEDIA_DETAIL_QUERY, {"id": int(media_id)})
+        return parse_media_detail(data)
 
     async def fetch_anime_list(self, access_token: str) -> list[AnimeEntryDTO]:
         user_id, _ = await self.viewer(access_token)
@@ -216,6 +281,13 @@ class AniListSource(ListSource):
             STATUS_MUTATION,
             {"mediaId": int(media_id), "status": anilist_status(status)},
         )
+
+    async def set_notes(
+        self, access_token: str, media_id: str, notes: str, tags: list[str]
+    ) -> None:
+        # AniList has no free-tag field on a list entry - customLists are named
+        # lists, not tags - so tags are dropped here rather than approximated.
+        await self._post(access_token, NOTES_MUTATION, {"mediaId": int(media_id), "notes": notes})
 
     def authorize_url(self, redirect_uri: str, state: str, verifier: str) -> str:
         # Percent-encoded: providers compare the redirect against the registered
@@ -293,6 +365,57 @@ def parse_list(data: dict[str, Any]) -> list[ListEntryDTO]:
                 )
             )
     return entries
+
+
+def parse_media_detail(data: dict[str, Any]) -> dict[str, Any]:
+    """Pure parser, so the shape can be tested from the recorded response."""
+    media = data.get("Media") or {}
+    rankings = media.get("rankings") or []
+    rank = next(
+        (
+            r.get("rank")
+            for r in rankings
+            if r.get("type") == "RATED" and r.get("allTime")
+        ),
+        None,
+    )
+    # AniList publishes no vote count. The score distribution is one bucket per
+    # ten points carrying how many people voted it, so the sum is the count.
+    distribution = (media.get("stats") or {}).get("scoreDistribution") or []
+    votes = sum(int(bucket.get("amount") or 0) for bucket in distribution)
+    return {
+        "rank": rank,
+        "vote_count": votes or None,
+        "characters": [
+            {
+                "name": (edge.get("node") or {}).get("name", {}).get("full"),
+                "role": edge.get("role"),
+                "image_url": ((edge.get("node") or {}).get("image") or {}).get("large"),
+            }
+            for edge in (media.get("characters") or {}).get("edges") or []
+            if (edge.get("node") or {}).get("name", {}).get("full")
+        ],
+        "similar": [
+            {
+                "media_id": str(node["id"]),
+                "title": (node.get("title") or {}).get("english")
+                or (node.get("title") or {}).get("romaji"),
+                "cover_url": (node.get("coverImage") or {}).get("large"),
+                "score": round(node["averageScore"] / 10, 1)
+                if node.get("averageScore") is not None
+                else None,
+                "chapters": node.get("chapters"),
+                "genres": [g for g in node.get("genres") or [] if isinstance(g, str)],
+            }
+            # A recommendation whose target was deleted comes back as a null
+            # node rather than being omitted.
+            for node in (
+                item.get("mediaRecommendation")
+                for item in (media.get("recommendations") or {}).get("nodes") or []
+            )
+            if node and node.get("id")
+        ],
+    }
 
 
 def parse_manga_meta(data: dict[str, Any]) -> dict[str, MangaMeta]:

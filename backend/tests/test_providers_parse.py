@@ -248,3 +248,69 @@ def test_a_manga_without_an_id_never_becomes_a_list_entry():
 def test_anilist_also_drops_a_manga_without_an_id():
     data = {"MediaListCollection": {"lists": [{"entries": [{"media": {"title": {}}}]}]}}
     assert parse_list(data) == []
+
+
+from app.providers.anilist import LIST_QUERY
+
+
+def test_anilist_list_query_asks_for_every_field_the_detail_screen_reads():
+    """The detail screen reads these out of `raw`; a trimmed query empties it
+    silently, because a missing GraphQL field is simply absent from the
+    response rather than an error."""
+    for field in (
+        "progressVolumes",
+        "repeat",
+        "notes",
+        "startedAt",
+        "completedAt",
+        "volumes",
+        "countryOfOrigin",
+        "popularity",
+        "favourites",
+        "siteUrl",
+        "endDate",
+    ):
+        assert field in LIST_QUERY, field
+
+
+def test_anilist_keeps_the_whole_entry_as_raw(fixture):
+    entry = parse_list(fixture("anilist_list_rich.json"))[0]
+    assert entry.raw["media"]["volumes"] == 18
+    assert entry.raw["media"]["countryOfOrigin"] == "JP"
+    assert entry.raw["score"] == 9.5
+    assert entry.raw["notes"] == "Reread chapter 120 before the anime."
+
+
+def test_a_list_recorded_before_the_widened_query_still_parses(fixture):
+    """Rows synced by the previous query have none of the new keys. The parser
+    must not start depending on them."""
+    entries = parse_list(fixture("anilist_list.json"))
+    assert entries[0].raw["media"].get("volumes") is None
+
+
+from app.providers.mal import LIST_FIELDS
+
+
+def test_mal_list_fields_ask_for_every_field_the_detail_screen_reads():
+    for field in (
+        "end_date",
+        "rank",
+        "num_scoring_users",
+        "num_volumes",
+        "serialization",
+        "status",
+    ):
+        assert field in LIST_FIELDS, field
+
+
+def test_mal_keeps_the_whole_item_as_raw(fixture):
+    entry = parse_page(fixture("mal_page_rich.json"))[0]
+    assert entry.raw["node"]["num_volumes"] == 18
+    assert entry.raw["node"]["serialization"][0]["node"]["name"] == "Shounen Jump (Weekly)"
+    assert entry.raw["list_status"]["num_times_reread"] == 0
+    assert entry.raw["list_status"]["comments"] == "Reread chapter 120 before the anime."
+
+
+def test_a_page_recorded_before_the_widened_fields_still_parses(fixture):
+    entry = parse_page(fixture("mal_page.json"))[0]
+    assert entry.raw["node"].get("num_volumes") is None

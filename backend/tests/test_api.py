@@ -4,6 +4,9 @@ These exist because a parameter binding that Postgres cannot type, or a column
 that does not exist, only fails at query time. Neither shows up in a unit test.
 """
 
+import json
+from datetime import UTC, datetime
+
 import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
@@ -376,6 +379,70 @@ async def test_series_detail_returns_chapters_and_entries(client):
     assert [e["provider"] for e in body["entries"]] == ["mal"]
 
 
+async def test_series_detail_carries_the_metadata_block(client):
+    async with get_sessionmaker()() as session:
+        await session.execute(
+            text(
+                """
+                insert into series (canonical_title, slug, needs_review, meta)
+                values ('Sakamoto Days', 'sakamoto-days', false, '{}'::jsonb)
+                """
+            )
+        )
+        await session.execute(
+            text(
+                """
+                insert into list_entry
+                       (provider, provider_media_id, series_id, status,
+                        user_progress_chapter, synonyms, raw)
+                values ('mal', '121496', 1, 'reading', 148, '[]'::jsonb, cast(:raw as jsonb))
+                """
+            ),
+            {
+                "raw": json.dumps(
+                    {
+                        "node": {
+                            "id": 121496,
+                            "mean": 9.07,
+                            "rank": 14,
+                            "num_scoring_users": 54291,
+                            "num_volumes": 18,
+                            "status": "currently_publishing",
+                            "start_date": "2020-11-21",
+                            "serialization": [{"node": {"name": "Shounen Jump (Weekly)"}}],
+                            "alternative_titles": {"ja": "サカモトデイズ"},
+                        },
+                        "list_status": {"status": "reading", "score": 10},
+                    }
+                )
+            },
+        )
+        await session.commit()
+
+    body = (await client.get("/api/series/1")).json()
+    assert body["metadata"]["publisher"] == "Shounen Jump (Weekly)"
+    assert body["metadata"]["native_title"] == "サカモトデイズ"
+    assert body["metadata"]["rank"] == 14
+    assert body["metadata"]["characters"] == []
+
+
+async def test_series_detail_with_no_list_entry_still_carries_an_empty_block(client):
+    async with get_sessionmaker()() as session:
+        await session.execute(
+            text(
+                """
+                insert into series (canonical_title, slug, needs_review, meta)
+                values ('Orphan', 'orphan', false, '{}'::jsonb)
+                """
+            )
+        )
+        await session.commit()
+
+    body = (await client.get("/api/series/1")).json()
+    assert body["metadata"]["publisher"] is None
+    assert body["metadata"]["providers"] == []
+
+
 async def test_series_detail_for_a_missing_series_is_a_404(client):
     # Asserting the status code alone would pass identically with the whole
     # route deleted, since a bare /{series_id} already 404s by default when
@@ -487,3 +554,113 @@ async def test_progress_is_unbounded_only_when_nothing_knows_how_long_the_series
 
     assert response.status_code == 200
     assert await _queued_progress_writes() == 1
+
+
+async def test_opening_a_detail_with_a_cold_cache_queues_the_enrichment(client):
+    async with get_sessionmaker()() as session:
+        await session.execute(
+            text(
+                """
+                insert into series (canonical_title, slug, needs_review, meta)
+                values ('Sakamoto Days', 'sakamoto-days', false, '{}'::jsonb)
+                """
+            )
+        )
+        await session.execute(
+            text(
+                """
+                insert into list_entry
+                       (provider, provider_media_id, series_id, status,
+                        user_progress_chapter, synonyms, raw)
+                values ('anilist', '119257', 1, 'reading', 148, '[]'::jsonb, '{}'::jsonb)
+                """
+            )
+        )
+        await session.execute(
+            text(
+                """
+                insert into provider_token (provider, access_token, refresh_token, expires_at)
+                values ('anilist', 'token', null, null)
+                """
+            )
+        )
+        await session.commit()
+
+    await client.get("/api/series/1")
+
+    async with get_sessionmaker()() as session:
+        queued = await session.execute(
+            text("select type, payload from job where series_id = 1")
+        )
+        rows = queued.all()
+    assert [row.type for row in rows] == ["media_enrich"]
+    assert rows[0].payload["series_id"] == 1
+
+
+async def test_a_cold_cache_with_no_anilist_token_queues_nothing(client):
+    """Without a stored AniList token the handler raises PermanentError on
+    every run: is_stale never turns false, so every visit to the page would
+    add one more failure the jobs screen never loses."""
+    async with get_sessionmaker()() as session:
+        await session.execute(
+            text(
+                """
+                insert into series (canonical_title, slug, needs_review, meta)
+                values ('Sakamoto Days', 'sakamoto-days', false, '{}'::jsonb)
+                """
+            )
+        )
+        await session.execute(
+            text(
+                """
+                insert into list_entry
+                       (provider, provider_media_id, series_id, status,
+                        user_progress_chapter, synonyms, raw)
+                values ('anilist', '119257', 1, 'reading', 148, '[]'::jsonb, '{}'::jsonb)
+                """
+            )
+        )
+        await session.commit()
+
+    await client.get("/api/series/1")
+
+    async with get_sessionmaker()() as session:
+        queued = await session.execute(text("select count(*) from job where series_id = 1"))
+    assert queued.scalar_one() == 0
+
+
+async def test_a_warm_cache_queues_nothing(client):
+    async with get_sessionmaker()() as session:
+        await session.execute(
+            text(
+                """
+                insert into series (canonical_title, slug, needs_review, meta)
+                values ('Sakamoto Days', 'sakamoto-days', false, cast(:meta as jsonb))
+                """
+            ),
+            {"meta": json.dumps({"enrichment": {"fetched_at": datetime.now(UTC).isoformat()}})},
+        )
+        await session.commit()
+
+    await client.get("/api/series/1")
+
+    async with get_sessionmaker()() as session:
+        queued = await session.execute(text("select count(*) from job"))
+    assert queued.scalar_one() == 0
+
+
+async def test_series_detail_carries_the_reading_pace_setting(client):
+    async with get_sessionmaker()() as session:
+        await session.execute(
+            text(
+                """
+                insert into series (canonical_title, slug, needs_review, meta)
+                values ('Eleceed', 'eleceed', false, '{}'::jsonb)
+                """
+            )
+        )
+        await session.commit()
+
+    body = (await client.get("/api/series/1")).json()
+    # The default in settings_store, because nothing has set the key.
+    assert body["reading_minutes_per_chapter"] == 8

@@ -1,16 +1,21 @@
 """Library and review screens."""
 
+import json
+from datetime import UTC, datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app import settings_store
 from app.api.deps import db_session
 from app.api.list_raw import display_fields
-from app.enums import JobType
+from app.api.series_metadata import metadata_of
+from app.enums import JobType, ListStatus, Provider
 from app.handlers.batching import queue_batches
+from app.handlers.media_enrich import is_stale
 from app.handlers.progress_write import forward_only
 from app.queue import repo
 from app.sources import source_for_url
@@ -35,6 +40,18 @@ class AutoDownloadIn(BaseModel):
 
 class ProgressIn(BaseModel):
     chapter: int
+
+
+class StatusIn(BaseModel):
+    status: ListStatus
+
+
+class NotesIn(BaseModel):
+    # MyAnimeList refuses a comment past 5000 characters, and refuses it again
+    # however many times it is asked - so the refusal belongs here, where the
+    # user can still edit what they typed.
+    notes: str = Field(max_length=5000)
+    tags: list[str] = Field(default_factory=list, max_length=20)
 
 
 LIST_SQL = """
@@ -171,14 +188,26 @@ async def series_detail(series_id: int, session: Session) -> dict[str, Any]:
     entries = await session.execute(
         text(
             """
-            select provider, provider_media_id, status, user_progress_chapter, updated_at
-              from list_entry where series_id = :id order by provider
+            select e.provider, e.provider_media_id, e.status, e.user_progress_chapter,
+                   e.updated_at, e.raw,
+                   exists (
+                       select 1 from provider_token t where t.provider = 'anilist'
+                   ) as anilist_connected
+              from list_entry e
+             where e.series_id = :id
+             order by e.updated_at desc nulls last, e.provider
             """
         ),
         {"id": series_id},
     )
-    return {
+    # Newest first, because metadata_of resolves a field both providers report
+    # in favour of the first raw that answers.
+    entry_rows = entries.all()
+    enrichment = (row.meta or {}).get("enrichment")
+
+    result = {
         "series": _row_to_series(row),
+        "metadata": metadata_of([entry.raw for entry in entry_rows], enrichment),
         "mapping": {"source_site": row.source_site, "source_url": row.source_url}
         if row.source_url
         else None,
@@ -199,9 +228,40 @@ async def series_detail(series_id: int, session: Session) -> dict[str, Any]:
                 "user_progress_chapter": e.user_progress_chapter,
                 "updated_at": e.updated_at.isoformat() if e.updated_at else None,
             }
-            for e in entries.all()
+            for e in entry_rows
         ],
+        # The detail screen derives "chapters left, about Nh" from this. Served
+        # here rather than fetched from /api/settings, which would cost the
+        # screen a second request for the whole settings blob and its provider
+        # health with it.
+        "reading_minutes_per_chapter": await settings_store.get_int(
+            session, settings_store.READING_MINUTES_PER_CHAPTER
+        ),
     }
+
+    # Opening the page is what asks for the extras. A job rather than a fetch
+    # in the request path: AniList rate-limits, and a detail page must not fail
+    # to render because a third party was slow.
+    #
+    # Queuing this with no AniList token stored made the handler raise
+    # PermanentError on every run — is_stale never turns false, so every visit
+    # to the page added one more failure the jobs screen never lost.
+    if (
+        is_stale(enrichment, datetime.now(UTC))
+        and any(entry.provider == str(Provider.ANILIST) for entry in entry_rows)
+        and any(entry.anilist_connected for entry in entry_rows)
+    ):
+        await repo.enqueue(
+            session,
+            JobType.MEDIA_ENRICH,
+            {"series_id": series_id},
+            priority=50,
+            series_id=series_id,
+            dedupe_key=f"media_enrich:{series_id}",
+        )
+        await session.commit()
+
+    return result
 
 
 @router.get("/{series_id}/candidates")
@@ -493,3 +553,107 @@ async def set_progress(series_id: int, body: ProgressIn, session: Session) -> di
         )
     await session.commit()
     return {"progress": body.chapter, "queued": True}
+
+
+@router.post("/{series_id}/status")
+async def set_list_status(series_id: int, body: StatusIn, session: Session) -> dict[str, Any]:
+    """Validated here as well as in the handler, so the screen learns of a
+    refusal on the click rather than from a job that failed minutes later."""
+    exists = await session.execute(
+        text("select 1 from series where id = :id"), {"id": series_id}
+    )
+    if exists.first() is None:
+        raise HTTPException(status_code=404, detail="series not found")
+
+    entries = await session.execute(
+        text("select count(*) from list_entry where series_id = :id"), {"id": series_id}
+    )
+    if entries.scalar_one() == 0:
+        raise HTTPException(
+            status_code=409, detail="this series is not on any reading list"
+        )
+
+    await repo.enqueue(
+        session,
+        JobType.STATUS_WRITE,
+        {"series_id": series_id, "status": str(body.status)},
+        priority=0,
+        series_id=series_id,
+        dedupe_key=f"status_write:{series_id}",
+    )
+    # One job per series, carrying the status last asked for. A second click
+    # while the first is queued raises that job rather than adding one, or the
+    # status the user moved away from lands on their account second. Matching
+    # 'leased' too, not only 'pending': a worker can have already claimed the
+    # row by the time this second click arrives, and the dedupe key still
+    # refuses a fresh insert in that state. The handler re-reads the latest
+    # row before pushing, which is what keeps this from silently dropping the
+    # click the way updating only the pending row would.
+    await session.execute(
+        text(
+            """
+            update job
+               set payload = jsonb_set(payload, '{status}', to_jsonb(cast(:status as text)))
+             where type = :type and series_id = :series_id
+               and state in ('pending', 'leased')
+            """
+        ),
+        {"status": str(body.status), "type": str(JobType.STATUS_WRITE), "series_id": series_id},
+    )
+    await session.commit()
+    return {"ok": True, "status": str(body.status), "queued": True}
+
+
+@router.post("/{series_id}/notes")
+async def save_notes(series_id: int, body: NotesIn, session: Session) -> dict[str, Any]:
+    """Validated here as well as in the handler, so the screen learns of a
+    refusal on the click rather than from a job that failed minutes later."""
+    exists = await session.execute(
+        text("select 1 from series where id = :id"), {"id": series_id}
+    )
+    if exists.first() is None:
+        raise HTTPException(status_code=404, detail="series not found")
+
+    entries = await session.execute(
+        text("select count(*) from list_entry where series_id = :id"), {"id": series_id}
+    )
+    if entries.scalar_one() == 0:
+        raise HTTPException(
+            status_code=409, detail="this series is not on any reading list"
+        )
+
+    await repo.enqueue(
+        session,
+        JobType.NOTES_WRITE,
+        {"series_id": series_id, "notes": body.notes, "tags": body.tags},
+        priority=0,
+        series_id=series_id,
+        dedupe_key=f"notes_write:{series_id}",
+    )
+    # One job per series, carrying the note last asked for. A second save
+    # while the first is queued raises that job rather than adding one, or the
+    # note the user moved away from lands on their account second. Matching
+    # 'leased' too, not only 'pending': a worker can have already claimed the
+    # row by the time this second save arrives, and the dedupe key still
+    # refuses a fresh insert in that state. The handler re-reads the latest
+    # row before pushing, which is what keeps this from silently dropping the
+    # save the way updating only the pending row would.
+    await session.execute(
+        text(
+            """
+            update job
+               set payload = cast(:payload as jsonb)
+             where type = :type and series_id = :series_id
+               and state in ('pending', 'leased')
+            """
+        ),
+        {
+            "payload": json.dumps(
+                {"series_id": series_id, "notes": body.notes, "tags": body.tags}
+            ),
+            "type": str(JobType.NOTES_WRITE),
+            "series_id": series_id,
+        },
+    )
+    await session.commit()
+    return {"ok": True, "queued": True}

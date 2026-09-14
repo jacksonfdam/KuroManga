@@ -1,10 +1,10 @@
 import { useState } from 'react'
 
 /**
- * Shared by every control that calls `increment`: the grid's glass overlay
- * and the table's inline stepper both need the same await-then-flash
- * behaviour, and a second copy of it is how one of them quietly lost the
- * rejection flash.
+ * Shared by every control that calls `increment` — the library grid's glass
+ * overlay, the table's inline stepper and the detail screen's progress
+ * manager. A second copy of it is how one of them quietly lost the rejection
+ * flash, which is why it lives in ui/ rather than in a feature folder.
  */
 export type FlashState = 'success' | 'error' | null
 
