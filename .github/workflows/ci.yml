@@ -84,3 +84,37 @@ jobs:
       - name: Build
         # Runs tsc first, so this type-checks as well as bundles.
         run: npm run build
+
+  attribution:
+    # The commit-msg hook only runs for a clone that enabled it, and it never
+    # sees a pull request description at all. Twelve descriptions carried tool
+    # attribution before anyone noticed. This is the gate that cannot be skipped
+    # by forgetting a git config.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check the title and description
+        # Through the environment, never interpolated into the script: a pull
+        # request body is untrusted text, and `${{ }}` inside run: would let it
+        # end the quoting and run as shell.
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          printf '%s\n%s\n' "$PR_TITLE" "$PR_BODY" > pr-text.txt
+          if ! .github/attribution-check.sh pr-text.txt "the pull request title or description"; then
+            exit 1
+          fi
+
+      - name: Check the commit messages
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: |
+          git log --format=%B "origin/$BASE_REF..HEAD" > commit-text.txt
+          if ! .github/attribution-check.sh commit-text.txt "a commit message on this branch"; then
+            exit 1
+          fi
