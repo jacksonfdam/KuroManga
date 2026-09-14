@@ -6,6 +6,8 @@ is skipped, not failed - one provider without the field must not stop the note
 reaching the one that has it.
 """
 
+from typing import Any
+
 from sqlalchemy import text
 
 from app.enums import JobType, Provider
@@ -15,11 +17,42 @@ from app.providers.base import NotSupported
 from app.providers.tokens import NotConnected, access_token_for
 
 
+async def latest_requested(ctx: JobContext, series_id: int) -> dict[str, Any] | None:
+    """The note and tags the most recently queued or leased write for this series carries.
+
+    status_write takes the same approach for the same reason: a note has no
+    order the way a chapter's progress does, so the rule is latest, not
+    greatest — order by the job's id descending and take the first. The route
+    rewrites the payload of the pending-or-leased row it finds for this
+    series when a second save arrives, including one already leased; this is
+    what reading that rewrite looks like from inside the job that was leased
+    before it happened.
+    """
+    result = await ctx.session.execute(
+        text(
+            """
+            select payload->>'notes' as notes, payload->'tags' as tags
+              from job
+             where type = :type and series_id = :series_id
+               and state in ('pending', 'leased')
+             order by id desc
+             limit 1
+            """
+        ),
+        {"type": str(JobType.NOTES_WRITE), "series_id": series_id},
+    )
+    row = result.first()
+    if row is None:
+        return None
+    return {"notes": row.notes, "tags": row.tags or []}
+
+
 @register(JobType.NOTES_WRITE)
 async def handle(ctx: JobContext) -> None:
     series_id = int(ctx.payload["series_id"])
-    notes = str(ctx.payload.get("notes") or "")
-    tags = [str(tag) for tag in ctx.payload.get("tags") or []]
+    latest = await latest_requested(ctx, series_id) or ctx.payload
+    notes = str(latest.get("notes") or "")
+    tags = [str(tag) for tag in latest.get("tags") or []]
 
     result = await ctx.session.execute(
         text(

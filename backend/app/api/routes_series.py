@@ -656,13 +656,19 @@ async def save_notes(series_id: int, body: NotesIn, session: Session) -> dict[st
     )
     # One job per series, carrying the note last asked for. A second save
     # while the first is queued raises that job rather than adding one, or the
-    # note the user moved away from lands on their account second.
+    # note the user moved away from lands on their account second. Matching
+    # 'leased' too, not only 'pending': a worker can have already claimed the
+    # row by the time this second save arrives, and the dedupe key still
+    # refuses a fresh insert in that state. The handler re-reads the latest
+    # row before pushing, which is what keeps this from silently dropping the
+    # save the way updating only the pending row would.
     await session.execute(
         text(
             """
             update job
                set payload = cast(:payload as jsonb)
-             where type = :type and series_id = :series_id and state = 'pending'
+             where type = :type and series_id = :series_id
+               and state in ('pending', 'leased')
             """
         ),
         {

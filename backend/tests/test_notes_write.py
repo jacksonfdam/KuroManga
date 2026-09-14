@@ -11,9 +11,26 @@ from sqlalchemy import text
 
 from app.api.main import app
 from app.db import get_sessionmaker
+from app.enums import JobType, Provider
+from app.handlers import notes_write
+from app.handlers.base import JobContext
 from app.providers.anilist import NOTES_MUTATION
+from app.queue import repo
 
 pytestmark = pytest.mark.asyncio
+
+
+class RecordingSource:
+    """Stands in for the provider's HTTP client; records what reached it."""
+
+    def __init__(self, written: list[tuple[str, str, list[str]]], provider: Provider):
+        self.written = written
+        self.provider = provider
+
+    async def set_notes(
+        self, access_token: str, media_id: str, notes: str, tags: list[str]
+    ) -> None:
+        self.written.append((str(self.provider), notes, tags))
 
 
 @pytest.fixture
@@ -99,3 +116,70 @@ async def test_a_note_longer_than_a_provider_accepts_is_refused(client):
         "/api/series/1/notes", json={"notes": "x" * 5001, "tags": []}
     )
     assert response.status_code == 422
+
+
+async def test_a_save_that_lands_after_the_job_is_leased_still_writes_the_second_note(
+    client, monkeypatch
+):
+    """The gap a leased-only 'pending' match left open: a worker leases the
+    job, then a second save arrives before it finishes. The dedupe key
+    refuses a fresh insert (a row for this series is still leased, not
+    done), so if the update only matched 'pending' the payload rewrite would
+    match nothing, the route would still answer ok, and the provider would
+    end up with the first note while the screen showed the second. Matching
+    'leased' too, and having the handler re-read the row instead of trusting
+    the payload it was leased with, is what makes the second save win.
+    """
+    async with get_sessionmaker()() as session:
+        await session.execute(
+            text(
+                """
+                insert into series (canonical_title, slug, needs_review, meta)
+                values ('Eleceed', 'eleceed', false, '{}'::jsonb)
+                """
+            )
+        )
+        await session.execute(
+            text(
+                """
+                insert into list_entry
+                       (provider, provider_media_id, series_id, status,
+                        user_progress_chapter, synonyms, raw)
+                values ('mal', '7', 1, 'reading', 280, '[]'::jsonb, '{}'::jsonb)
+                """
+            )
+        )
+        await session.execute(
+            text(
+                """
+                insert into provider_token (provider, access_token, refresh_token, expires_at)
+                values ('mal', 'token', null, null)
+                """
+            )
+        )
+        await repo.enqueue(
+            session,
+            JobType.NOTES_WRITE,
+            {"series_id": 1, "notes": "First draft.", "tags": ["old"]},
+            series_id=1,
+            dedupe_key="notes_write:1",
+        )
+        await session.commit()
+        job = await repo.lease(session)
+        assert job is not None
+
+    written: list[tuple[str, str, list[str]]] = []
+    monkeypatch.setattr(
+        notes_write, "get_source", lambda provider: RecordingSource(written, provider)
+    )
+
+    response = await client.post(
+        "/api/series/1/notes", json={"notes": "Reread 120 first.", "tags": ["favourite"]}
+    )
+    assert response.json() == {"ok": True, "queued": True}
+
+    async with get_sessionmaker()() as session:
+        await notes_write.handle(JobContext(session=session, job=job))
+        await session.commit()
+
+    assert written == [("mal", "Reread 120 first.", ["favourite"])]
