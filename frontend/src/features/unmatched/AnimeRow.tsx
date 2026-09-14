@@ -11,9 +11,11 @@ export function AnimeRow({
   searching,
   busy,
   showHidden,
+  selected,
   settingFor,
   onSearch,
   onHide,
+  onSelect,
   onStatus,
   onDownload,
   onAdd,
@@ -23,9 +25,11 @@ export function AnimeRow({
   searching: boolean
   busy: string | null
   showHidden: boolean
+  selected: boolean
   settingFor: (key: string) => Choice
   onSearch: () => void
   onHide: () => void
+  onSelect: () => void
   onStatus: (key: string, status: ListStatus) => void
   onDownload: (key: string, download: boolean) => void
   onAdd: (candidate: SearchCandidate) => void
@@ -33,7 +37,9 @@ export function AnimeRow({
   const name = titleOf(anime)
 
   return (
-    <article className="flex flex-col gap-space-md rounded-xl bg-surface-container p-space-md shadow-sm">
+    <article
+      className={`flex flex-col gap-space-md rounded-xl bg-surface-container p-space-md shadow-sm ${selected ? 'ring-1 ring-primary' : ''}`}
+    >
       <div className="flex flex-col gap-space-md sm:flex-row sm:items-start">
         <div className="aspect-[2/3] w-14 shrink-0 overflow-hidden rounded-lg bg-surface-container-highest">
           {anime.cover_url && (
@@ -46,7 +52,15 @@ export function AnimeRow({
           )}
         </div>
         <div className="flex min-w-0 flex-1 flex-col gap-space-xs">
-          <h3 className="text-title-md text-on-surface">{name}</h3>
+          {/* Not the whole row: it already carries Search, Hide and Add below,
+              and a row-wide click target would swallow clicks meant for those. */}
+          <button
+            type="button"
+            onClick={onSelect}
+            className="text-left text-title-md text-on-surface hover:underline"
+          >
+            {name}
+          </button>
           {anime.title_romaji && anime.title_romaji !== name && (
             <span className="font-mono text-label-sm text-outline">{anime.title_romaji}</span>
           )}
