@@ -11,37 +11,16 @@ Writing a status is idempotent, which is what makes a retry free.
 from sqlalchemy import text
 
 from app.enums import JobType, ListStatus, Provider
-from app.handlers.base import JobContext, PermanentError, register
+from app.handlers.base import JobContext, PermanentError, latest_payload, register
 from app.providers import get_source
 from app.providers.tokens import NotConnected, access_token_for
 
 
 async def latest_requested(ctx: JobContext, series_id: int) -> str | None:
-    """The status the most recently queued or leased write for this series carries.
-
-    progress_write takes the max of the queued chapters, because a chapter
-    number is one line that only moves forward. A status has no such order —
-    "on_hold" is not greater or less than "completed" — so the rule here is
-    latest, not greatest: order by the job's id descending and take the first.
-    The route rewrites the payload of the pending-or-leased row it finds for
-    this series when a second click arrives, including one already leased;
-    this is what reading that rewrite looks like from inside the job that was
-    leased before it happened.
-    """
-    result = await ctx.session.execute(
-        text(
-            """
-            select payload->>'status' as status
-              from job
-             where type = :type and series_id = :series_id
-               and state in ('pending', 'leased')
-             order by id desc
-             limit 1
-            """
-        ),
-        {"type": str(JobType.STATUS_WRITE), "series_id": series_id},
-    )
-    return result.scalar_one_or_none()
+    """The status the most recently queued or leased write for this series
+    carries. See base.latest_payload for why "latest" is the right rule."""
+    payload = await latest_payload(ctx, JobType.STATUS_WRITE, series_id)
+    return payload.get("status") if payload else None
 
 
 @register(JobType.STATUS_WRITE)

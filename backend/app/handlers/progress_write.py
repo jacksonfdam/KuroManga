@@ -29,6 +29,12 @@ async def newest_requested(ctx: JobContext, series_id: int) -> int | None:
     click that arrives while a write is in flight raises the chapter on the
     job that already exists. This job was leased with whatever the payload
     said at the time, which by now can be behind the user.
+
+    Not base.latest_payload: that helper answers "latest", which is the right
+    rule for a status or a note because neither has an order of its own. A
+    chapter does — it only moves forward — so this takes max() across every
+    queued payload instead of the newest row, or a write could be applied out
+    of order relative to one still waiting behind it.
     """
     result = await ctx.session.execute(
         text(
