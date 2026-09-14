@@ -32,6 +32,15 @@ def redirect_uri(provider: Provider) -> str:
 
 @router.get("/{provider}/start")
 async def start(provider: Provider, session: Session) -> dict[str, str]:
+    # A provider with no OAuth flow is a permanent condition, not a failure the
+    # source can raise its way past: tell the caller what to configure instead.
+    if not get_source(provider).uses_oauth:
+        raise HTTPException(
+            status_code=400,
+            detail=f"{provider} authenticates with a token; set {provider.upper()}_TOKEN "
+            "in the environment instead of connecting",
+        )
+
     settings = get_settings()
     client_id = settings.mal_client_id if provider == Provider.MAL else settings.anilist_client_id
     if not client_id:
@@ -57,6 +66,12 @@ async def callback(
     code: Annotated[str, Query()],
     state: Annotated[str, Query()],
 ) -> RedirectResponse:
+    if not get_source(provider).uses_oauth:
+        raise HTTPException(
+            status_code=400,
+            detail=f"{provider} authenticates with a token; there is no OAuth callback for it",
+        )
+
     stored = await settings_store.get(session, f"{STATE_PREFIX}{state}")
     if not stored:
         raise HTTPException(status_code=400, detail="unknown or expired oauth state")

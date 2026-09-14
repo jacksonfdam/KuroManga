@@ -72,7 +72,13 @@ export function SettingsPage() {
     mangadexSource && 'username' in mangadexSource ? mangadexSource.username : null
   const komga = integration('komga')
 
-  const activeConnections = [mal, anilist].filter((item) => item?.state === 'ok').length
+  // MangaBaka has no /api/health/integrations entry — that endpoint reads
+  // provider_token rows and a token provider never writes one — so its half of
+  // the count comes from the settings payload, which is where its state lives.
+  const mangabaka = data.providers.mangabaka
+  const activeConnections =
+    [mal, anilist].filter((item) => item?.state === 'ok').length +
+    (mangabaka?.configured ? 1 : 0)
   const operationalSources = [mangadex, comick].filter((item) => item?.state === 'ok').length
 
   const komgaLabel =
@@ -98,7 +104,7 @@ export function SettingsPage() {
       <section className="flex flex-col gap-space-md">
         <SectionHeader
           icon="link"
-          title="List Providers & OAuth2 Authentication"
+          title="List Providers & Authentication"
           subtitle="Primary reading-tracking and score-sync sources"
           meta={
             <span className="rounded bg-surface-container-low px-space-sm py-1 font-mono text-label-sm text-on-surface-variant">
@@ -108,6 +114,7 @@ export function SettingsPage() {
         />
         <div className="grid grid-cols-1 gap-space-md lg:grid-cols-2">
           <ProviderCard
+            provider="mal"
             tile="MAL"
             title="MyAnimeList"
             subtitle="OAuth2 PKCE (plain method)"
@@ -118,6 +125,7 @@ export function SettingsPage() {
             onSync={() => sync('mal')}
           />
           <ProviderCard
+            provider="anilist"
             tile="AL"
             title="AniList"
             subtitle="OAuth2 authorization code"
@@ -126,6 +134,14 @@ export function SettingsPage() {
             onConnect={() => connect('anilist')}
             onDisconnect={() => disconnect('anilist')}
             onSync={() => sync('anilist')}
+          />
+          <ProviderCard
+            provider="mangabaka"
+            tile="MB"
+            title="MangaBaka"
+            subtitle="Static API token (X-API-Key)"
+            info={data.providers.mangabaka}
+            onSync={() => sync('mangabaka')}
           />
         </div>
       </section>

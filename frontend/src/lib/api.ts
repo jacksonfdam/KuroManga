@@ -95,13 +95,23 @@ export interface JobEvent {
 
 export interface SettingsPayload {
   values: Record<string, string>
-  providers: Record<
-    string,
-    { connected: boolean; configured: boolean; account_name?: string; expires_at?: string | null }
-  >
+  providers: Record<string, ProviderStatus>
   sources: Record<string, SourceStatus>
   library_path: string
 }
+
+/** An OAuth provider is connected or not; a token provider just needs its
+ * environment variable set, so it has no connect/disconnect state at all —
+ * and no account name or token expiry to report either. */
+export type ProviderStatus =
+  | {
+      uses_oauth: true
+      connected: boolean
+      configured: boolean
+      account_name?: string
+      expires_at?: string | null
+    }
+  | { uses_oauth: false; configured: boolean }
 
 // The PUT answers with more than the GET: what was ignored, and whether the
 // worker has to be restarted for the new schedule to be read. It is not a
