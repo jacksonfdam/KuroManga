@@ -26,9 +26,16 @@ API_BASE = "https://api.myanimelist.net/v2"
 AUTHORIZE_URL = "https://myanimelist.net/v1/oauth2/authorize"
 TOKEN_URL = "https://myanimelist.net/v1/oauth2/token"
 
+# The detail screen reads all of these out of `list_entry.raw`, which stores the
+# item verbatim. `my_list_status` is one field name: its sub-keys (score,
+# num_volumes_read, num_times_reread, tags, comments, dates) arrive with it and
+# are not requested individually. `serialization{name}` is the only place either
+# provider names the magazine a manga runs in.
 LIST_FIELDS = (
-    "list_status,alternative_titles,num_chapters,main_picture,title,"
-    "synopsis,genres,start_date,authors{first_name,last_name},mean,media_type"
+    "list_status,alternative_titles,num_chapters,num_volumes,main_picture,title,"
+    "synopsis,genres,start_date,end_date,status,authors{first_name,last_name},"
+    "serialization{name},mean,rank,popularity,num_list_users,num_scoring_users,"
+    "media_type,my_list_status,background"
 )
 PAGE_LIMIT = 1000
 

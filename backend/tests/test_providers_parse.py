@@ -286,3 +286,31 @@ def test_a_list_recorded_before_the_widened_query_still_parses(fixture):
     must not start depending on them."""
     entries = parse_list(fixture("anilist_list.json"))
     assert entries[0].raw["media"].get("volumes") is None
+
+
+from app.providers.mal import LIST_FIELDS
+
+
+def test_mal_list_fields_ask_for_every_field_the_detail_screen_reads():
+    for field in (
+        "end_date",
+        "rank",
+        "num_scoring_users",
+        "num_volumes",
+        "serialization",
+        "status",
+    ):
+        assert field in LIST_FIELDS, field
+
+
+def test_mal_keeps_the_whole_item_as_raw(fixture):
+    entry = parse_page(fixture("mal_page_rich.json"))[0]
+    assert entry.raw["node"]["num_volumes"] == 18
+    assert entry.raw["node"]["serialization"][0]["node"]["name"] == "Shounen Jump (Weekly)"
+    assert entry.raw["list_status"]["num_times_reread"] == 0
+    assert entry.raw["list_status"]["comments"] == "Reread chapter 120 before the anime."
+
+
+def test_a_page_recorded_before_the_widened_fields_still_parses(fixture):
+    entry = parse_page(fixture("mal_page.json"))[0]
+    assert entry.raw["node"].get("num_volumes") is None

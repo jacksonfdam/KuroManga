@@ -1,0 +1,57 @@
+{
+  "data": [
+    {
+      "node": {
+        "id": 121496,
+        "title": "Sakamoto Days",
+        "alternative_titles": { "en": "Sakamoto Days", "ja": "サカモトデイズ", "synonyms": [] },
+        "main_picture": { "large": "https://example.invalid/cover.jpg" },
+        "start_date": "2020-11-21",
+        "end_date": null,
+        "synopsis": "Taro Sakamoto was once the greatest hitman alive.",
+        "mean": 9.07,
+        "rank": 14,
+        "popularity": 132,
+        "num_list_users": 131334,
+        "num_scoring_users": 54291,
+        "media_type": "manga",
+        "status": "currently_publishing",
+        "genres": [{ "id": 1, "name": "Action" }, { "id": 4, "name": "Comedy" }],
+        "num_volumes": 18,
+        "num_chapters": 172,
+        "authors": [
+          { "node": { "first_name": "Yuto", "last_name": "Suzuki" }, "role": "Story & Art" }
+        ],
+        "serialization": [{ "node": { "name": "Shounen Jump (Weekly)" } }],
+        "background": "",
+        "my_list_status": {
+          "status": "reading",
+          "score": 10,
+          "num_volumes_read": 16,
+          "num_chapters_read": 148,
+          "is_rereading": false,
+          "start_date": "2024-01-12",
+          "finish_date": null,
+          "num_times_reread": 0,
+          "tags": ["favourite"],
+          "comments": "Reread chapter 120 before the anime.",
+          "updated_at": "2024-10-18T14:32:00+00:00"
+        }
+      },
+      "list_status": {
+        "status": "reading",
+        "score": 10,
+        "num_volumes_read": 16,
+        "num_chapters_read": 148,
+        "is_rereading": false,
+        "start_date": "2024-01-12",
+        "finish_date": null,
+        "num_times_reread": 0,
+        "tags": ["favourite"],
+        "comments": "Reread chapter 120 before the anime.",
+        "updated_at": "2024-10-18T14:32:00+00:00"
+      }
+    }
+  ],
+  "paging": {}
+}
