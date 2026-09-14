@@ -1,10 +1,15 @@
 import { EmptyState, ErrorState, Icon, NoticeBar, SegmentedControl, Skeleton } from '../../ui'
 import { STATUS_LABEL } from '../../lib/format'
+import type { ListStatus } from '../../lib/format'
+import { api } from '../../lib/api'
+import { useState } from 'react'
 import { ContinueReading } from './ContinueReading'
+import { BatchActionBar } from './BatchActionBar'
 import { SeriesGrid } from './SeriesGrid'
 import { SeriesTable } from './SeriesTable'
 import { StatusTabs } from './StatusTabs'
 import { useLibrary } from './useLibrary'
+import { useSelection } from './useSelection'
 
 // Markup reference:
 // .redesign/biblioteca_principal_sincronizada_com_komga_provedores/code.html.
@@ -32,6 +37,30 @@ import { useLibrary } from './useLibrary'
 export function LibraryPage() {
   const { series, all, loaded, error, status, setStatus, view, setView, query, setQuery, increment, reload, continueReading, pending, notice } =
     useLibrary()
+  const selection = useSelection()
+  const [applying, setApplying] = useState(false)
+  const [batchNotice, setBatchNotice] = useState<string | null>(null)
+
+  // The rows settle from the job stream the library already listens to, so the
+  // reload here is for the status the API has recorded, not for the writes —
+  // those land later and announce themselves.
+  const applyBatch = async (next: ListStatus) => {
+    setApplying(true)
+    try {
+      const result = await api.batchStatus(selection.ids, next)
+      const skipped = result.skipped.length
+      setBatchNotice(
+        `Queued ${result.queued} ${result.queued === 1 ? 'title' : 'titles'} as ${STATUS_LABEL[next]}` +
+          (skipped ? `. ${skipped} skipped — not on any reading list.` : '.'),
+      )
+      selection.clear()
+      await reload()
+    } catch (failure) {
+      setBatchNotice(`Couldn't queue the batch: ${String(failure)}`)
+    } finally {
+      setApplying(false)
+    }
+  }
 
   // Nothing has ever arrived and the request failed: an empty library and an
   // unreachable API are different facts, and telling the user to go and
@@ -72,8 +101,35 @@ export function LibraryPage() {
 
   return (
     <div className="flex flex-col gap-space-xl">
+      {selection.count > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5 self-end rounded-lg border border-primary/40 bg-primary/10 p-1">
+          <span className="flex items-center gap-1.5 rounded-md bg-primary px-2.5 py-1 text-label-sm font-semibold text-on-primary">
+            <Icon name="check_box" className="text-[1rem]" />
+            <span>Selection mode</span>
+            <span className="rounded-full bg-on-primary/20 px-1.5 font-mono text-label-sm font-bold">
+              {selection.count} selected
+            </span>
+          </span>
+          <button
+            type="button"
+            onClick={selection.clear}
+            className="rounded-md px-2 py-1 font-mono text-label-sm text-outline transition-colors hover:bg-surface-container-high hover:text-on-surface"
+          >
+            Clear
+          </button>
+          <button
+            type="button"
+            onClick={() => selection.selectAll(series.map((row) => row.id))}
+            className="rounded-md px-2 py-1 font-mono text-label-sm text-outline transition-colors hover:bg-surface-container-high hover:text-on-surface"
+            title="Select every series currently shown"
+          >
+            Select all shown
+          </button>
+        </div>
+      )}
       {error && <NoticeBar tone="error" text={`Couldn't refresh the library: ${error}`} onRetry={reload} />}
       {notice && <NoticeBar tone={notice.tone} text={notice.text} />}
+      {batchNotice && <NoticeBar tone="info" text={batchNotice} />}
       <section className="flex flex-col gap-space-md">
         <div className="flex flex-wrap items-center justify-between gap-space-md rounded-2xl bg-surface-container-low p-2 shadow-card">
           <StatusTabs all={all} status={status} onChange={setStatus} />
@@ -126,11 +182,32 @@ export function LibraryPage() {
             detail="Nothing in this status matches the current filter. Try another tab or clear the search."
           />
         ) : view === 'grid' ? (
-          <SeriesGrid series={series} pending={pending} onIncrement={increment} />
+          <SeriesGrid
+            series={series}
+            pending={pending}
+            onIncrement={increment}
+            selected={selection.selected}
+            onToggleSelect={selection.toggle}
+          />
         ) : (
-          <SeriesTable series={series} pending={pending} onIncrement={increment} />
+          <SeriesTable
+            series={series}
+            pending={pending}
+            onIncrement={increment}
+            selected={selection.selected}
+            onToggleSelect={selection.toggle}
+          />
         )}
       </section>
+
+      {selection.count > 0 && (
+        <BatchActionBar
+          count={selection.count}
+          busy={applying}
+          onApply={applyBatch}
+          onCancel={selection.clear}
+        />
+      )}
     </div>
   )
 }
