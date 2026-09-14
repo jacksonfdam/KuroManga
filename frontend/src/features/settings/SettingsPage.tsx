@@ -224,7 +224,7 @@ export function SettingsPage() {
         <StorageFields libraryPath={data.library_path} draft={draft} onChange={setField} />
       </section>
 
-      <div className="sticky bottom-6 z-40 mt-space-md w-full">
+      <div className="sticky bottom-nav-clearance z-40 mt-space-md w-full xl:bottom-space-lg">
         <div className="flex flex-col items-center justify-between gap-space-md rounded-xl bg-surface-container-lowest/90 p-space-md shadow-2xl backdrop-blur-xl sm:flex-row">
           <div className="flex items-center gap-space-sm">
             <span

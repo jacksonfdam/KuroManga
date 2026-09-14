@@ -83,6 +83,11 @@ export default {
       },
       spacing: {
         gutter: '1.25rem',
+        // The bottom navigation's own height plus a gutter. Anything sticky or
+        // fixed to the bottom below xl offsets by this: the settings save bar
+        // and the nav were built by different tasks, neither knew about the
+        // other, and the Save button ended up 26px behind it on a phone.
+        'nav-clearance': '4.5rem',
         margin: '2rem',
         'space-xs': '0.25rem',
         'space-sm': '0.5rem',
