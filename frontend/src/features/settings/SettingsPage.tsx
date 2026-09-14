@@ -141,7 +141,11 @@ export function SettingsPage() {
             </span>
           }
         />
-        <div className="grid grid-cols-1 gap-space-md lg:grid-cols-2">
+        {/* items-start: the MangaDex card is one paragraph and the Comick card
+            beside it carries a URL field and a toggle, so stretching them to a
+            common height left the reference's API-key and rate-limit rows — both
+            dropped, neither in this API — reserved as empty space. */}
+        <div className="grid grid-cols-1 items-start gap-space-md lg:grid-cols-2">
           <SourceCard
             icon="download"
             title="MangaDex API"

@@ -20,7 +20,12 @@ export function StorageFields({
   onChange: (key: string, value: string) => void
 }) {
   return (
-    <div className="grid grid-cols-1 gap-space-md lg:grid-cols-3">
+    // One quarter and three, not one third and two, and items-start rather
+    // than the default stretch. The left card was sized for the mockup's
+    // container mount path, Komga URL, library id, series count and reindex
+    // button; all five were dropped for lack of a field, and the span kept
+    // reserving a third of the row and 183px of height for them.
+    <div className="grid grid-cols-1 items-start gap-space-md lg:grid-cols-4">
       <div className="flex flex-col gap-space-md rounded-xl bg-surface-container p-space-lg shadow-card lg:col-span-1">
         <div className="flex items-center gap-space-sm">
           <Icon name="folder" className="h-5 w-5 text-primary" />
@@ -34,7 +39,7 @@ export function StorageFields({
           </div>
         </div>
       </div>
-      <div className="flex flex-col gap-space-md rounded-xl bg-surface-container p-space-lg shadow-card lg:col-span-2">
+      <div className="flex flex-col gap-space-md rounded-xl bg-surface-container p-space-lg shadow-card lg:col-span-3">
         <h3 className="text-title-md font-semibold text-on-surface">Automation</h3>
         <div className="flex flex-col gap-space-xs rounded-lg bg-surface-container-low p-space-md">
           <Toggle
