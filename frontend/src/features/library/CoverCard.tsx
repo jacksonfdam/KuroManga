@@ -11,9 +11,12 @@ import { totalChapters } from './useLibrary'
 // would otherwise cover the one piece of the card that identifies the manga.
 export function CoverCard({
   series,
+  pending = false,
   onIncrement,
 }: {
   series: Series
+  /** The chapter shown is one the queue took and no worker has written yet. */
+  pending?: boolean
   onIncrement: (id: number, next: number) => Promise<void>
 }) {
   const total = totalChapters(series)
@@ -70,7 +73,11 @@ export function CoverCard({
             button and "open this series" are two different actions stacked on
             the same corner of the art. */}
         <div className="absolute bottom-2 right-2" onClick={(event) => event.preventDefault()}>
-          <QuickIncrement progress={series.progress} onIncrement={(next) => onIncrement(series.id, next)} />
+          <QuickIncrement
+            progress={series.progress}
+            pending={pending}
+            onIncrement={(next) => onIncrement(series.id, next)}
+          />
         </div>
         {/* 4px, flush with the image's own bottom edge — DESIGN.md's Manga Cover
             Cards spec, not the card's outer rounded corner. */}
@@ -96,6 +103,10 @@ export function CoverCard({
           <span className="text-on-surface">
             Ch {formatChapter(series.progress)}
             {total !== null && <span className="text-outline"> / {total}</span>}
+            {/* The tinted button is a hover-sized target on a poster grid and
+                easy to miss; the word is what says the number is not the
+                providers' yet. */}
+            {pending && <span className="text-tertiary"> · syncing</span>}
           </span>
           {extra > 0 ? (
             <span className="text-secondary">+{extra} new</span>

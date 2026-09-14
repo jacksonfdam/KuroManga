@@ -34,6 +34,7 @@ export function HomePage() {
     notice,
     busy,
     increment,
+    pending,
     forceScan,
     approve,
     dismiss,
@@ -87,6 +88,7 @@ export function HomePage() {
       <ContinueReading
         rows={dashboard.continue_reading}
         active={dashboard.active_reading.series}
+        pending={pending}
         onIncrement={increment}
       />
 

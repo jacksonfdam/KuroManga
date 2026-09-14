@@ -22,7 +22,9 @@ async def run_job(job: repo.LeasedJob) -> None:
     if handler is None:
         async with sessionmaker() as session:
             await repo.fail(session, job.id, f"no handler registered for {job.type}", permanent=True)
-            await repo.notify_job(session, job.id, event="job.failed")
+            await repo.notify_job(
+                session, job.id, event="job.failed", series_id=job.series_id, job_type=job.type
+            )
             await session.commit()
         return
 
@@ -37,7 +39,9 @@ async def run_job(job: repo.LeasedJob) -> None:
                 await session.commit()
             await handler(JobContext(session=session, job=job))
             await repo.complete(session, job.id)
-            await repo.notify_job(session, job.id, event="job.done", series_id=job.series_id)
+            await repo.notify_job(
+                session, job.id, event="job.done", series_id=job.series_id, job_type=job.type
+            )
             await session.commit()
     except Exception as exc:  # noqa: BLE001 - the outcome is recorded, not swallowed
         permanent = isinstance(exc, PermanentError)
@@ -54,6 +58,7 @@ async def run_job(job: repo.LeasedJob) -> None:
                 event="job.failed" if retired else "job.retry",
                 message=str(exc),
                 series_id=job.series_id,
+                job_type=job.type,
             )
             await session.commit()
 

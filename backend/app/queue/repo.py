@@ -256,11 +256,16 @@ async def notify_job(
     pct: float | Decimal | None = None,
     message: str | None = None,
     series_id: int | None = None,
+    job_type: JobType | None = None,
 ) -> None:
+    # series_id alone cannot say what finished: a download and a progress write
+    # for the same series carry the same id, so a listener waiting on one of
+    # them would act on the other's outcome.
     payload = json.dumps(
         {
             "event": event,
             "job_id": job_id,
+            "job_type": str(job_type) if job_type is not None else None,
             "pct": float(pct) if pct is not None else None,
             "message": (message or "")[:200],
             "series_id": series_id,

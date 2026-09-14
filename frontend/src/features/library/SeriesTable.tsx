@@ -12,6 +12,10 @@ const FLASH: Record<NonNullable<FlashState>, string> = {
   error: 'bg-error text-on-error',
 }
 
+// The queued-but-unwritten tint, matching the tertiary the pipeline column
+// already uses for work still in flight.
+const PENDING = 'bg-tertiary/20 text-tertiary'
+
 // The reference's fifth column is "Status Pipeline": what the pipeline is
 // doing with this series. This table showed the reading status instead, which
 // is already the filter sitting directly above it — so the row said the same
@@ -37,10 +41,13 @@ const STATE_TINT: Record<SeriesState, string> = {
 function SeriesRow({
   row,
   index,
+  pending,
   onIncrement,
 }: {
   row: Series
   index: number
+  /** The chapter shown is queued and not yet written to the lists. */
+  pending: boolean
   onIncrement: (id: number, next: number) => Promise<void>
 }) {
   const total = totalChapters(row)
@@ -125,12 +132,15 @@ function SeriesRow({
               disabled={busy}
               aria-label="Mark next chapter read"
               className={`flex h-5 w-5 items-center justify-center rounded font-bold text-on-primary-container transition-colors disabled:cursor-not-allowed ${
-                flash ? FLASH[flash] : 'bg-primary/20 hover:bg-primary hover:text-on-primary'
+                flash ? FLASH[flash] : pending ? PENDING : 'bg-primary/20 hover:bg-primary hover:text-on-primary'
               }`}
             >
-              <Icon name="add" className="h-3 w-3" />
+              <Icon name={pending && !flash ? 'sync' : 'add'} className="h-3 w-3" />
             </button>
             {total !== null && <span className="text-outline">/ {total}</span>}
+            {/* Same tone as the Downloading pill three columns over: the row
+                is waiting on the queue, which is the fact both report. */}
+            {pending && <span className="text-tertiary">syncing</span>}
           </div>
           <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-container-highest">
             <div className="h-full rounded-full bg-secondary" style={{ width: `${pct}%` }} />
@@ -151,9 +161,12 @@ function SeriesRow({
 
 export function SeriesTable({
   series,
+  pending,
   onIncrement,
 }: {
   series: Series[]
+  /** Series whose last +1 is queued and not yet written. */
+  pending: ReadonlySet<number>
   onIncrement: (id: number, next: number) => Promise<void>
 }) {
   return (
@@ -171,7 +184,13 @@ export function SeriesTable({
         </thead>
         <tbody className="divide-y divide-surface-container-highest/20 text-body-sm">
           {series.map((row, index) => (
-            <SeriesRow key={row.id} row={row} index={index} onIncrement={onIncrement} />
+            <SeriesRow
+              key={row.id}
+              row={row}
+              index={index}
+              pending={pending.has(row.id)}
+              onIncrement={onIncrement}
+            />
           ))}
         </tbody>
       </table>

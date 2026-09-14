@@ -30,7 +30,7 @@ import { useLibrary } from './useLibrary'
 //
 // An invented figure that fills a gap in a mockup is worse than the gap.
 export function LibraryPage() {
-  const { series, all, loaded, error, status, setStatus, view, setView, query, setQuery, increment, reload, continueReading, notice } =
+  const { series, all, loaded, error, status, setStatus, view, setView, query, setQuery, increment, reload, continueReading, pending, notice } =
     useLibrary()
 
   // Nothing has ever arrived and the request failed: an empty library and an
@@ -103,7 +103,7 @@ export function LibraryPage() {
         </div>
       </section>
 
-      <ContinueReading series={continueReading} onIncrement={increment} />
+      <ContinueReading series={continueReading} pending={pending} onIncrement={increment} />
 
       <section className="flex flex-col gap-space-md">
         <div className="flex flex-wrap items-baseline justify-between gap-space-sm">
@@ -126,9 +126,9 @@ export function LibraryPage() {
             detail="Nothing in this status matches the current filter. Try another tab or clear the search."
           />
         ) : view === 'grid' ? (
-          <SeriesGrid series={series} onIncrement={increment} />
+          <SeriesGrid series={series} pending={pending} onIncrement={increment} />
         ) : (
-          <SeriesTable series={series} onIncrement={increment} />
+          <SeriesTable series={series} pending={pending} onIncrement={increment} />
         )}
       </section>
     </div>

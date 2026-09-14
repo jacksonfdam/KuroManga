@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 
 import { api } from '../lib/api'
+import { settleQueuedProgress } from '../lib/queuedProgress'
 import { useJobEvents } from '../lib/useEvents'
 import { PROVIDER_LABEL } from '../lib/format'
 import { useNotice } from '../lib/useNotice'
@@ -58,7 +59,16 @@ export function AppShell() {
   }
 
   useEffect(refresh, [])
-  useJobEvents(refresh)
+
+  // The one job outcome the shell speaks about rather than only counting: a
+  // chapter write that gave up drops the number back on whichever screen shows
+  // that series, and only this notice says why. It is reported here because
+  // the click may have happened two screens ago.
+  useJobEvents((event) => {
+    const refused = settleQueuedProgress(event)
+    if (refused) fail(refused)
+    refresh()
+  })
 
   // The shell's own primary action. Home's "Force scan" is the same act
   // against the same providers, so the request itself lives in lib/sync.ts.

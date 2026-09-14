@@ -13,9 +13,12 @@ import { formatChapter } from '../../lib/format'
  */
 function Entry({
   row,
+  pending,
   onIncrement,
 }: {
   row: ContinueReadingEntry
+  /** The chapter shown is queued and not yet written to the lists. */
+  pending: boolean
   onIncrement: (seriesId: number, next: number) => Promise<void>
 }) {
   const total = row.total_chapters
@@ -67,8 +70,19 @@ function Entry({
         )}
 
         <div className="mt-auto flex items-center gap-space-sm pt-space-sm">
-          <QuickIncrement progress={row.progress} onIncrement={(next) => onIncrement(row.series_id, next)} />
-          <span className="font-mono text-label-sm text-outline">+1 chapter</span>
+          <QuickIncrement
+            progress={row.progress}
+            pending={pending}
+            onIncrement={(next) => onIncrement(row.series_id, next)}
+          />
+          {/* The label carries the state: the button's own tint is the quiet
+              half of it, and this row is where a user watches the number they
+              just changed. */}
+          {pending ? (
+            <span className="font-mono text-label-sm text-tertiary">Syncing…</span>
+          ) : (
+            <span className="font-mono text-label-sm text-outline">+1 chapter</span>
+          )}
           {row.chapters_remaining !== null && (
             <span className="ml-auto shrink-0 font-mono text-label-sm text-outline">
               {row.chapters_remaining === 0
@@ -85,12 +99,15 @@ function Entry({
 export function ContinueReading({
   rows,
   active,
+  pending,
   onIncrement,
 }: {
   rows: ContinueReadingEntry[]
   /** Every series being read, not just the ones on this row: the payload caps
       the cards at eight and the heading must not pass its page off as a total. */
   active: number
+  /** Series whose last +1 is queued and not yet written. */
+  pending: ReadonlySet<number>
   onIncrement: (seriesId: number, next: number) => Promise<void>
 }) {
   return (
@@ -116,7 +133,12 @@ export function ContinueReading({
       ) : (
         <div className="grid grid-cols-1 gap-space-md md:grid-cols-2 xl:grid-cols-4">
           {rows.map((row) => (
-            <Entry key={row.series_id} row={row} onIncrement={onIncrement} />
+            <Entry
+              key={row.series_id}
+              row={row}
+              pending={pending.has(row.series_id)}
+              onIncrement={onIncrement}
+            />
           ))}
         </div>
       )}

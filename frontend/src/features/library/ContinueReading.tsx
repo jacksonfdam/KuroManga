@@ -8,9 +8,12 @@ import { totalChapters } from './useLibrary'
 // Only series with an updated_at get here, so relativeTime never sees null.
 export function ContinueReading({
   series,
+  pending,
   onIncrement,
 }: {
   series: Series[]
+  /** Series whose last +1 is queued and not yet written. */
+  pending: ReadonlySet<number>
   onIncrement: (id: number, next: number) => Promise<void>
 }) {
   if (series.length === 0) return null
@@ -57,8 +60,19 @@ export function ContinueReading({
                   </p>
                 </div>
                 <div className="mt-3 flex items-center gap-2">
-                  <QuickIncrement progress={row.progress} onIncrement={(next) => onIncrement(row.id, next)} />
-                  <span className="font-mono text-label-sm text-outline">+1 Ch</span>
+                  <QuickIncrement
+                    progress={row.progress}
+                    pending={pending.has(row.id)}
+                    onIncrement={(next) => onIncrement(row.id, next)}
+                  />
+                  {/* The label carries the state: the button's own tint is the
+                      quiet half of it, and this row is where a user watches
+                      the number they just changed. */}
+                  {pending.has(row.id) ? (
+                    <span className="font-mono text-label-sm text-tertiary">Syncing…</span>
+                  ) : (
+                    <span className="font-mono text-label-sm text-outline">+1 Ch</span>
+                  )}
                 </div>
               </div>
             </div>

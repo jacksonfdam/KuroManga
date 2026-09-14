@@ -1,4 +1,4 @@
-import { useCallback } from 'react'
+import { useCallback, useMemo } from 'react'
 
 import { api, type ContinueReadingEntry, type DashboardSuggestion } from '../../lib/api'
 import { DEFAULT_STATUS, downloadsByDefault } from '../../lib/format'
@@ -6,6 +6,7 @@ import { syncLists } from '../../lib/sync'
 import { useAsyncData } from '../../lib/useAsyncData'
 import { useJobEvents } from '../../lib/useEvents'
 import { useNotice } from '../../lib/useNotice'
+import { useQueuedProgress } from '../../lib/queuedProgress'
 import { useSuggestionActions } from '../../lib/useSuggestionActions'
 
 /** Progress moved, so what is left of the series moved with it. */
@@ -41,6 +42,8 @@ export function useHome(onChanged: () => void) {
 
   const { busy, approve, dismiss } = useSuggestionActions(notice, changed)
 
+  const { awaiting, queue, drop } = useQueuedProgress()
+
   // Progress ticks arrive over the existing SSE subscription and only move a
   // bar, so they patch the running job in place. Anything else (done, failed,
   // retry) moves a job between the two lists and changes counters besides, so
@@ -64,37 +67,57 @@ export function useHome(onChanged: () => void) {
     if (event.event !== 'job.progress') reload()
   })
 
+  // The same overlay the library keeps, over the rows this screen renders: the
+  // chapter the queue accepted sits on top of whatever the reload returned,
+  // until the write lands and the stored number covers it on its own.
+  const dashboard = useMemo(() => {
+    if (!data) return data
+    return {
+      ...data,
+      continue_reading: data.continue_reading.map((row) => {
+        const chapter = awaiting(row.series_id, row.progress)
+        return chapter === null ? row : advanced(row, chapter)
+      }),
+    }
+  }, [data, awaiting])
+
+  const pending = useMemo(
+    () =>
+      new Set(
+        (data?.continue_reading ?? [])
+          .filter((row) => awaiting(row.series_id, row.progress) !== null)
+          .map((row) => row.series_id),
+      ),
+    [data, awaiting],
+  )
+
   /**
-   * Apply, then confirm — the same contract the library's +1 keeps. A rejected
-   * write restores the previous number visibly and says why: the refusals this
-   * can hit are a chapter past what the series is known to have and a number
-   * that would move a list backwards, and both read as a broken button
-   * otherwise.
+   * Apply, then confirm — the same contract the library's +1 keeps. A refused
+   * write drops the queued chapter visibly and says why: the refusals this can
+   * hit are a chapter past what the series is known to have and a number that
+   * would move a list backwards, and both read as a broken button otherwise.
    */
   const increment = useCallback(
     async (seriesId: number, next: number) => {
-      let previous: ContinueReadingEntry[] = []
       clear()
-      setData((current) => {
-        if (!current) return current
-        previous = current.continue_reading
-        return {
-          ...current,
-          continue_reading: current.continue_reading.map((row) =>
-            row.series_id === seriesId ? advanced(row, next) : row,
-          ),
-        }
-      })
+      // The title travels with the queued chapter: a write can be refused
+      // while the user is on another screen, and the shell that reports it
+      // has no rows of its own to look the series up in.
+      queue(
+        seriesId,
+        next,
+        data?.continue_reading.find((row) => row.series_id === seriesId)?.title ??
+          `series ${seriesId}`,
+      )
       try {
         await api.setProgress(seriesId, next)
       } catch (failure) {
-        setData((current) => (current ? { ...current, continue_reading: previous } : current))
+        drop(seriesId)
         reportFailure(failure)
         throw failure
       }
-      reload()
     },
-    [clear, reload, reportFailure, setData],
+    [clear, data, drop, queue, reportFailure],
   )
 
   const forceScan = useCallback(async () => {
@@ -113,13 +136,14 @@ export function useHome(onChanged: () => void) {
   )
 
   return {
-    dashboard: data,
+    dashboard,
     loaded: data !== null,
     error,
     reload,
     notice: notice.notice,
     busy,
     increment,
+    pending,
     forceScan,
     approve: approveHighlight,
     dismiss,

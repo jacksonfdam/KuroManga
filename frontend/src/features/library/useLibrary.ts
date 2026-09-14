@@ -5,6 +5,7 @@ import type { ListStatus } from '../../lib/format'
 import { useAsyncData } from '../../lib/useAsyncData'
 import { useJobEvents } from '../../lib/useEvents'
 import { useNotice } from '../../lib/useNotice'
+import { useQueuedProgress } from '../../lib/queuedProgress'
 
 export type View = 'grid' | 'table'
 
@@ -18,42 +19,56 @@ export function totalChapters(series: Series): number | null {
 
 export function useLibrary() {
   const load = useCallback(() => api.series(), [])
-  const { data, error, reload, setData } = useAsyncData(load)
+  const { data, error, reload } = useAsyncData(load)
   const [status, setStatus] = useState<ListStatus | 'all'>('reading')
   const [view, setView] = useState<View>('grid')
   const [query, setQuery] = useState('')
   const { notice, reportFailure, clear } = useNotice()
-
-  const all = useMemo(() => data ?? [], [data])
+  const { awaiting, queue, drop } = useQueuedProgress()
 
   // POST /progress only queues the write; the number the library reads comes
   // from list_entry, which the handler updates when the job runs. So the card
-  // is reconciled twice: once against the reload below, and again when the
-  // job that actually reached the provider reports done.
+  // keeps showing the queued chapter over whatever the reload returns until
+  // the job that actually reached the provider has moved it.
   useJobEvents((event) => {
     if (event.event !== 'job.progress') reload()
   })
 
+  // Rows as the user's clicks left them: the stored chapter, raised by any
+  // write the queue has taken and not yet written. One place rather than at
+  // each of the four controls, so the card, the table row and the hero row
+  // cannot disagree about what a series is on.
+  const all = useMemo(
+    () =>
+      (data ?? []).map((row) => {
+        const chapter = awaiting(row.id, row.progress)
+        return chapter === null ? row : { ...row, progress: chapter }
+      }),
+    [data, awaiting],
+  )
+
+  // Which of those rows is still waiting. Derived from the same overlay, so a
+  // row can never show a raised chapter without the marker that says why.
+  const pending = useMemo(
+    () => new Set((data ?? []).filter((row) => awaiting(row.id, row.progress) !== null).map((row) => row.id)),
+    [data, awaiting],
+  )
+
   /**
-   * Apply, then confirm. A rejected write restores the previous number
-   * visibly: silently reverting reads as the click having missed.
+   * Apply, then confirm. A refused write drops the queued chapter visibly:
+   * silently reverting reads as the click having missed.
    */
   const increment = useCallback(
     async (id: number, next: number) => {
-      // The functional-updater form re-reads state at rollback time. Capturing
-      // `data` in this closure would restore whatever list existed when the
-      // click happened, discarding any refresh that landed while the request
-      // was in flight.
-      let previous: Series[] = []
       clear()
-      setData((rows) => {
-        previous = rows ?? []
-        return (rows ?? []).map((row) => (row.id === id ? { ...row, progress: next } : row))
-      })
+      // The title travels with the queued chapter: a write can be refused
+      // while the user is on another screen, and the shell that reports it
+      // has no list of its own to look the series up in.
+      queue(id, next, (data ?? []).find((row) => row.id === id)?.title ?? `series ${id}`)
       try {
         await api.setProgress(id, next)
       } catch (failure) {
-        setData(previous)
+        drop(id)
         // The 400ms red flash says the click was refused; it cannot say why.
         // The refusals this can hit are a chapter past what the series is
         // known to have and a number that would move a list backwards, and
@@ -61,9 +76,8 @@ export function useLibrary() {
         reportFailure(failure)
         throw failure
       }
-      reload()
     },
-    [clear, reload, reportFailure, setData],
+    [clear, data, drop, queue, reportFailure],
   )
 
   const visible = useMemo(
@@ -101,6 +115,7 @@ export function useLibrary() {
     increment,
     reload,
     continueReading,
+    pending,
     notice,
   }
 }

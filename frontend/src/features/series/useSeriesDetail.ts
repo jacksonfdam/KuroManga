@@ -1,8 +1,10 @@
-import { useCallback } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 
-import { api, type SeriesDetail } from '../../lib/api'
+import { api, messageOf, type SeriesDetail } from '../../lib/api'
 import type { ListStatus } from '../../lib/format'
 import { useAsyncData } from '../../lib/useAsyncData'
+import { useJobEvents } from '../../lib/useEvents'
+import { useQueuedProgress } from '../../lib/queuedProgress'
 
 // total_chapters is the provider's static count and is frequently null; known
 // is what chapter_discover has actually seen on the source. Duplicated from
@@ -38,26 +40,36 @@ export function useSeriesDetail(id: number) {
     [id, setData],
   )
 
-  // Apply, then confirm — the same rollback-on-rejection shape
-  // toggleAutoDownload uses, so a refused write visibly reverts instead of
-  // leaving the screen showing a number the server never accepted.
+  // Progress is not like the two writes around it. A status or an auto-download
+  // toggle is stored on the spot; a chapter is only *queued*, and this screen
+  // used to write it into the loaded detail and never look again — showing a
+  // number the providers may never have received. So the accepted chapter is
+  // held beside the data instead, the stream below reconciles it, and the
+  // screen says which of the two it is showing.
+  const [refusal, setRefusal] = useState<string | null>(null)
+  const { awaiting, queue, drop } = useQueuedProgress()
+
+  // The detail screen had no subscription at all, so a queued chapter had no
+  // way to become a written one short of a manual refresh.
+  useJobEvents((event) => {
+    if (event.event !== 'job.progress' && event.series_id === id) reload()
+  })
+
   const setProgress = useCallback(
     async (next: number) => {
-      let previous: SeriesDetail | null = null
-      setData((current) => {
-        previous = current
-        return current
-          ? { ...current, series: { ...current.series, progress: next } }
-          : current
-      })
+      setRefusal(null)
+      queue(id, next, detail?.series.title ?? `series ${id}`)
       try {
         await api.setProgress(id, next)
       } catch (failure) {
-        if (previous) setData(previous)
+        drop(id)
+        // The stepper's own flash says the click was refused but not why, and
+        // this screen has no notice channel of its own for it.
+        setRefusal(messageOf(failure))
         throw failure
       }
     },
-    [id, setData],
+    [detail, drop, id, queue],
   )
 
   const setListStatus = useCallback(
@@ -104,8 +116,25 @@ export function useSeriesDetail(id: number) {
   const download = useCallback((from?: number, to?: number) => api.download(id, from, to), [id])
   const research = useCallback(() => api.research(id), [id])
 
+  // The chapter still travelling to the providers, or null once the reload has
+  // brought the written one back up to it.
+  const queuedChapter = detail === null ? null : awaiting(id, detail.series.progress)
+
+  // What the screen renders: the stored detail with the queued chapter over it,
+  // so the stepper counts on from where the user left it rather than from the
+  // number the worker has not reached yet.
+  const shown = useMemo(
+    () =>
+      detail === null || queuedChapter === null
+        ? detail
+        : { ...detail, series: { ...detail.series, progress: queuedChapter } },
+    [detail, queuedChapter],
+  )
+
   return {
-    detail,
+    detail: shown,
+    queuedChapter,
+    refusal,
     notFound,
     error,
     reload,
