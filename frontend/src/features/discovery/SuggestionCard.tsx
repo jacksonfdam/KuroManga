@@ -42,6 +42,8 @@ export function SuggestionCard({
   item,
   choice,
   busy,
+  selected,
+  onSelect,
   onStatus,
   onDownload,
   onAdd,
@@ -50,14 +52,24 @@ export function SuggestionCard({
   item: Suggestion
   choice: Choice
   busy: boolean
+  selected: boolean
+  onSelect: () => void
   onStatus: (status: ListStatus) => void
   onDownload: (download: boolean) => void
   onAdd: () => void
   onDismiss: () => void
 }) {
   return (
-    <article className="flex flex-col overflow-hidden rounded-xl bg-surface-container-low shadow-card">
-      <div className="aspect-[2/3] w-full overflow-hidden bg-surface-container-highest">
+    <article
+      className={`flex flex-col overflow-hidden rounded-xl bg-surface-container-low shadow-card ${selected ? 'ring-1 ring-primary' : ''}`}
+    >
+      {/* Not the whole card: it already carries the status picker, Add and
+          Dismiss below, and a card-wide click target would swallow those. */}
+      <button
+        type="button"
+        onClick={onSelect}
+        className="aspect-[2/3] w-full overflow-hidden bg-surface-container-highest"
+      >
         {item.cover_url && (
           <img
             src={item.cover_url}
@@ -66,9 +78,15 @@ export function SuggestionCard({
             className="h-full w-full object-cover"
           />
         )}
-      </div>
+      </button>
       <div className="flex flex-1 flex-col gap-space-sm p-space-md">
-        <h3 className="text-title-md text-on-surface">{item.title}</h3>
+        <button
+          type="button"
+          onClick={onSelect}
+          className="text-left text-title-md text-on-surface hover:underline"
+        >
+          {item.title}
+        </button>
         <p className="text-body-sm text-on-surface-variant">{reasonOf(item)}</p>
         <div className="flex flex-wrap items-center gap-space-xs">
           {item.year && <span className="font-mono text-label-sm text-outline">{item.year}</span>}
