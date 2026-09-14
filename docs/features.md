@@ -62,11 +62,36 @@ does, the list wins — reading somewhere else never gets undone.
 
 ## The screens
 
+### Home
+
+The whole pipeline in one view: how many series you are actively reading, what the download queue
+is doing, how many mappings are waiting on you, and how many suggestions are ready. Underneath,
+the series you are part way through — each with a one-click way to record another chapter read —
+alongside the newest suggestions, what the queue has just finished, and how much room is left on
+the disk holding your library.
+
 ### Library
 
 Every series KuroManga knows about, with covers, which lists it came from, how many chapters you
 have against how many exist, and its current state. Filter by state, search by title, choose a
 range to download, or follow a series.
+
+Opening one gives you the full picture: progress with a chapter counter you can nudge, your
+rating against the global score, the source it is mapped to, every chapter and whether it is on
+disk, and a panel showing exactly what each connected list currently records — so you can see at
+a glance whether they agree.
+
+### Discovery
+
+Manga suggested from the anime you have watched. Each card says where the suggestion came from,
+how far the adaptation got, and how much manga is left after it. Choose the status to file it
+under, optionally start downloading straight away, then add or dismiss it. Dismissals stick.
+
+### Unmatched
+
+The anime on your lists that no relation could connect to a manga. Search any of them by title
+when you want to, hide the ones you are not interested in, and filter the rest. Nothing here is
+searched until you ask.
 
 ### Review
 
@@ -82,17 +107,19 @@ container output.
 
 ### Settings
 
-Connect your lists, set how many downloads run at once, adjust the schedules, and trigger a sync
-by hand.
+Connect your lists and see when each token expires. Choose which sources to search, including a
+self-hosted one if you run it. Tune the pipeline: how many downloads run at once, how hard a
+single source may be hit, batch size, and the schedules.
 
 ## What it reads and writes
 
 | Service | Role |
 |---|---|
-| MyAnimeList | Reads your list; writes progress back |
-| AniList | Reads your list; writes progress back |
+| MyAnimeList | Reads your manga and anime lists; writes status and progress back |
+| AniList | Reads your manga and anime lists; writes status and progress back |
 | MangaBaka | Reads your library |
-| MangaDex | Source for chapters |
+| MangaDex | Searches for series and fetches chapters |
+| Comick | An optional second source, self-hosted, if you run one |
 | Komga | Stores and serves the library; reports what you have read |
 
 ## Reading
