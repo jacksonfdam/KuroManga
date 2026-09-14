@@ -49,14 +49,6 @@ export const FORMAT_LABELS: Record<string, string> = {
   OEL: 'OEL',
 }
 
-export const PUBLISHING_LABELS: Record<string, string> = {
-  FINISHED: 'Finished',
-  RELEASING: 'Releasing',
-  NOT_YET_RELEASED: 'Not yet released',
-  HIATUS: 'On hiatus',
-  CANCELLED: 'Cancelled',
-}
-
 export interface KnownStateCopy {
   label: string
   /** A StatusPill-style 12% tint, or the neutral surface for the two that are

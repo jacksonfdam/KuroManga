@@ -1,6 +1,6 @@
 import { Badge, DetailPanel } from '../../ui'
 import type { Suggestion } from '../../lib/api'
-import { PROVIDER_LABEL, relativeTime } from '../../lib/format'
+import { PROVIDER_LABEL, PUBLISHING_LABELS, relativeTime } from '../../lib/format'
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
@@ -34,7 +34,10 @@ export function SuggestionDetail({
           <Row label="Chapters" value={`${suggestion.total_chapters}`} />
         )}
         {suggestion.publishing_status && (
-          <Row label="Publication" value={suggestion.publishing_status} />
+          <Row
+            label="Publication"
+            value={PUBLISHING_LABELS[suggestion.publishing_status] ?? suggestion.publishing_status}
+          />
         )}
         {/* The rank is how the list is ordered, so the screen owes the user the
             number it ordered by rather than only the position. */}
