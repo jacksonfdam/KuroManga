@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react'
+import { useEffect, useId, type ReactNode } from 'react'
 
 import { Icon } from './Icon'
 
@@ -22,6 +22,8 @@ export function DetailPanel({
   onClose: () => void
   children: ReactNode
 }) {
+  const headingId = useId()
+
   useEffect(() => {
     const dismiss = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose()
@@ -32,11 +34,13 @@ export function DetailPanel({
 
   return (
     <aside
-      aria-label={title}
+      aria-labelledby={headingId}
       className="fixed inset-x-0 bottom-0 z-20 max-h-[75vh] overflow-y-auto rounded-t-xl bg-surface-container p-space-lg pb-nav-clearance shadow-overlay lg:static lg:z-0 lg:max-h-[calc(100vh-8rem)] lg:rounded-xl lg:pb-space-lg lg:shadow-card"
     >
       <div className="mb-space-md flex items-start justify-between gap-space-sm">
-        <h2 className="min-w-0 text-headline-sm text-on-surface">{title}</h2>
+        <h2 id={headingId} className="min-w-0 text-headline-sm text-on-surface">
+          {title}
+        </h2>
         <button
           type="button"
           onClick={onClose}
