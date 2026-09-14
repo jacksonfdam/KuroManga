@@ -150,7 +150,13 @@ def _from_anilist(raw: dict[str, Any]) -> dict[str, Any]:
 
 def _from_mal(raw: dict[str, Any]) -> dict[str, Any]:
     node = raw.get("node") or {}
-    status = raw.get("list_status") or node.get("my_list_status") or {}
+    # MyAnimeList answers the list endpoint with `list_status` on every item and
+    # `my_list_status` on the node only when it is asked for, and the two are not
+    # the same object: the documented list_status carries the status, score and
+    # counts, while the note, the personal tags and the reread count arrive only
+    # under my_list_status. Choosing one over the other drops whichever keys the
+    # other holds, so both are read and list_status wins where they overlap.
+    status = {**(node.get("my_list_status") or {}), **(raw.get("list_status") or {})}
     alt = node.get("alternative_titles") or {}
     genres = [g.get("name") for g in node.get("genres") or [] if isinstance(g, dict)]
     serialization = node.get("serialization") or []

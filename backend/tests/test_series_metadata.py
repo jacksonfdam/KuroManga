@@ -102,6 +102,38 @@ def test_mal_alone_reports_what_only_mal_has():
     assert meta["country"] is None
 
 
+def test_mal_reads_the_note_tags_and_reread_count_from_my_list_status():
+    """The list endpoint's own `list_status` only ever carries the documented
+    subset - status, score, counts, updated_at - never comments, tags or
+    num_times_reread. Those three arrive solely under node.my_list_status, so
+    a raw with both must merge them rather than pick one object over the
+    other, and list_status must still win where the two overlap (score)."""
+    raw = {
+        "node": {
+            **MAL_RAW["node"],
+            "my_list_status": {
+                "status": "reading",
+                "score": 1,
+                "num_volumes_read": 16,
+                "comments": "Reread chapter 120 before the anime.",
+                "tags": ["favourite"],
+                "num_times_reread": 0,
+            },
+        },
+        "list_status": {
+            "status": "reading",
+            "score": 10,
+            "num_volumes_read": 16,
+            "updated_at": "2024-10-18T14:32:00+00:00",
+        },
+    }
+    meta = metadata_of([raw])
+    assert meta["notes"] == "Reread chapter 120 before the anime."
+    assert meta["user_tags"] == ["favourite"]
+    assert meta["reread_count"] == 0
+    assert meta["user_score"] == 10.0
+
+
 def test_both_providers_merge_and_neither_field_is_lost():
     meta = metadata_of([ANILIST_RAW, MAL_RAW])
     assert meta["country"] == "JP"
