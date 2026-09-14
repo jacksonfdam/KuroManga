@@ -33,7 +33,11 @@ export function BatchActionBar({
   onApply: (status: ListStatus) => Promise<void>
   onCancel: () => void
 }) {
-  const [status, setStatus] = useState<ListStatus>('plan_to_read')
+  // No default. The design pre-selects one, but a bar that arrives with a
+  // status already chosen turns a single mis-click into a status nobody picked,
+  // written to every selected title and to their real accounts. Apply stays
+  // disabled until the choice is made.
+  const [status, setStatus] = useState<ListStatus | null>(null)
   const [destinations, setDestinations] = useState<string[]>([])
 
   useEffect(() => {
@@ -110,13 +114,13 @@ export function BatchActionBar({
           <div className="flex items-center gap-2">
             <button
               type="button"
-              disabled={busy}
-              onClick={() => onApply(status)}
+              disabled={busy || status === null}
+              onClick={() => status && onApply(status)}
               className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-violet-600 to-primary px-4 py-2 font-title-md text-label-sm font-bold text-on-primary shadow-lg shadow-violet-600/30 transition-all hover:shadow-violet-600/50 hover:brightness-110 active:scale-95 disabled:opacity-60"
             >
               <Icon name="bolt" className="text-[1rem]" />
               <span>
-                {busy ? 'Queueing…' : `Apply & sync (${count})`}
+                {busy ? 'Queueing…' : status ? `Apply & sync (${count})` : 'Pick a status'}
               </span>
             </button>
             <button
