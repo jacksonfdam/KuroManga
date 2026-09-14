@@ -17,6 +17,7 @@ from app.enums import JobType, ListStatus, Provider
 from app.handlers.batching import queue_batches
 from app.handlers.media_enrich import is_stale
 from app.handlers.progress_write import forward_only
+from app.providers import get_source
 from app.queue import repo
 from app.sources import source_for_url
 
@@ -40,6 +41,11 @@ class AutoDownloadIn(BaseModel):
 
 class ProgressIn(BaseModel):
     chapter: int
+
+
+class BatchStatusIn(BaseModel):
+    series_ids: list[int]
+    status: ListStatus
 
 
 class StatusIn(BaseModel):
@@ -652,6 +658,51 @@ async def set_progress(series_id: int, body: ProgressIn, session: Session) -> di
     return {"progress": body.chapter, "queued": True}
 
 
+async def queue_status_write(session: AsyncSession, series_id: int, status: ListStatus) -> None:
+    """Queue one status write, carrying the status last asked for.
+
+    A second click while the first is queued raises that job rather than adding
+    one, or the status the user moved away from lands on their account second.
+    Matching 'leased' too, not only 'pending': a worker can have claimed the row
+    by the time the second click arrives, and the dedupe key still refuses a
+    fresh insert in that state. The handler re-reads the latest row before
+    pushing, which is what keeps this from dropping the click the way updating
+    only the pending row would.
+    """
+    await repo.enqueue(
+        session,
+        JobType.STATUS_WRITE,
+        {"series_id": series_id, "status": str(status)},
+        priority=0,
+        series_id=series_id,
+        dedupe_key=f"status_write:{series_id}",
+    )
+    await session.execute(
+        text(
+            """
+            update job
+               set payload = jsonb_set(payload, '{status}', to_jsonb(cast(:status as text)))
+             where type = :type and series_id = :series_id
+               and state in ('pending', 'leased')
+            """
+        ),
+        {"status": str(status), "type": str(JobType.STATUS_WRITE), "series_id": series_id},
+    )
+
+
+def status_write_destinations() -> list[str]:
+    """Where a status write actually lands, asked of the providers themselves.
+
+    The interface names these to the user before they apply anything, so the
+    list has to be true rather than a constant someone typed once. A provider
+    that is read only, or that has no write path yet, must not appear: telling
+    someone a change reached a service it never touched is worse than saying
+    nothing.
+    """
+    reachable = [str(p) for p in Provider if get_source(p).writable]
+    return [*reachable, "komga"]
+
+
 @router.post("/{series_id}/status")
 async def set_list_status(series_id: int, body: StatusIn, session: Session) -> dict[str, Any]:
     """Validated here as well as in the handler, so the screen learns of a
@@ -670,35 +721,66 @@ async def set_list_status(series_id: int, body: StatusIn, session: Session) -> d
             status_code=409, detail="this series is not on any reading list"
         )
 
-    await repo.enqueue(
-        session,
-        JobType.STATUS_WRITE,
-        {"series_id": series_id, "status": str(body.status)},
-        priority=0,
-        series_id=series_id,
-        dedupe_key=f"status_write:{series_id}",
-    )
-    # One job per series, carrying the status last asked for. A second click
-    # while the first is queued raises that job rather than adding one, or the
-    # status the user moved away from lands on their account second. Matching
-    # 'leased' too, not only 'pending': a worker can have already claimed the
-    # row by the time this second click arrives, and the dedupe key still
-    # refuses a fresh insert in that state. The handler re-reads the latest
-    # row before pushing, which is what keeps this from silently dropping the
-    # click the way updating only the pending row would.
-    await session.execute(
-        text(
-            """
-            update job
-               set payload = jsonb_set(payload, '{status}', to_jsonb(cast(:status as text)))
-             where type = :type and series_id = :series_id
-               and state in ('pending', 'leased')
-            """
-        ),
-        {"status": str(body.status), "type": str(JobType.STATUS_WRITE), "series_id": series_id},
-    )
+    await queue_status_write(session, series_id, body.status)
     await session.commit()
     return {"ok": True, "status": str(body.status), "queued": True}
+
+
+@router.get("/status/destinations")
+async def list_status_destinations() -> dict[str, Any]:
+    """Where a status write lands. Read by the batch bar, which names them to
+    the user before they apply anything to a selection."""
+    return {"destinations": status_write_destinations()}
+
+
+@router.post("/status")
+async def set_list_status_batch(body: BatchStatusIn, session: Session) -> dict[str, Any]:
+    """Apply one status to many series.
+
+    One job per series rather than one job for the batch: a provider failing for
+    one series must not strand the other twenty-nine, and each retries alone.
+
+    A series that is on no reading list is skipped rather than refused. In a
+    batch the user selected by eye, one such row is not a reason to reject the
+    other twenty-nine, and the response says which were left out so the screen
+    can say so too.
+    """
+    ids = list(dict.fromkeys(body.series_ids))
+    if not ids:
+        return {"ok": True, "queued": 0, "skipped": [], "destinations": status_write_destinations()}
+
+    rows = await session.execute(
+        text(
+            """
+            select s.id,
+                   count(e.id) as entries
+              from series s
+              left join list_entry e on e.series_id = s.id
+             where s.id = any(cast(:ids as bigint[]))
+             group by s.id
+            """
+        ),
+        {"ids": ids},
+    )
+    listed = {row.id: row.entries for row in rows.all()}
+
+    queued: list[int] = []
+    skipped: list[int] = []
+    for series_id in ids:
+        if listed.get(series_id):
+            await queue_status_write(session, series_id, body.status)
+            queued.append(series_id)
+        else:
+            skipped.append(series_id)
+
+    await session.commit()
+    return {
+        "ok": True,
+        "status": str(body.status),
+        "queued": len(queued),
+        "skipped": skipped,
+        "destinations": status_write_destinations(),
+    }
 
 
 @router.post("/{series_id}/notes")
