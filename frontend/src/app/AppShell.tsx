@@ -1,20 +1,22 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 
-import { api, messageOf } from '../lib/api'
+import { api } from '../lib/api'
 import { useJobEvents } from '../lib/useEvents'
 import { PROVIDER_LABEL } from '../lib/format'
 import { useNotice } from '../lib/useNotice'
+import { syncLists } from '../lib/sync'
 import { Badge, Button, NoticeBar } from '../ui'
 import { Icon, type IconName } from '../ui/Icon'
 
 type Integration = { name: string; state: string; detail: string | null }
 
-// Home and Stats are omitted: their screens belong to later plans (see
-// task-4..8 in this spec set), and a nav item that leads nowhere is worse than
-// a nav that grows later. Discovery and its unmatched list are routed, so they
-// are named here.
+// Home leads, because it is the front page: `/` used to redirect to the
+// library, which meant the interface had a shelf where its dashboard should
+// be. Stats is still omitted — its endpoint exists but its screen does not,
+// and a nav item that leads nowhere is worse than a nav that grows later.
 const NAV: { to: string; label: string; icon: IconName; badge?: 'review' | 'jobs' | 'suggestions' }[] = [
+  { to: '/', label: 'Home', icon: 'server' },
   { to: '/library', label: 'Library', icon: 'book' },
   { to: '/discovery', label: 'Discovery', icon: 'sparkle', badge: 'suggestions' },
   { to: '/unmatched', label: 'Unmatched', icon: 'search' },
@@ -32,13 +34,6 @@ const DOT: Record<string, string> = {
 const STATE_LABEL: Record<string, string> = {
   ok: 'reachable', unauthenticated: 'needs sign-in', unreachable: 'unreachable',
 }
-
-// Named here rather than reusing the strip's map, because the strip lists
-// every integration and only the two list providers are synced.
-const SYNCED: [string, string][] = [
-  ['mal', 'MyAnimeList'],
-  ['anilist', 'AniList'],
-]
 
 export function AppShell() {
   const [counts, setCounts] = useState<Record<string, number>>({})
@@ -61,15 +56,10 @@ export function AppShell() {
   useEffect(refresh, [])
   useJobEvents(refresh)
 
-  // The shell's own primary action. An unauthenticated provider rejects, and
-  // firing both promises without looking at either meant the click reported
-  // nothing at all — allSettled so one dead provider does not hide the other
-  // one having worked.
+  // The shell's own primary action. Home's "Force scan" is the same act
+  // against the same providers, so the request itself lives in lib/sync.ts.
   const syncAll = async () => {
-    const results = await Promise.allSettled(SYNCED.map(([provider]) => api.sync(provider)))
-    const failures = results.flatMap((result, index) =>
-      result.status === 'rejected' ? [`${SYNCED[index][1]}: ${messageOf(result.reason)}`] : [],
-    )
+    const failures = await syncLists()
     if (failures.length > 0) fail(failures.join(' · '))
     else report('Sync queued for MyAnimeList and AniList')
   }
@@ -96,6 +86,9 @@ export function AppShell() {
                 <NavLink
                   key={item.to}
                   to={item.to}
+                  // Without `end`, "/" prefix-matches every route and Home
+                  // would read as the active section on all of them.
+                  end={item.to === '/'}
                   className={({ isActive }) =>
                     `flex items-center gap-space-xs rounded-lg px-space-sm py-space-xs transition-colors ${
                       isActive
@@ -160,6 +153,7 @@ export function AppShell() {
           <NavLink
             key={item.to}
             to={item.to}
+            end={item.to === '/'}
             className={({ isActive }) =>
               `flex flex-col items-center gap-0.5 rounded-lg px-space-sm py-space-xs transition-colors ${
                 isActive ? 'text-primary' : 'text-on-surface-variant hover:text-on-surface'

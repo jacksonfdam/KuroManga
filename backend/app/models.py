@@ -20,7 +20,15 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
-from app.enums import ChapterState, JobState, JobType, ListStatus, Provider, SuggestionState
+from app.enums import (
+    ChapterState,
+    JobState,
+    JobType,
+    ListStatus,
+    ProgressSource,
+    Provider,
+    SuggestionState,
+)
 
 
 class Base(DeclarativeBase):
@@ -264,3 +272,26 @@ class Suggestion(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
+
+
+class ProgressEvent(Base):
+    """Append-only record of reading progress moving forward.
+
+    `list_entry.user_progress_chapter` is overwritten by every sync, so it can
+    say where reading stands and never when it got there. One row per forward
+    movement of a series, written by the jobs that move it.
+    """
+
+    __tablename__ = "progress_event"
+    __table_args__ = (Index("ix_progress_event_created_at", "created_at"),)
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    series_id: Mapped[int] = mapped_column(
+        ForeignKey("series.id", ondelete="CASCADE"), nullable=False
+    )
+    chapter: Mapped[Decimal] = mapped_column(Numeric(8, 2), nullable=False)
+    # How many chapters this movement covers, so a jump from 3 to 10 counts as
+    # seven chapters read rather than as one event.
+    delta: Mapped[Decimal] = mapped_column(Numeric(8, 2), nullable=False)
+    source: Mapped[ProgressSource] = mapped_column(String(20), nullable=False)
+    created_at: Mapped[datetime] = _now()

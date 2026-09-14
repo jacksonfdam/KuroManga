@@ -77,12 +77,14 @@ export interface Job {
   attempts: number
   max_attempts: number
   last_error: string | null
+  series_id: number | null
   series_title: string | null
   chapter_number: number | null
   chapter_title: string | null
   pct: number | null
   last_message: string | null
   created_at: string | null
+  started_at: string | null
   finished_at: string | null
 }
 
@@ -128,6 +130,127 @@ export interface Integration {
   name: string
   state: 'ok' | 'unauthenticated' | 'unreachable'
   detail: string | null
+}
+
+/**
+ * GET /api/dashboard — the Home screen in one request.
+ *
+ * Six requests to fill one above-the-fold view is fine on localhost and falls
+ * apart on a NAS, so the whole screen is one payload. Where the design carries
+ * a figure nothing measures — network throughput, per-job CPU, a pool health
+ * verdict, the storage split by content type, a suggestion's "resume at
+ * chapter N" — the field is absent here rather than zero, and the screen is
+ * expected to leave the element out rather than draw a dash.
+ */
+export interface DashboardIntegrations {
+  items: Integration[]
+  connected: number
+  total: number
+}
+
+export interface ActiveReading {
+  series: number
+  /** Of those, how many have a chapter the pipeline knows about beyond progress. */
+  with_unread: number
+  /** Of those, how many have one on disk — a different fact from with_unread. */
+  readable_now: number
+}
+
+export interface DownloadCounts {
+  in_flight: number
+  queued: number
+  /** Bounded on purpose: lifetime failures only ever grow. */
+  failed_24h: number
+  sources: string[]
+}
+
+export interface MappingCounts {
+  pending: number
+  /** Of those, how many are one click from resolved on the Review screen. */
+  with_candidates: number
+}
+
+export interface DiscoveryCounts {
+  new: number
+  new_today: number
+  /** The anime providers the suggestions came from, not the manga ids'. */
+  providers: string[]
+}
+
+export interface WorkerState {
+  /** `stalled` is a worker that died holding a lease; reclaim picks it up
+      within a minute. There is no heartbeat, so `idle` cannot tell a worker
+      waiting for work apart from one that is not running at all. */
+  state: 'busy' | 'stalled' | 'idle'
+  running: number
+  expired_leases: number
+  last_finished_at: string | null
+}
+
+export interface ContinueReadingEntry {
+  series_id: number
+  title: string
+  slug: string
+  cover_url: string | null
+  progress: number
+  total_chapters: number | null
+  /** Null when the total is unknown: 0 reads as "caught up", which is a
+      different claim from "nobody said how long this manga is". */
+  chapters_remaining: number | null
+  known_ahead: number
+  downloaded_ahead: number
+  in_komga: boolean
+  updated_at: string | null
+}
+
+export interface DashboardSuggestion {
+  id: number
+  title: string
+  cover_url: string | null
+  total_chapters: number | null
+  year: number | null
+  publishing_status: string | null
+  /** 0..1, the order the highlights are picked in. */
+  rank_score: number
+  series_id: number | null
+  best_source: { site: string; url: string; score: number } | null
+  reason: {
+    origin_provider: string | null
+    origin_title: string | null
+    origin_status: string | null
+    episodes_watched: number | null
+    total_episodes: number | null
+    relation: string | null
+  }
+}
+
+/** Absent byte fields, not zeroed ones, so a missing volume cannot render as
+    an empty pool. */
+export type StorageUsage =
+  | {
+      path: string
+      available: true
+      total_bytes: number
+      used_bytes: number
+      free_bytes: number
+      used_pct: number
+    }
+  | { path: string; available: false; detail: string }
+
+export interface Dashboard {
+  generated_at: string
+  integrations: DashboardIntegrations
+  active_reading: ActiveReading
+  downloads: DownloadCounts
+  mappings: MappingCounts
+  discovery: DiscoveryCounts
+  queue: Record<string, number>
+  worker: WorkerState
+  cron: { id: string; expression: string; valid: boolean; next_run_at: string | null }[]
+  continue_reading: ContinueReadingEntry[]
+  suggestions: DashboardSuggestion[]
+  activity: { running: Job[]; recent: Job[] }
+  storage: StorageUsage
 }
 
 // Callers that need to tell "the thing you asked for doesn't exist" apart
@@ -316,6 +439,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  dashboard: () => request<Dashboard>('/api/dashboard'),
   series: (state?: string) =>
     request<Series[]>(`/api/series${state ? `?state=${state}` : ''}`),
   chapters: (id: number) => request<unknown[]>(`/api/series/${id}/chapters`),

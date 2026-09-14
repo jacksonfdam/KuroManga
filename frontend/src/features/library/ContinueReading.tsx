@@ -1,8 +1,7 @@
-import { Icon } from '../../ui'
+import { Icon, QuickIncrement } from '../../ui'
 import type { Series } from '../../lib/api'
 import { formatChapter, formatSeriesFormat, relativeTime } from '../../lib/format'
 import { totalChapters } from './useLibrary'
-import { QuickIncrement } from './QuickIncrement'
 
 // Markup reference: the "Continuar de Onde Parou" hero row in
 // .redesign/biblioteca_principal_sincronizada_com_komga_provedores/code.html.

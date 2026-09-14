@@ -11,7 +11,8 @@ numbers: a list that already records more must never be lowered by us.
 
 from sqlalchemy import text
 
-from app.enums import JobType, Provider
+from app.enums import JobType, ProgressSource, Provider
+from app.handlers import progress_events
 from app.handlers.base import JobContext, PermanentError, register
 from app.providers import get_source
 from app.providers.tokens import access_token_for
@@ -68,6 +69,7 @@ async def handle(ctx: JobContext) -> None:
     if not any(entry.connected for entry in entries):
         raise PermanentError(f"series {series_id} has no connected list entry")
 
+    before = await progress_events.furthest_read(ctx.session, series_id)
     pushed = 0
     for entry in entries:
         if not entry.connected:
@@ -86,5 +88,16 @@ async def handle(ctx: JobContext) -> None:
         )
         await ctx.log(f"{provider}: progress set to chapter {target}")
         pushed += 1
+
+    # Same guard progress_push uses: no entry updated means the series' stored
+    # progress did not move, and a retry would measure the same distance twice.
+    if pushed:
+        await progress_events.record(
+            ctx.session,
+            series_id,
+            before=before,
+            chapter=chapter,
+            source=ProgressSource.MANUAL,
+        )
 
     await ctx.log(f"chapter {chapter} recorded, {pushed} lists updated", pct=100)
