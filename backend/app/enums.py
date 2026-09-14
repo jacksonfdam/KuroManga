@@ -49,3 +49,10 @@ class SuggestionState(StrEnum):
     NEW = "new"
     DISMISSED = "dismissed"
     ADDED = "added"
+
+
+class ProgressSource(StrEnum):
+    """Which path recorded a progress_event."""
+
+    KOMGA = "komga"
+    MANUAL = "manual"
