@@ -7,6 +7,18 @@ export const providerName = (provider: string) => PROVIDER_NAMES[provider] ?? pr
 export const titleOf = (anime: UnmatchedAnime) =>
   anime.title || anime.title_english || anime.title_romaji || `Anime ${anime.media_id}`
 
+/**
+ * Whether the episode counter is worth showing at all.
+ *
+ * MyAnimeList stores the status and the counter separately, and a completed
+ * entry very often never had the counter filled in — so a row that prints both
+ * reads "completed · 0 / 12 episodes watched" and contradicts itself in front
+ * of the user. Above zero the counter is a fact worth having; at zero the
+ * total alone says everything that is known.
+ */
+export const episodesCounted = (anime: Pick<UnmatchedAnime, 'progress_episode'>) =>
+  anime.progress_episode > 0
+
 export const candidateKey = (animeId: number, provider: string, mediaId: string) =>
   `${animeId}:${provider}:${mediaId}`
 
