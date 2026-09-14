@@ -72,11 +72,11 @@ export function UnmatchedDetail({
               <h3 className="font-mono text-label-sm uppercase tracking-wide text-outline">
                 Also known as
               </h3>
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex flex-wrap gap-space-sm">
                 {data.synonyms.map((name) => (
                   <span
                     key={name}
-                    className="rounded bg-surface-container-high px-2 py-0.5 font-mono text-label-sm text-on-surface-variant"
+                    className="rounded-full bg-surface-container-high px-space-sm py-0.5 font-mono text-label-sm text-on-surface-variant"
                   >
                     {name}
                   </span>
