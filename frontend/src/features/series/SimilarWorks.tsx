@@ -28,7 +28,10 @@ export function SimilarWorks({ items }: { items: SimilarWork[] }) {
             </div>
             <div className="flex min-w-0 flex-col gap-0.5">
               <span className="truncate text-body-md font-semibold text-on-surface">
-                {item.title ?? 'Untitled'}
+                {/* Both providers left this one unnamed. The id is the only true name we
+                    have for it, and a manufactured word in the title's place would read
+                    as the work's actual title. */}
+                {item.title ?? `#${item.media_id}`}
               </span>
               {item.genres.length > 0 && (
                 <span className="truncate font-mono text-label-sm text-outline">
