@@ -26,6 +26,7 @@ from app.handlers import (  # noqa: F401
     media_enrich,
     progress_push,
     progress_write,
+    status_write,
     suggest_build,
 )
 from app.queue import repo

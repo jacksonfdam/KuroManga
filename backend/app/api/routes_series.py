@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import db_session
 from app.api.series_metadata import metadata_of
-from app.enums import JobType, Provider
+from app.enums import JobType, ListStatus, Provider
 from app.handlers.batching import queue_batches
 from app.handlers.media_enrich import is_stale
 from app.handlers.progress_write import forward_only
@@ -37,6 +37,10 @@ class AutoDownloadIn(BaseModel):
 
 class ProgressIn(BaseModel):
     chapter: int
+
+
+class StatusIn(BaseModel):
+    status: ListStatus
 
 
 LIST_SQL = """
@@ -574,3 +578,46 @@ async def set_progress(series_id: int, body: ProgressIn, session: Session) -> di
         )
     await session.commit()
     return {"progress": body.chapter, "queued": True}
+
+
+@router.post("/{series_id}/status")
+async def set_list_status(series_id: int, body: StatusIn, session: Session) -> dict[str, Any]:
+    """Validated here as well as in the handler, so the screen learns of a
+    refusal on the click rather than from a job that failed minutes later."""
+    exists = await session.execute(
+        text("select 1 from series where id = :id"), {"id": series_id}
+    )
+    if exists.first() is None:
+        raise HTTPException(status_code=404, detail="series not found")
+
+    entries = await session.execute(
+        text("select count(*) from list_entry where series_id = :id"), {"id": series_id}
+    )
+    if entries.scalar_one() == 0:
+        raise HTTPException(
+            status_code=409, detail="this series is not on any reading list"
+        )
+
+    await repo.enqueue(
+        session,
+        JobType.STATUS_WRITE,
+        {"series_id": series_id, "status": str(body.status)},
+        priority=0,
+        series_id=series_id,
+        dedupe_key=f"status_write:{series_id}",
+    )
+    # One job per series, carrying the status last asked for. A second click
+    # while the first is queued raises that job rather than adding one, or the
+    # status the user moved away from lands on their account second.
+    await session.execute(
+        text(
+            """
+            update job
+               set payload = jsonb_set(payload, '{status}', to_jsonb(cast(:status as text)))
+             where type = :type and series_id = :series_id and state = 'pending'
+            """
+        ),
+        {"status": str(body.status), "type": str(JobType.STATUS_WRITE), "series_id": series_id},
+    )
+    await session.commit()
+    return {"ok": True, "status": str(body.status), "queued": True}
