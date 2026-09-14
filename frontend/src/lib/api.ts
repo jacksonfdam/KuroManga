@@ -319,6 +319,89 @@ export interface Dashboard {
   storage: StorageUsage
 }
 
+/**
+ * GET /api/stats?period= — the statistics screen.
+ *
+ * Two fields carry a caveat the screen is required to repeat rather than
+ * quietly drop. `velocity.has_history` is false until something is recorded,
+ * and an absent chart is an absent log, not a month of reading nothing.
+ * `time_spent.estimated` is always true, because nothing in this pipeline
+ * watches a clock: the flag travels with the number so that a caption cannot
+ * be the only thing carrying it.
+ */
+export type StatsPeriodKey = '7d' | '30d' | '90d' | '365d'
+
+export interface StatsPeriod {
+  key: StatsPeriodKey
+  days: number
+  /** ISO calendar days, both ends inclusive. */
+  from: string
+  to: string
+}
+
+export interface StatsTotals {
+  series: number
+  tracked: number
+  in_komga: number
+  chapters_known: number
+  chapters_downloaded: number
+  /** Lifetime, summed from where each list says the reader stands. It owes
+      nothing to progress_event, so it covers reading done before the log. */
+  chapters_read: number
+}
+
+export interface VelocityDay {
+  date: string
+  chapters: number
+}
+
+export interface Velocity {
+  /** The earliest event ever recorded, or null when there is none. */
+  tracking_since: string | null
+  has_history: boolean
+  /** Whether the buckets can honestly claim the whole period. */
+  covers_full_period: boolean
+  from: string | null
+  to: string | null
+  /** Empty — not a run of zeros — when nothing was ever recorded. Inside a
+      measured range a zero is a real zero. */
+  days: VelocityDay[]
+  chapters: number
+  days_counted: number
+  /** Divided by the days measured, not by the days in the period. */
+  per_day: number
+  busiest: VelocityDay | null
+  /** Which path reported the reading: `komga` or `manual`. */
+  by_source: Record<string, number>
+}
+
+export interface TimeSpent {
+  estimated: true
+  /** The formula, in words, as the payload spells it. */
+  basis: string
+  minutes_per_chapter: number
+  period_minutes: number
+  recorded_minutes: number
+  /** Null means recorded_minutes is zero because nothing was measured, not
+      because nothing was read. */
+  recorded_from: string | null
+  library_minutes: number
+}
+
+export interface Stats {
+  period: StatsPeriod
+  totals: StatsTotals
+  /** All five statuses in enum order, zero-filled. */
+  status_distribution: { status: ListStatus; count: number }[]
+  top_genres: { genre: string; count: number }[]
+  /** The empty decades in between are included: a gap left out of the list
+      draws as a narrower bar beside its neighbour instead of as silence. */
+  publication_eras: { decade: number; label: string; count: number }[]
+  without_publication_year: number
+  velocity: Velocity
+  time_spent: TimeSpent
+}
+
 // Callers that need to tell "the thing you asked for doesn't exist" apart
 // from "the request failed" (and show one, not the other) need the status
 // code — a plain Error only carries a message a caller would have to
@@ -524,6 +607,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   dashboard: () => request<Dashboard>('/api/dashboard'),
+  stats: (period: StatsPeriodKey) => request<Stats>(`/api/stats?period=${period}`),
   series: (state?: string) =>
     request<Series[]>(`/api/series${state ? `?state=${state}` : ''}`),
   chapters: (id: number) => request<unknown[]>(`/api/series/${id}/chapters`),
