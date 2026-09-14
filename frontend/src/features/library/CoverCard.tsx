@@ -1,10 +1,9 @@
 import { Link } from 'react-router-dom'
 
-import { Icon } from '../../ui'
+import { Icon, QuickIncrement } from '../../ui'
 import { formatChapter, formatProviders, formatSeriesFormat } from '../../lib/format'
 import type { Series } from '../../lib/api'
 import { totalChapters } from './useLibrary'
-import { QuickIncrement } from './QuickIncrement'
 
 // Markup reference: the poster cards under "Leitura Ativa" in
 // .redesign/biblioteca_principal_sincronizada_com_komga_provedores/code.html.

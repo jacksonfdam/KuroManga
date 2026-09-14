@@ -1,10 +1,14 @@
-import { Icon } from '../../ui'
+import { Icon } from './Icon'
 import { useIncrementFlash, type FlashState } from './useIncrementFlash'
 
 // Markup reference: the `quick-plus-btn` overlay in
 // .redesign/biblioteca_principal_sincronizada_com_komga_provedores/code.html.
 // The 400ms flash is the only feedback a one-click control gets, so success
 // and rejection have to look different rather than both reverting silently.
+//
+// It lives here rather than under the library, because Home offers the same
+// click on its own continue-reading cards and a feature folder may not import
+// another. A second copy is how the rejection flash was lost once already.
 const FLASH: Record<NonNullable<FlashState>, string> = {
   success: 'bg-secondary text-on-secondary border-secondary',
   error: 'bg-error text-on-error border-error',
