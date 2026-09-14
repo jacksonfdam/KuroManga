@@ -4,6 +4,8 @@ These exist because a parameter binding that Postgres cannot type, or a column
 that does not exist, only fails at query time. Neither shows up in a unit test.
 """
 
+import json
+
 import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
@@ -374,6 +376,70 @@ async def test_series_detail_returns_chapters_and_entries(client):
     assert body["series"]["title"] == 'Eleceed'
     assert [c["state"] for c in body["chapters"]] == ["downloaded"]
     assert [e["provider"] for e in body["entries"]] == ["mal"]
+
+
+async def test_series_detail_carries_the_metadata_block(client):
+    async with get_sessionmaker()() as session:
+        await session.execute(
+            text(
+                """
+                insert into series (canonical_title, slug, needs_review, meta)
+                values ('Sakamoto Days', 'sakamoto-days', false, '{}'::jsonb)
+                """
+            )
+        )
+        await session.execute(
+            text(
+                """
+                insert into list_entry
+                       (provider, provider_media_id, series_id, status,
+                        user_progress_chapter, synonyms, raw)
+                values ('mal', '121496', 1, 'reading', 148, '[]'::jsonb, cast(:raw as jsonb))
+                """
+            ),
+            {
+                "raw": json.dumps(
+                    {
+                        "node": {
+                            "id": 121496,
+                            "mean": 9.07,
+                            "rank": 14,
+                            "num_scoring_users": 54291,
+                            "num_volumes": 18,
+                            "status": "currently_publishing",
+                            "start_date": "2020-11-21",
+                            "serialization": [{"node": {"name": "Shounen Jump (Weekly)"}}],
+                            "alternative_titles": {"ja": "サカモトデイズ"},
+                        },
+                        "list_status": {"status": "reading", "score": 10},
+                    }
+                )
+            },
+        )
+        await session.commit()
+
+    body = (await client.get("/api/series/1")).json()
+    assert body["metadata"]["publisher"] == "Shounen Jump (Weekly)"
+    assert body["metadata"]["native_title"] == "サカモトデイズ"
+    assert body["metadata"]["rank"] == 14
+    assert body["metadata"]["characters"] == []
+
+
+async def test_series_detail_with_no_list_entry_still_carries_an_empty_block(client):
+    async with get_sessionmaker()() as session:
+        await session.execute(
+            text(
+                """
+                insert into series (canonical_title, slug, needs_review, meta)
+                values ('Orphan', 'orphan', false, '{}'::jsonb)
+                """
+            )
+        )
+        await session.commit()
+
+    body = (await client.get("/api/series/1")).json()
+    assert body["metadata"]["publisher"] is None
+    assert body["metadata"]["providers"] == []
 
 
 async def test_series_detail_for_a_missing_series_is_a_404(client):

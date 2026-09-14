@@ -8,6 +8,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import db_session
+from app.api.series_metadata import metadata_of
 from app.enums import JobType
 from app.handlers.batching import queue_batches
 from app.handlers.progress_write import forward_only
@@ -222,14 +223,25 @@ async def series_detail(series_id: int, session: Session) -> dict[str, Any]:
     entries = await session.execute(
         text(
             """
-            select provider, provider_media_id, status, user_progress_chapter, updated_at
-              from list_entry where series_id = :id order by provider
+            select provider, provider_media_id, status, user_progress_chapter,
+                   updated_at, raw
+              from list_entry
+             where series_id = :id
+             order by updated_at desc nulls last, provider
             """
         ),
         {"id": series_id},
     )
+    # Newest first, because metadata_of resolves a field both providers report
+    # in favour of the first raw that answers.
+    entry_rows = entries.all()
+
     return {
         "series": _row_to_series(row),
+        "metadata": metadata_of(
+            [entry.raw for entry in entry_rows],
+            (row.meta or {}).get("enrichment"),
+        ),
         "mapping": {"source_site": row.source_site, "source_url": row.source_url}
         if row.source_url
         else None,
@@ -250,7 +262,7 @@ async def series_detail(series_id: int, session: Session) -> dict[str, Any]:
                 "user_progress_chapter": e.user_progress_chapter,
                 "updated_at": e.updated_at.isoformat() if e.updated_at else None,
             }
-            for e in entries.all()
+            for e in entry_rows
         ],
     }
 
