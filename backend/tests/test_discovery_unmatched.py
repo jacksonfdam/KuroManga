@@ -1151,6 +1151,11 @@ async def test_null_and_empty_discarded_relations_stay_distinguishable_end_to_en
                     RelatedManga(provider=Provider.ANILIST, media_id="3000",
                                  relation="SOURCE", title="Vinland Saga", format="MANGA")
                 ],
+                # Explicit, not the DTO default: AniList looked and found
+                # nothing to discard, which is what turns NULL into "[]"
+                # below. The default is None ("did not look"), which would
+                # leave the column NULL and defeat the point of this test.
+                discarded_relations=[],
             ),
         )
         await session.commit()
