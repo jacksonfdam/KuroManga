@@ -43,12 +43,17 @@ function SeriesRow({
   index,
   pending,
   onIncrement,
+  selected = false,
+  onToggleSelect,
 }: {
   row: Series
   index: number
   /** The chapter shown is queued and not yet written to the lists. */
   pending: boolean
   onIncrement: (id: number, next: number) => Promise<void>
+  /** Marked for a bulk action: the row tints and the index becomes a checkbox. */
+  selected?: boolean
+  onToggleSelect?: (id: number) => void
 }) {
   const total = totalChapters(row)
   const pct = total ? Math.min(100, Math.round((row.progress / total) * 100)) : 0
@@ -56,8 +61,26 @@ function SeriesRow({
   const { flash, busy, trigger } = useIncrementFlash((next) => onIncrement(row.id, next))
 
   return (
-    <tr className="h-16 transition-colors hover:bg-surface-container">
-      <td className="px-3 text-center font-mono text-outline">{String(index + 1).padStart(2, '0')}</td>
+    <tr
+      className={
+        selected
+          ? 'h-16 border-l-2 border-l-violet-500 bg-violet-950/20 transition-colors hover:bg-violet-950/30'
+          : 'h-16 transition-colors hover:bg-surface-container'
+      }
+    >
+      <td className="px-3 text-center font-mono text-outline">
+        {onToggleSelect ? (
+          <input
+            type="checkbox"
+            checked={selected}
+            onChange={() => onToggleSelect(row.id)}
+            aria-label={selected ? `Deselect ${row.title}` : `Select ${row.title}`}
+            className="h-4 w-4 cursor-pointer rounded border-outline-variant/50 bg-surface-container-lowest accent-violet-600"
+          />
+        ) : (
+          String(index + 1).padStart(2, '0')
+        )}
+      </td>
       {/* max-w-0 is what lets the title truncate: a table cell is otherwise
           as wide as its longest word, and one 90-character light-novel title
           pushed the pipeline column off the right edge. */}
@@ -163,11 +186,16 @@ export function SeriesTable({
   series,
   pending,
   onIncrement,
+  selected,
+  onToggleSelect,
 }: {
   series: Series[]
   /** Series whose last +1 is queued and not yet written. */
   pending: ReadonlySet<number>
   onIncrement: (id: number, next: number) => Promise<void>
+  /** Marked for a bulk action. Empty when nothing is selected. */
+  selected?: ReadonlySet<number>
+  onToggleSelect?: (id: number) => void
 }) {
   return (
     <div className="w-full overflow-x-auto rounded-xl bg-surface-container-low shadow-card">
@@ -190,6 +218,8 @@ export function SeriesTable({
               index={index}
               pending={pending.has(row.id)}
               onIncrement={onIncrement}
+              selected={selected?.has(row.id) ?? false}
+              onToggleSelect={onToggleSelect}
             />
           ))}
         </tbody>
