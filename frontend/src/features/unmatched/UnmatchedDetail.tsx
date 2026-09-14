@@ -40,6 +40,12 @@ export function UnmatchedDetail({
         {anime.title_english && <Row label="English" value={anime.title_english} />}
         <Row
           label="Status"
+          // UnmatchedAnime.status is typed as a plain string, but the backend
+          // always serialises a ListStatus StrEnum member here (unmatched.py
+          // converts every row's status through ListStatus(...) before it is
+          // stored), so the cast is sound today. The fallback is what keeps it
+          // honest rather than trusted: if a status the map does not cover
+          // ever reached here, it would still render as-is instead of "undefined".
           value={STATUS_LABEL[anime.status as ListStatus] ?? anime.status.replace('_', ' ')}
         />
         <Row

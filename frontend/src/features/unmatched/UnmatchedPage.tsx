@@ -1,8 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 
 import { Button, EmptyState, ErrorState, NoticeBar, SegmentedControl, Skeleton } from '../../ui'
-import type { UnmatchedAnime } from '../../lib/api'
 import { AnimeRow } from './AnimeRow'
 import { UnmatchedDetail } from './UnmatchedDetail'
 import { PAGE_SIZE, useUnmatched } from './useUnmatched'
@@ -39,13 +38,13 @@ export function UnmatchedPage() {
     setHidden,
   } = useUnmatched(refreshShell)
 
-  const [selected, setSelected] = useState<UnmatchedAnime | null>(null)
-
-  // A panel describing a row that is no longer on screen is worse than no
-  // panel, so any change to what the list shows drops the selection.
-  useEffect(() => {
-    setSelected(null)
-  }, [offset, filter, showHidden])
+  const [selectedId, setSelectedId] = useState<number | null>(null)
+  // Derived rather than stored: a row can leave the list by being hidden,
+  // added, filtered or paged away, and holding the object would keep the
+  // panel open describing something that is no longer on screen. One rule
+  // covers every case, including the ones nobody has written yet.
+  const selected = items.find((anime) => anime.id === selectedId) ?? null
+  const closeDetail = useCallback(() => setSelectedId(null), [])
 
   if (!loaded && error) {
     return <ErrorState title="Couldn't load the unmatched list" detail={error} onRetry={reload} />
@@ -127,11 +126,11 @@ export function UnmatchedPage() {
                   searching={searching === anime.id}
                   busy={busy}
                   showHidden={showHidden}
-                  selected={selected?.id === anime.id}
+                  selected={selectedId === anime.id}
                   settingFor={settingFor}
                   onSearch={() => search(anime)}
                   onHide={() => setHidden(anime, !showHidden)}
-                  onSelect={() => setSelected(anime)}
+                  onSelect={() => setSelectedId(anime.id)}
                   onStatus={setStatus}
                   onDownload={setDownload}
                   onAdd={(candidate) => add(anime, candidate)}
@@ -163,7 +162,7 @@ export function UnmatchedPage() {
           )}
         </div>
 
-        {selected && <UnmatchedDetail anime={selected} onClose={() => setSelected(null)} />}
+        {selected && <UnmatchedDetail anime={selected} onClose={closeDetail} />}
       </div>
     </div>
   )
