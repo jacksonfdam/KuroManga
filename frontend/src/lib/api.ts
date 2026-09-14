@@ -433,6 +433,15 @@ export interface TimeSpent {
   library_minutes: number
 }
 
+/** What a batch status apply reports back. `skipped` are series on no list. */
+export interface BatchStatusResult {
+  ok: boolean
+  status: ListStatus
+  queued: number
+  skipped: number[]
+  destinations: string[]
+}
+
 export interface Stats {
   period: StatsPeriod
   totals: StatsTotals
@@ -652,6 +661,14 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   dashboard: () => request<Dashboard>('/api/dashboard'),
+  /** Apply one status to many series. One job per series; see routes_series. */
+  batchStatus: (seriesIds: number[], status: ListStatus) =>
+    request<BatchStatusResult>('/api/series/status', {
+      method: 'POST',
+      body: JSON.stringify({ series_ids: seriesIds, status }),
+    }),
+  statusDestinations: () =>
+    request<{ destinations: string[] }>('/api/series/status/destinations'),
   stats: (period: StatsPeriodKey) => request<Stats>(`/api/stats?period=${period}`),
   series: (state?: string) =>
     request<Series[]>(`/api/series${state ? `?state=${state}` : ''}`),
