@@ -6,6 +6,29 @@ import { SeriesTable } from './SeriesTable'
 import { StatusTabs } from './StatusTabs'
 import { useLibrary } from './useLibrary'
 
+// Markup reference:
+// .redesign/biblioteca_principal_sincronizada_com_komga_provedores/code.html.
+//
+// Four of its widgets are dropped, for the same reason the Settings and Series
+// detail screens record their own omissions: no field behind them.
+//
+//  - The sub-header strip's storage figure ("1.84 TB / 4.0 TB (ZFS Pool)").
+//    Nothing in this API reports pool capacity or usage; the worker writes CBZ
+//    files to a path and never measures the volume under it.
+//  - The Komga audit line ("54 séries mapeadas, 98 no catálogo, 4.280 capítulos
+//    em CBZ"). /api/series counts what this database knows; it does not ask
+//    Komga what its own catalogue holds, so two of those three numbers have no
+//    source and the third would be a different number wearing the same label.
+//  - The worker/queue telemetry beside it ("Worker #4: IDLE", "Queue: 0
+//    pendentes", "Taxa de Acerto Metadata: 99.4%", the next cron countdown).
+//    /api/jobs/counts has pending and leased totals, but not per-worker
+//    liveness, not a metadata hit rate, and not a next-fire time.
+//  - The "Ritmo de Leitura da Semana" panel ("48 capítulos nos últimos 7 dias",
+//    a peak weekday, "+18% vs. semana anterior"). Progress is stored as a
+//    current chapter per entry, not as dated reading events, so no window of
+//    any length can be computed from it.
+//
+// An invented figure that fills a gap in a mockup is worse than the gap.
 export function LibraryPage() {
   const { series, all, loaded, error, status, setStatus, view, setView, query, setQuery, increment, reload, continueReading, notice } =
     useLibrary()
