@@ -31,6 +31,11 @@ class ListEntryDTO:
     cover_url: str | None = None
     raw: dict[str, Any] = field(default_factory=dict)
 
+    #: What other providers call this same work, as {provider: media_id}. A provider
+    #: that aggregates other databases can state this outright, which turns merging
+    #: two lists from a guess about titles into a lookup.
+    cross_refs: dict[str, str] = field(default_factory=dict)
+
     @property
     def titles(self) -> list[str]:
         """Every name this entry is known by, best first. Feeds search and dedupe."""

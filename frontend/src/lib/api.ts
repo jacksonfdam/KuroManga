@@ -136,6 +136,28 @@ export interface ReviewPayload {
   candidates: Candidate[]
 }
 
+/**
+ * One series waiting in the review queue.
+ *
+ * Everything a scannable row needs and nothing more: the candidates are a
+ * request of their own, and fetching 168 sets of them to draw a list nobody
+ * has read yet is how a screen that exists to move fast stops moving.
+ */
+export interface ReviewQueueItem {
+  id: number
+  title: string
+  cover_url: string | null
+  candidate_count: number
+}
+
+/** `total` is the length of `items`, counted from the same rows — the screen
+    numbers a series "3 of 168" out of this list, so a total it cannot account
+    for would be a position past the end of it. */
+export interface ReviewQueue {
+  total: number
+  items: ReviewQueueItem[]
+}
+
 export interface Job {
   id: number
   type: string
@@ -529,6 +551,19 @@ export const api = {
   chapters: (id: number) => request<unknown[]>(`/api/series/${id}/chapters`),
   seriesDetail: (id: number) => request<SeriesDetail>(`/api/series/${id}`),
   candidates: (id: number) => request<ReviewPayload>(`/api/series/${id}/candidates`),
+  reviewQueue: () => request<ReviewQueue>('/api/series/review/queue'),
+  reviewIgnored: () => request<ReviewQueue>('/api/series/review/ignored'),
+  // "Stop asking me about this one", and the way back out of it. The series
+  // keeps its list entries, its status and its syncs either way — this only
+  // ever changes which screen shows it.
+  ignoreInReview: (id: number) =>
+    request<{ ok: boolean; ignored: boolean }>(`/api/series/${id}/review-ignore`, {
+      method: 'POST',
+    }),
+  unignoreInReview: (id: number) =>
+    request<{ ok: boolean; ignored: boolean }>(`/api/series/${id}/review-ignore`, {
+      method: 'DELETE',
+    }),
   confirmMapping: (id: number, sourceUrl: string) =>
     request<{ ok: boolean }>(`/api/series/${id}/mapping`, {
       method: 'POST',

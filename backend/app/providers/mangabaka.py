@@ -81,6 +81,25 @@ def _synonyms(series: dict[str, Any]) -> list[str]:
     return found
 
 
+# MangaBaka names the databases it cross-references; these are the two this
+# pipeline also reads. The rest are recorded upstream but have no provider here.
+SOURCE_TO_PROVIDER = {
+    "my_anime_list": str(Provider.MAL),
+    "anilist": str(Provider.ANILIST),
+}
+
+
+def cross_references(series: dict[str, Any]) -> dict[str, str]:
+    """What other providers call this work, from MangaBaka's own source map."""
+    found: dict[str, str] = {}
+    for key, provider in SOURCE_TO_PROVIDER.items():
+        entry = (series.get("source") or {}).get(key)
+        media_id = entry.get("id") if isinstance(entry, dict) else None
+        if media_id not in (None, ""):
+            found[provider] = str(media_id)
+    return found
+
+
 def parse_library(payload: dict[str, Any]) -> list[ListEntryDTO]:
     """Pure parser for one page, so the response shape is pinned by a fixture."""
     entries: list[ListEntryDTO] = []
@@ -101,6 +120,7 @@ def parse_library(payload: dict[str, Any]) -> list[ListEntryDTO]:
                 progress_chapter=int(row.get("progress_chapter") or 0),
                 total_chapters=_to_int(series.get("total_chapters")),
                 cover_url=_cover_url(series),
+                cross_refs=cross_references(series),
                 raw=row,
             )
         )

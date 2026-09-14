@@ -115,6 +115,48 @@ select s.id, s.canonical_title, s.slug, s.needs_review, s.meta, s.komga_series_i
 """
 
 
+# The review queue, which is not the library list narrowed down.
+#
+# LIST_SQL's `needs_review` state is derived from having no active mapping, and
+# every screen that reads it — Library cards, the series header, the download
+# path — has to keep meaning exactly that. So the one place a user's "stop
+# asking" belongs is a query of its own, and LIST_SQL is left alone.
+#
+# Same `not exists` shape the dashboard's pending-mappings count already uses,
+# so the two cannot drift into disagreeing about what "waiting" means.
+REVIEW_QUEUE_SQL = """
+select s.id, s.canonical_title, s.meta,
+       count(c.id) as candidate_count
+  from series s
+  left join series_candidate c on c.series_id = s.id
+ where not exists (
+     select 1 from source_mapping m where m.series_id = s.id and m.active
+ )
+   and (s.review_ignored_at is not null) = cast(:ignored as boolean)
+ group by s.id
+ -- id breaks the tie, or two series sharing a title could swap places between
+ -- loads and the position the screen shows would be a different series' place.
+ order by s.canonical_title, s.id
+"""
+
+
+async def _review_list(session: AsyncSession, *, ignored: bool) -> dict[str, Any]:
+    result = await session.execute(text(REVIEW_QUEUE_SQL), {"ignored": ignored})
+    items = [
+        {
+            "id": row.id,
+            "title": row.canonical_title,
+            "cover_url": (row.meta or {}).get("cover_url"),
+            "candidate_count": row.candidate_count,
+        }
+        for row in result.all()
+    ]
+    # Counted from the rows that were returned, not from a second count(*). The
+    # screen numbers a series "3 of 168" out of this same list, and a total the
+    # list cannot account for is how a position ends up past the end of it.
+    return {"total": len(items), "items": items}
+
+
 def _row_to_series(row: Any) -> dict[str, Any]:
     """Shared by the list and detail routes so they cannot drift.
 
@@ -166,6 +208,60 @@ async def list_series(
         if state is None or item["state"] == state:
             series.append(item)
     return series
+
+
+@router.get("/review/queue")
+async def review_queue(session: Session) -> dict[str, Any]:
+    """Everything Review will ask about, in the order it will ask.
+
+    The screen shows one series at a time, so it needs the whole list to say
+    where in it the user is — and to let them look ahead without answering.
+    """
+    return await _review_list(session, ignored=False)
+
+
+@router.get("/review/ignored")
+async def review_ignored(session: Session) -> dict[str, Any]:
+    """The way back out of "not interested", listed the way Unmatched lists what it hid."""
+    return await _review_list(session, ignored=True)
+
+
+@router.post("/{series_id}/review-ignore")
+async def ignore_in_review(series_id: int, session: Session) -> dict[str, Any]:
+    """Take a series out of the review queue without taking it out of anything else.
+
+    One title no source carries used to sit at the front of the queue and stop
+    the other hundred and sixty-seven from being answered. This is the answer
+    "there is nothing to map here" — the series keeps its list entries, its
+    status, its progress and its syncs, and an unmapped series was downloading
+    nothing to begin with.
+    """
+    return await _set_review_ignored(session, series_id, ignored=True)
+
+
+@router.delete("/{series_id}/review-ignore")
+async def unignore_in_review(series_id: int, session: Session) -> dict[str, Any]:
+    """The undo. Permanent has to mean recoverable, or nobody presses the button."""
+    return await _set_review_ignored(session, series_id, ignored=False)
+
+
+async def _set_review_ignored(
+    session: AsyncSession, series_id: int, *, ignored: bool
+) -> dict[str, Any]:
+    result = await session.execute(
+        text(
+            """
+            update series set review_ignored_at = case when :ignored then now() end
+             where id = :id
+         returning id
+            """
+        ),
+        {"ignored": ignored, "id": series_id},
+    )
+    if result.first() is None:
+        raise HTTPException(status_code=404, detail="series not found")
+    await session.commit()
+    return {"ok": True, "ignored": ignored}
 
 
 @router.get("/{series_id}")
