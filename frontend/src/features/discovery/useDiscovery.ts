@@ -5,6 +5,7 @@ import { DEFAULT_STATUS, downloadsByDefault, type ListStatus } from '../../lib/f
 import { useAsyncData } from '../../lib/useAsyncData'
 import { useJobEvents } from '../../lib/useEvents'
 import { useNotice } from '../../lib/useNotice'
+import { useSuggestionActions } from '../../lib/useSuggestionActions'
 
 export interface Choice {
   status: ListStatus
@@ -27,8 +28,8 @@ interface Feed {
  */
 export function useDiscovery(onChanged: () => void) {
   const [choice, setChoice] = useState<Record<number, Choice>>({})
-  const [busy, setBusy] = useState<number | null>(null)
-  const { notice, report, fail, reportFailure, clear } = useNotice()
+  const notice = useNotice()
+  const { report, reportFailure, clear } = notice
 
   const load = useCallback(async (): Promise<Feed> => {
     const [items, added, counts] = await Promise.all([
@@ -54,6 +55,15 @@ export function useDiscovery(onChanged: () => void) {
 
   const { data, error, reload } = useAsyncData(load)
   useJobEvents(reload)
+
+  // Both the shell's badges and this list are stale the moment a suggestion is
+  // answered, so an approval refreshes the two of them together.
+  const changed = useCallback(() => {
+    onChanged()
+    reload()
+  }, [onChanged, reload])
+
+  const { busy, approve, dismiss } = useSuggestionActions(notice, changed)
 
   const settingFor = useCallback(
     (item: Suggestion): Choice =>
@@ -86,55 +96,11 @@ export function useDiscovery(onChanged: () => void) {
   )
 
   const add = useCallback(
-    async (item: Suggestion) => {
+    (item: Suggestion) => {
       const { status, download } = settingFor(item)
-      setBusy(item.id)
-      clear()
-      try {
-        const result = await api.addSuggestion(item.id, status, download)
-        // The card goes away either way, so this is the only moment left to say
-        // the mapping is pending: nothing downloads until a source is confirmed.
-        if (result.needs_review) {
-          fail(
-            `${item.title}: no source was reliable enough. The series is waiting in Review — confirm the source there${
-              download ? ' and the download starts' : ''
-            }.`,
-          )
-        } else {
-          report(
-            `${item.title} added.${
-              download
-                ? ' Its chapters are queued under Downloads.'
-                : ' Nothing is downloading — start it from the series page when you want it.'
-            }`,
-          )
-        }
-        onChanged()
-        reload()
-      } catch (failure) {
-        reportFailure(failure)
-      } finally {
-        setBusy(null)
-      }
+      return approve(item, status, download)
     },
-    [clear, fail, onChanged, reload, report, reportFailure, settingFor],
-  )
-
-  const dismiss = useCallback(
-    async (item: Suggestion) => {
-      setBusy(item.id)
-      clear()
-      try {
-        await api.dismissSuggestion(item.id)
-        onChanged()
-        reload()
-      } catch (failure) {
-        reportFailure(failure)
-      } finally {
-        setBusy(null)
-      }
-    },
-    [clear, onChanged, reload, reportFailure],
+    [approve, settingFor],
   )
 
   const refresh = useCallback(async () => {
@@ -158,7 +124,7 @@ export function useDiscovery(onChanged: () => void) {
     loaded: data !== null,
     error,
     reload,
-    notice,
+    notice: notice.notice,
     busy,
     settingFor,
     setStatus,
