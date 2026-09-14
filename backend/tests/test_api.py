@@ -5,6 +5,7 @@ that does not exist, only fails at query time. Neither shows up in a unit test.
 """
 
 import json
+from datetime import UTC, datetime
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -553,3 +554,56 @@ async def test_progress_is_unbounded_only_when_nothing_knows_how_long_the_series
 
     assert response.status_code == 200
     assert await _queued_progress_writes() == 1
+
+
+async def test_opening_a_detail_with_a_cold_cache_queues_the_enrichment(client):
+    async with get_sessionmaker()() as session:
+        await session.execute(
+            text(
+                """
+                insert into series (canonical_title, slug, needs_review, meta)
+                values ('Sakamoto Days', 'sakamoto-days', false, '{}'::jsonb)
+                """
+            )
+        )
+        await session.execute(
+            text(
+                """
+                insert into list_entry
+                       (provider, provider_media_id, series_id, status,
+                        user_progress_chapter, synonyms, raw)
+                values ('anilist', '119257', 1, 'reading', 148, '[]'::jsonb, '{}'::jsonb)
+                """
+            )
+        )
+        await session.commit()
+
+    await client.get("/api/series/1")
+
+    async with get_sessionmaker()() as session:
+        queued = await session.execute(
+            text("select type, payload from job where series_id = 1")
+        )
+        rows = queued.all()
+    assert [row.type for row in rows] == ["media_enrich"]
+    assert rows[0].payload["series_id"] == 1
+
+
+async def test_a_warm_cache_queues_nothing(client):
+    async with get_sessionmaker()() as session:
+        await session.execute(
+            text(
+                """
+                insert into series (canonical_title, slug, needs_review, meta)
+                values ('Sakamoto Days', 'sakamoto-days', false, cast(:meta as jsonb))
+                """
+            ),
+            {"meta": json.dumps({"enrichment": {"fetched_at": datetime.now(UTC).isoformat()}})},
+        )
+        await session.commit()
+
+    await client.get("/api/series/1")
+
+    async with get_sessionmaker()() as session:
+        queued = await session.execute(text("select count(*) from job"))
+    assert queued.scalar_one() == 0

@@ -6,6 +6,9 @@ carrying seven hundred of each, which AniList rate-limits away. They are
 fetched one series at a time instead, and cached on the series.
 """
 
+from datetime import UTC, datetime, timedelta
+
+from app.handlers.media_enrich import ENRICHMENT_MAX_AGE_DAYS, is_stale
 from app.providers.anilist import parse_media_detail
 
 
@@ -49,3 +52,23 @@ def test_a_media_that_answers_with_nothing_is_empty_not_an_error():
         "characters": [],
         "similar": [],
     }
+
+
+def test_an_absent_cache_is_stale():
+    assert is_stale(None, datetime.now(UTC)) is True
+
+
+def test_a_cache_with_no_timestamp_is_stale():
+    assert is_stale({"rank": 14}, datetime.now(UTC)) is True
+
+
+def test_a_fresh_cache_is_not_refetched():
+    now = datetime.now(UTC)
+    fresh = {"fetched_at": (now - timedelta(days=1)).isoformat()}
+    assert is_stale(fresh, now) is False
+
+
+def test_a_cache_past_the_window_is_refetched():
+    now = datetime.now(UTC)
+    old = {"fetched_at": (now - timedelta(days=ENRICHMENT_MAX_AGE_DAYS + 1)).isoformat()}
+    assert is_stale(old, now) is True

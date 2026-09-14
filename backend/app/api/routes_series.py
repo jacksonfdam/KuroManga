@@ -1,5 +1,6 @@
 """Library and review screens."""
 
+from datetime import UTC, datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -9,8 +10,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import db_session
 from app.api.series_metadata import metadata_of
-from app.enums import JobType
+from app.enums import JobType, Provider
 from app.handlers.batching import queue_batches
+from app.handlers.media_enrich import is_stale
 from app.handlers.progress_write import forward_only
 from app.queue import repo
 from app.sources import source_for_url
@@ -235,13 +237,11 @@ async def series_detail(series_id: int, session: Session) -> dict[str, Any]:
     # Newest first, because metadata_of resolves a field both providers report
     # in favour of the first raw that answers.
     entry_rows = entries.all()
+    enrichment = (row.meta or {}).get("enrichment")
 
-    return {
+    result = {
         "series": _row_to_series(row),
-        "metadata": metadata_of(
-            [entry.raw for entry in entry_rows],
-            (row.meta or {}).get("enrichment"),
-        ),
+        "metadata": metadata_of([entry.raw for entry in entry_rows], enrichment),
         "mapping": {"source_site": row.source_site, "source_url": row.source_url}
         if row.source_url
         else None,
@@ -265,6 +265,24 @@ async def series_detail(series_id: int, session: Session) -> dict[str, Any]:
             for e in entry_rows
         ],
     }
+
+    # Opening the page is what asks for the extras. A job rather than a fetch
+    # in the request path: AniList rate-limits, and a detail page must not fail
+    # to render because a third party was slow.
+    if is_stale(enrichment, datetime.now(UTC)) and any(
+        entry.provider == str(Provider.ANILIST) for entry in entry_rows
+    ):
+        await repo.enqueue(
+            session,
+            JobType.MEDIA_ENRICH,
+            {"series_id": series_id},
+            priority=50,
+            series_id=series_id,
+            dedupe_key=f"media_enrich:{series_id}",
+        )
+        await session.commit()
+
+    return result
 
 
 @router.get("/{series_id}/candidates")

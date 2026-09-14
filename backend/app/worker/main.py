@@ -23,6 +23,7 @@ from app.handlers import (  # noqa: F401
     list_sync,
     list_write,
     match_search,
+    media_enrich,
     progress_push,
     progress_write,
     suggest_build,
