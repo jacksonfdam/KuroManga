@@ -229,6 +229,14 @@ async def approve(
     meta = row.meta or {}
     best = meta.get("best") or {}
     needs_review = not mapped
+    if mapped:
+        # This route answers `needs_review: false` for a series that already carries
+        # a confirmed mapping, so the flag has to agree: left set, the series reports
+        # as mapped here and still sits on the Review screen waiting for a source.
+        await session.execute(
+            text("update series set needs_review = false where id = :id"),
+            {"id": series_id},
+        )
     # Nobody declared this manga to be the adaptation - a search agreed with a
     # spelling. That is the whole point of the distinction, so however well the
     # titles line up it is the user, on Review, who decides what it really is.

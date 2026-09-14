@@ -145,7 +145,7 @@ async def test_a_series_that_is_already_mapped_keeps_the_mapping_it_has(client, 
                 text(
                     """
                     insert into series (canonical_title, slug, needs_review, meta, created_at)
-                    values ('Vinland Saga', 'vinland-saga', false,
+                    values ('Vinland Saga', 'vinland-saga', true,
                             '{"aliases": ["vinland saga"]}'::jsonb, now())
                     returning id
                     """
@@ -178,6 +178,51 @@ async def test_a_series_that_is_already_mapped_keeps_the_mapping_it_has(client, 
             )
         ).all()
     assert [row[0] for row in rows] == ["asurascan"]
+
+
+async def test_a_series_answered_as_mapped_stops_waiting_on_the_review_screen(
+    client, suggestion_id
+):
+    """Answering `needs_review: false` while the flag stays set is two truths at once."""
+    async with get_sessionmaker()() as session:
+        series_id = (
+            await session.execute(
+                text(
+                    """
+                    insert into series (canonical_title, slug, needs_review, meta, created_at)
+                    values ('Vinland Saga', 'vinland-saga', true,
+                            '{"aliases": ["vinland saga"]}'::jsonb, now())
+                    returning id
+                    """
+                )
+            )
+        ).scalar_one()
+        await session.execute(
+            text(
+                """
+                insert into source_mapping (series_id, source_site, source_url, active,
+                                            confirmed_at)
+                values (:id, 'asurascan', 'https://asuracomic.net/series/vs', true, now())
+                """
+            ),
+            {"id": series_id},
+        )
+        await session.commit()
+
+    body = (
+        await client.post(
+            f"/api/suggestions/{suggestion_id}/add", json={"status": "reading", "download": False}
+        )
+    ).json()
+    assert body["needs_review"] is False
+
+    async with get_sessionmaker()() as session:
+        flag = (
+            await session.execute(
+                text("select needs_review from series where id = :id"), {"id": series_id}
+            )
+        ).scalar_one()
+    assert flag is False
 
 
 async def test_approving_queues_the_status_write(client, suggestion_id):
