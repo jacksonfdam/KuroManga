@@ -13,6 +13,9 @@ export interface Choice {
 
 interface Feed {
   items: Suggestion[]
+  /** Every suggestion waiting, which is not items.length: the route pages at
+      100 and the screen must not report its page as the total. */
+  total: number
   /** Approved suggestions whose status never reached one of the lists. */
   writeFailures: Suggestion[]
 }
@@ -28,9 +31,14 @@ export function useDiscovery(onChanged: () => void) {
   const { notice, report, fail, reportFailure, clear } = useNotice()
 
   const load = useCallback(async (): Promise<Feed> => {
-    const [items, added] = await Promise.all([api.suggestions('new'), api.suggestions('added')])
+    const [items, added, counts] = await Promise.all([
+      api.suggestions('new'),
+      api.suggestions('added'),
+      api.suggestionCounts(),
+    ])
     return {
       items,
+      total: counts.new ?? items.length,
       // The card is gone by the time LIST_WRITE finishes, so a rejected status
       // or a stale token would otherwise never reach the user. A skipped target
       // is an absence rather than a failure: MangaDex without personal
@@ -142,6 +150,7 @@ export function useDiscovery(onChanged: () => void) {
 
   return {
     items: data?.items ?? [],
+    total: data?.total ?? 0,
     writeFailures: data?.writeFailures ?? [],
     loaded: data !== null,
     error,

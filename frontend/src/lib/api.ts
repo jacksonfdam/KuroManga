@@ -329,6 +329,9 @@ export const api = {
       (body) => body.integrations,
     ),
   suggestions: (state = 'new') => request<Suggestion[]>(`/api/suggestions?state=${state}`),
+  // Counted, not measured off the list: /api/suggestions pages at 100, so the
+  // length of its first page is a floor and not a total.
+  suggestionCounts: () => request<Record<string, number>>('/api/suggestions/counts'),
   addSuggestion: (id: number, status: ListStatus, download: boolean) =>
     request<{ ok: boolean; series_id: number; needs_review: boolean }>(
       `/api/suggestions/${id}/add`,

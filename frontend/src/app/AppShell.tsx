@@ -57,7 +57,7 @@ export function AppShell() {
   const refresh = () => {
     api.jobCounts().then(setCounts).catch(() => undefined)
     api.series('needs_review').then((s) => setReviewCount(s.length)).catch(() => undefined)
-    api.suggestions('new').then((s) => setSuggestionCount(s.length)).catch(() => undefined)
+    api.suggestionCounts().then((c) => setSuggestionCount(c.new ?? 0)).catch(() => undefined)
     api.integrations().then(setIntegrations).catch(() => undefined)
   }
 

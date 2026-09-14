@@ -14,6 +14,7 @@ export function DiscoveryPage() {
   const refreshShell = useOutletContext<() => void>()
   const {
     items,
+    total,
     writeFailures,
     loaded,
     error,
@@ -40,6 +41,9 @@ export function DiscoveryPage() {
             Discovery
           </h1>
           <p className="mt-1 font-mono text-label-md text-outline">
+            {/* The route pages at 100, so the count says what is on screen and
+                what is waiting rather than passing one off as the other. */}
+            {items.length < total ? `Showing ${items.length} of ${total}. ` : ''}
             Manga the anime on your lists is based on.{' '}
             <Link to="/unmatched" className="text-primary hover:underline">
               Anime with no match
