@@ -25,22 +25,117 @@ async def load_access_token(session: AsyncSession, provider: Provider) -> str:
         raise PermanentError(str(exc)) from exc
 
 
-async def find_series_by_alias(session: AsyncSession, aliases: list[str]) -> int | None:
+async def find_series_by_alias(
+    session: AsyncSession, aliases: list[str], dto: ListEntryDTO | None = None
+) -> int | None:
+    """Match on title, but never over the top of a contradicting identifier.
+
+    A series that already records a different id for this entry's own provider is
+    a different work, however alike the titles read. Without this the title
+    fallback quietly overrides the identifier evidence, and two works with the
+    same name merge exactly as they did before any of this existed.
+    """
     if not aliases:
         return None
+
+    provider = str(dto.provider) if dto else None
+    media_id = dto.media_id if dto else None
+
     result = await session.execute(
         text(
             """
             select id from series
              where jsonb_exists_any(meta -> 'aliases', cast(:aliases as text[]))
+               and (
+                   cast(:provider as text) is null
+                   or (meta -> 'cross_refs') ->> cast(:provider as text) is null
+                   or (meta -> 'cross_refs') ->> cast(:provider as text) = cast(:media_id as text)
+               )
              order by id
              limit 1
             """
         ),
-        {"aliases": aliases},
+        {"aliases": aliases, "provider": provider, "media_id": media_id},
     )
     row = result.first()
     return row[0] if row else None
+
+
+def identity_pairs(dto: ListEntryDTO) -> dict[str, str]:
+    """Every (provider, media id) this entry is known by, including its own."""
+    return {**dto.cross_refs, str(dto.provider): dto.media_id}
+
+
+async def find_series_by_cross_reference(
+    session: AsyncSession, dto: ListEntryDTO
+) -> int | None:
+    """Find the series this entry belongs to by identifier rather than by title.
+
+    Titles are a guess that fails both ways: two romanisations split one work in
+    two, and two similar works collide. An identifier does not. MangaBaka states
+    which MyAnimeList and AniList entries a work corresponds to, so once one of
+    its entries is synced the other two providers resolve by lookup.
+    """
+    pairs = identity_pairs(dto)
+
+    matched = await session.execute(
+        text(
+            """
+            select e.series_id
+              from list_entry e
+              join jsonb_each_text(cast(:pairs as jsonb)) p
+                on p.key = e.provider and p.value = e.provider_media_id
+             where e.series_id is not null
+             limit 1
+            """
+        ),
+        {"pairs": json.dumps(pairs)},
+    )
+    row = matched.first()
+    if row:
+        return row[0]
+
+    claimed = await session.execute(
+        text(
+            """
+            select s.id
+              from series s
+              join jsonb_each_text(cast(:pairs as jsonb)) p
+                on (s.meta -> 'cross_refs') ->> p.key = p.value
+             limit 1
+            """
+        ),
+        {"pairs": json.dumps(pairs)},
+    )
+    row = claimed.first()
+    return row[0] if row else None
+
+
+async def record_cross_references(
+    session: AsyncSession, series_id: int, dto: ListEntryDTO
+) -> None:
+    """Keep the identifiers on the series, so a later entry resolves without them.
+
+    An entry arriving from a provider that states nothing still matches, because
+    the series already carries what an earlier provider said about it.
+    """
+    pairs = identity_pairs(dto)
+    if not pairs:
+        return
+    await session.execute(
+        text(
+            """
+            update series
+               set meta = jsonb_set(
+                       coalesce(meta, '{}'::jsonb),
+                       '{cross_refs}',
+                       coalesce(meta -> 'cross_refs', '{}'::jsonb) || cast(:pairs as jsonb)
+                   )
+             where id = :series_id
+            """
+        ),
+        {"series_id": series_id, "pairs": json.dumps(pairs)},
+    )
 
 
 async def reserve_slug(session: AsyncSession, title: str) -> str:
@@ -227,14 +322,25 @@ async def resolve_series(session: AsyncSession, dto: ListEntryDTO) -> tuple[int,
     series_id = await existing_series_for_entry(session, dto)
     if series_id:
         await merge_aliases(session, series_id, dto, aliases)
+        await record_cross_references(session, series_id, dto)
         return series_id, False
 
-    series_id = await find_series_by_alias(session, aliases)
+    # Identifiers before titles: a match here is a fact, not a resemblance.
+    series_id = await find_series_by_cross_reference(session, dto)
     if series_id:
         await merge_aliases(session, series_id, dto, aliases)
+        await record_cross_references(session, series_id, dto)
         return series_id, False
 
-    return await create_series(session, dto, aliases), True
+    series_id = await find_series_by_alias(session, aliases, dto)
+    if series_id:
+        await merge_aliases(session, series_id, dto, aliases)
+        await record_cross_references(session, series_id, dto)
+        return series_id, False
+
+    series_id = await create_series(session, dto, aliases)
+    await record_cross_references(session, series_id, dto)
+    return series_id, True
 
 
 @register(JobType.LIST_SYNC)
