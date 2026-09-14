@@ -13,11 +13,16 @@ export function CoverCard({
   series,
   pending = false,
   onIncrement,
+  selected = false,
+  onToggleSelect,
 }: {
   series: Series
   /** The chapter shown is one the queue took and no worker has written yet. */
   pending?: boolean
   onIncrement: (id: number, next: number) => Promise<void>
+  /** Marked for a bulk action: a violet ring and a badge say so. */
+  selected?: boolean
+  onToggleSelect?: (id: number) => void
 }) {
   const total = totalChapters(series)
   const pct = total ? Math.min(100, Math.round((series.progress / total) * 100)) : null
@@ -30,8 +35,32 @@ export function CoverCard({
   return (
     <Link
       to={`/series/${series.id}`}
-      className="group flex flex-col transition-transform duration-300 hover:-translate-y-1 hover:shadow-glow"
+      className={`group relative flex flex-col transition-transform duration-300 hover:-translate-y-1 hover:shadow-glow ${
+        selected ? 'rounded-lg ring-2 ring-violet-500 shadow-xl shadow-violet-500/20' : ''
+      }`}
     >
+      {onToggleSelect && (
+        // Inside the Link, so the box has to refuse the navigation the card
+        // otherwise performs on any click within it.
+        <button
+          type="button"
+          role="checkbox"
+          aria-checked={selected}
+          aria-label={selected ? `Deselect ${series.title}` : `Select ${series.title}`}
+          onClick={(event) => {
+            event.preventDefault()
+            event.stopPropagation()
+            onToggleSelect(series.id)
+          }}
+          className={`absolute left-2 top-2 z-10 flex h-6 w-6 items-center justify-center rounded-md border backdrop-blur-md transition-colors ${
+            selected
+              ? 'border-violet-400 bg-violet-600 text-white'
+              : 'border-outline-variant/50 bg-surface-container-lowest/90 text-transparent hover:border-violet-400'
+          }`}
+        >
+          <Icon name="check" className="text-[1rem]" />
+        </button>
+      )}
       <div
         className={`relative aspect-[2/3] w-full overflow-hidden rounded-lg border bg-surface-container-highest ${
           needsReview ? 'border-error/40' : 'border-white/[0.08]'
