@@ -79,6 +79,28 @@ export function useSeriesDetail(id: number) {
     [id, setData],
   )
 
+  // Optimistic like the other two writes, but the note lands on a provider
+  // through a job — so what is shown is "queued", and the value the provider
+  // actually kept comes back with the next list_sync.
+  const saveNotes = useCallback(
+    async (notes: string, tags: string[]) => {
+      let previous: SeriesDetail | null = null
+      setData((current) => {
+        previous = current
+        return current
+          ? { ...current, metadata: { ...current.metadata, notes, user_tags: tags } }
+          : current
+      })
+      try {
+        await api.saveNotes(id, notes, tags)
+      } catch (failure) {
+        if (previous) setData(previous)
+        throw failure
+      }
+    },
+    [id, setData],
+  )
+
   const download = useCallback((from?: number, to?: number) => api.download(id, from, to), [id])
   const research = useCallback(() => api.research(id), [id])
 
@@ -90,6 +112,7 @@ export function useSeriesDetail(id: number) {
     toggleAutoDownload,
     setProgress,
     setListStatus,
+    saveNotes,
     download,
     research,
   }
