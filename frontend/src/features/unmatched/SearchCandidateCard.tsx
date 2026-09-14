@@ -38,7 +38,10 @@ export function SearchCandidateCard({
         )}
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-space-sm">
-        <h4 className="text-body-md font-bold text-on-surface">{candidate.title}</h4>
+        {/* Wrapping is fine, but an unbounded title in a two-up row pushes
+            everything below it around by however many lines it takes — clamp
+            it so the row's raggedness has a ceiling. */}
+        <h4 className="line-clamp-2 text-body-md font-bold text-on-surface">{candidate.title}</h4>
         <div className="flex flex-wrap items-center gap-space-xs">
           <span
             className={`rounded-full px-space-sm py-0.5 font-mono text-label-sm ${
@@ -90,17 +93,22 @@ export function SearchCandidateCard({
           <span className="font-mono text-label-sm text-outline">{scorePct}% match</span>
         </div>
         {known && <p className="text-body-sm text-on-surface-variant">{known.note}</p>}
-        <AddToList
-          idPrefix={cardKey}
-          status={choice.status}
-          download={choice.download}
-          disabled={blocked}
-          busy={busy}
-          addLabel={blocked ? 'Already added' : 'Add'}
-          onStatus={onStatus}
-          onDownload={onDownload}
-          onAdd={onAdd}
-        />
+        {/* mt-auto pins the action block to the card's bottom edge, so it lines
+            up across a row even when the sibling card's title, year, or match
+            bar sit at a different height above it. */}
+        <div className="mt-auto">
+          <AddToList
+            idPrefix={cardKey}
+            status={choice.status}
+            download={choice.download}
+            disabled={blocked}
+            busy={busy}
+            addLabel={blocked ? 'Already added' : 'Add'}
+            onStatus={onStatus}
+            onDownload={onDownload}
+            onAdd={onAdd}
+          />
+        </div>
       </div>
     </article>
   )

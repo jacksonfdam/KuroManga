@@ -51,7 +51,14 @@ export function SearchResults({
             {found.candidates.length} result{found.candidates.length === 1 ? '' : 's'} for “
             {found.query}”
           </p>
-          <div className="grid grid-cols-1 gap-space-md xl:grid-cols-2">
+          {/* A single candidate fills the row rather than sitting in a
+              two-column grid with an empty half beside it — centring it
+              would just move the dead space instead of removing it. */}
+          <div
+            className={`grid grid-cols-1 gap-space-md ${
+              found.candidates.length > 1 ? 'xl:grid-cols-2' : ''
+            }`}
+          >
             {found.candidates.map((candidate) => {
               const key = candidateKey(anime.id, candidate.provider, candidate.media_id)
               return (
