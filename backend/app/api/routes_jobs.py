@@ -14,7 +14,10 @@ router = APIRouter(prefix="/api", tags=["jobs"])
 
 Session = Annotated[AsyncSession, Depends(db_session)]
 
-JOBS_SQL = """
+# Shared with the dashboard, which shows the same jobs in a different order:
+# two spellings of these columns would drift into two different ideas of what
+# a job looks like, and the Home card would stop matching the Downloads screen.
+JOB_COLUMNS = """
 select j.id, j.type, j.state, j.priority, j.attempts, j.max_attempts, j.last_error,
        j.created_at, j.started_at, j.finished_at, j.payload,
        s.canonical_title, s.slug,
@@ -27,11 +30,35 @@ select j.id, j.type, j.state, j.priority, j.attempts, j.max_attempts, j.last_err
   from job j
   left join series s on s.id = j.series_id
   left join chapter c on c.id = (j.payload ->> 'chapter_id')::bigint
+"""
+
+JOBS_SQL = f"""
+{JOB_COLUMNS}
  where (cast(:state as text) is null or j.state = cast(:state as text))
  order by case j.state when 'leased' then 0 when 'pending' then 1 else 2 end,
           j.priority, j.created_at desc
  limit :limit
 """
+
+
+def job_row(row: Any) -> dict[str, Any]:
+    return {
+        "id": row.id,
+        "type": row.type,
+        "state": row.state,
+        "attempts": row.attempts,
+        "max_attempts": row.max_attempts,
+        "last_error": row.last_error,
+        "series_id": row.payload.get("series_id") if isinstance(row.payload, dict) else None,
+        "series_title": row.canonical_title,
+        "chapter_number": float(row.chapter_number) if row.chapter_number else None,
+        "chapter_title": row.chapter_title,
+        "pct": float(row.pct) if row.pct is not None else None,
+        "last_message": row.last_message,
+        "created_at": row.created_at.isoformat() if row.created_at else None,
+        "started_at": row.started_at.isoformat() if row.started_at else None,
+        "finished_at": row.finished_at.isoformat() if row.finished_at else None,
+    }
 
 
 @router.get("/jobs")
@@ -41,24 +68,7 @@ async def list_jobs(
     limit: Annotated[int, Query(le=500)] = 200,
 ) -> list[dict[str, Any]]:
     result = await session.execute(text(JOBS_SQL), {"state": state, "limit": limit})
-    return [
-        {
-            "id": row.id,
-            "type": row.type,
-            "state": row.state,
-            "attempts": row.attempts,
-            "max_attempts": row.max_attempts,
-            "last_error": row.last_error,
-            "series_title": row.canonical_title,
-            "chapter_number": float(row.chapter_number) if row.chapter_number else None,
-            "chapter_title": row.chapter_title,
-            "pct": float(row.pct) if row.pct is not None else None,
-            "last_message": row.last_message,
-            "created_at": row.created_at.isoformat() if row.created_at else None,
-            "finished_at": row.finished_at.isoformat() if row.finished_at else None,
-        }
-        for row in result.all()
-    ]
+    return [job_row(row) for row in result.all()]
 
 
 @router.get("/jobs/counts")

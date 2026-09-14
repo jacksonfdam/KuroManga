@@ -10,6 +10,7 @@ from apscheduler.triggers.cron import CronTrigger
 from sqlalchemy import text
 
 from app import settings_store
+from app.cron import CRON_JOBS
 from app.db import get_sessionmaker
 from app.enums import JobType, Provider
 
@@ -116,26 +117,30 @@ async def enqueue_progress_push() -> None:
     log.info("cron: queued progress push for %d series", len(series_ids))
 
 
+# Keyed by the ids in app.cron, which is also what the dashboard reports on.
+# A job named there with nothing to run here would be reported as scheduled
+# and never fire.
+ENQUEUERS = {
+    "list_sync": enqueue_list_sync,
+    "chapter_discover": enqueue_chapter_discover,
+    "progress_push": enqueue_progress_push,
+    "anime_list_sync": enqueue_anime_list_sync,
+}
+
+
 async def main() -> None:
     sessionmaker = get_sessionmaker()
     async with sessionmaker() as session:
         concurrency = await settings_store.get_int(session, settings_store.DOWNLOAD_CONCURRENCY)
-        cron_sync = await settings_store.get(session, settings_store.CRON_LIST_SYNC)
-        cron_discover = await settings_store.get(session, settings_store.CRON_CHAPTER_DISCOVER)
-        cron_progress = await settings_store.get(session, settings_store.CRON_PROGRESS_PUSH)
-        cron_anime = await settings_store.get(session, settings_store.CRON_ANIME_LIST_SYNC)
+        expressions = {
+            job.id: await settings_store.get(session, job.setting_key) for job in CRON_JOBS
+        }
 
     scheduler = AsyncIOScheduler(timezone="UTC")
-    scheduler.add_job(enqueue_list_sync, CronTrigger.from_crontab(cron_sync), id="list_sync")
-    scheduler.add_job(
-        enqueue_chapter_discover, CronTrigger.from_crontab(cron_discover), id="chapter_discover"
-    )
-    scheduler.add_job(
-        enqueue_progress_push, CronTrigger.from_crontab(cron_progress), id="progress_push"
-    )
-    scheduler.add_job(
-        enqueue_anime_list_sync, CronTrigger.from_crontab(cron_anime), id="anime_list_sync"
-    )
+    for job in CRON_JOBS:
+        scheduler.add_job(
+            ENQUEUERS[job.id], CronTrigger.from_crontab(expressions[job.id]), id=job.id
+        )
     scheduler.start()
 
     stop = asyncio.Event()
@@ -145,12 +150,9 @@ async def main() -> None:
             loop.add_signal_handler(sig, stop.set)
 
     log.info(
-        "worker up: concurrency=%d sync='%s' discover='%s' progress='%s' anime='%s'",
+        "worker up: concurrency=%d %s",
         concurrency,
-        cron_sync,
-        cron_discover,
-        cron_progress,
-        cron_anime,
+        " ".join(f"{name}='{expression}'" for name, expression in expressions.items()),
     )
     await asyncio.gather(work_loop(concurrency, stop), reclaim_loop(stop))
     scheduler.shutdown(wait=False)
