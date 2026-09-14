@@ -76,6 +76,17 @@ class AnimeEntryDTO:
     total_episodes: int | None = None
     cover_url: str | None = None
     related_manga: list[RelatedManga] = field(default_factory=list)
+    # A relation whose type says the user cares (SOURCE, ADAPTATION) but whose
+    # node cannot be read as a manga - a light novel, most often. Kept apart from
+    # `related_manga` so that contract stays untouched: discovery builds
+    # suggestions from one and Unmatched explains itself with the other.
+    #
+    # None is not the same claim as []: a provider that never asks for anime
+    # relations at all (MyAnimeList) has to say "I did not look", not "I looked
+    # and found nothing to discard" - the two read as different sentences on
+    # the Unmatched panel, and only the provider that actually asked AniList's
+    # question can answer it. Only a provider that ran this check may set a list.
+    discarded_relations: list[RelatedManga] | None = None
     raw: dict[str, Any] = field(default_factory=dict)
 
     @property

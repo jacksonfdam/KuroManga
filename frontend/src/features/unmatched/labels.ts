@@ -1,4 +1,9 @@
-import type { SearchProviderError, UnmatchedAnime, UnmatchedSearch } from '../../lib/api'
+import type {
+  DiscardedRelation,
+  SearchProviderError,
+  UnmatchedAnime,
+  UnmatchedSearch,
+} from '../../lib/api'
 
 const PROVIDER_NAMES: Record<string, string> = { anilist: 'AniList', mal: 'MyAnimeList' }
 
@@ -60,6 +65,49 @@ export const FORMAT_LABELS: Record<string, string> = {
   MANHUA: 'Manhua',
   OEL: 'OEL',
 }
+
+// AniList's relationType vocabulary is wider than the two the provider ever
+// records here (parse_relations drops everything else as noise), but the
+// wire sends a plain string and an unrecognised one should still read as
+// something rather than fail silently.
+const RELATION_PHRASES: Record<string, string> = {
+  SOURCE: "this anime's source",
+  ADAPTATION: 'an adaptation of this anime',
+}
+
+export const relationPhrase = (relation: string) =>
+  RELATION_PHRASES[relation] ?? `a ${relation.toLowerCase()} relation`
+
+// A discarded relation can point at a light novel, but AniList's relations
+// also cover another anime declared as this one's source or adaptation
+// (a remake, a sequel that got re-listed) — the format vocabulary here is
+// AniList's full MediaFormat, not just the four in MANGA_FORMATS above.
+const DISCARDED_FORMAT_PHRASES: Record<string, string> = {
+  NOVEL: 'a light novel',
+  ONE_SHOT: 'a one-shot',
+  MANGA: 'a manga',
+  MANHWA: 'a manhwa',
+  MANHUA: 'a manhua',
+  OEL: 'an OEL work',
+  TV: 'a TV anime',
+  TV_SHORT: 'a TV short',
+  MOVIE: 'a movie',
+  SPECIAL: 'a special',
+  OVA: 'an OVA',
+  ONA: 'an ONA',
+  MUSIC: 'a music video',
+}
+
+/**
+ * Null is real here — AniList did not say — so it gets its own sentence
+ * rather than a placeholder pretending to be a format.
+ */
+export const discardedFormatPhrase = (format: string | null) =>
+  format ? (DISCARDED_FORMAT_PHRASES[format] ?? format.toLowerCase()) : 'an unspecified format'
+
+/** The media id is real; an invented title is not — same rule `titleOf` follows above. */
+export const discardedRelationTitle = (relation: DiscardedRelation) =>
+  relation.title || `#${relation.media_id}`
 
 export interface KnownStateCopy {
   label: string

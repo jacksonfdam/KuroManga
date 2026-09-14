@@ -25,14 +25,20 @@ from app.providers.base import AnimeEntryDTO
 
 
 async def upsert_anime(session: AsyncSession, dto: AnimeEntryDTO) -> None:
+    # Shared by every provider: a MyAnimeList entry passes through here too,
+    # and MyAnimeList never asks AniList's question about relations at all.
+    # `discarded_relations` being NULL on that DTO means "this provider did
+    # not look", not "looked and found nothing" - the coalesce below is what
+    # keeps a MAL sync from overwriting an answer only AniList could give.
     await session.execute(
         text(
             """
             insert into anime_entry (provider, provider_media_id, title_romaji, title_english,
                                      synonyms, status, progress_episode, total_episodes,
-                                     cover_url, related_manga, raw, updated_at)
+                                     cover_url, related_manga, discarded_relations, raw, updated_at)
             values (:provider, :media_id, :romaji, :english, cast(:synonyms as jsonb), :status,
-                    :progress, :total, :cover, cast(:related as jsonb), cast(:raw as jsonb), now())
+                    :progress, :total, :cover, cast(:related as jsonb),
+                    cast(:discarded as jsonb), cast(:raw as jsonb), now())
             on conflict (provider, provider_media_id) do update
                set title_romaji = excluded.title_romaji,
                    title_english = excluded.title_english,
@@ -46,6 +52,16 @@ async def upsert_anime(session: AsyncSession, dto: AnimeEntryDTO) -> None:
                        then excluded.related_manga
                        else anime_entry.related_manga
                    end,
+                   -- coalesce, not an unconditional overwrite: a sync from a
+                   -- provider that did not look (excluded value NULL) must
+                   -- leave whatever is already stored alone, including a
+                   -- previous discard list. A provider that did look writes
+                   -- its answer over the old one, empty list included - that
+                   -- is what lets the column move from "found something" back
+                   -- to "found nothing" once a relation stops being discarded.
+                   discarded_relations = coalesce(
+                       excluded.discarded_relations, anime_entry.discarded_relations
+                   ),
                    raw = excluded.raw,
                    updated_at = now()
             """
@@ -62,6 +78,11 @@ async def upsert_anime(session: AsyncSession, dto: AnimeEntryDTO) -> None:
             "cover": dto.cover_url,
             "related": json.dumps(
                 [{**asdict(r), "provider": str(r.provider)} for r in dto.related_manga]
+            ),
+            "discarded": (
+                json.dumps([{**asdict(r), "provider": str(r.provider)} for r in dto.discarded_relations])
+                if dto.discarded_relations is not None
+                else None
             ),
             "raw": json.dumps(dto.raw or {}),
         },

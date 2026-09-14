@@ -4,7 +4,14 @@ import { DetailPanel, ErrorState, Skeleton } from '../../ui'
 import { api, type UnmatchedAnime } from '../../lib/api'
 import { STATUS_LABEL, type ListStatus } from '../../lib/format'
 import { useAsyncData } from '../../lib/useAsyncData'
-import { episodesCounted, providerName, titleOf } from './labels'
+import {
+  discardedFormatPhrase,
+  discardedRelationTitle,
+  episodesCounted,
+  providerName,
+  relationPhrase,
+  titleOf,
+} from './labels'
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
@@ -129,14 +136,40 @@ export function UnmatchedDetail({
             ))}
           </section>
 
-          {/* Both parsers drop a relation whose format is not a manga format
-              before it is ever stored, and a stored relation is what settles
-              an anime off this screen — so this sentence is always true here,
-              not the empty case of a list that could otherwise be non-empty. */}
-          <p className="text-body-sm text-on-surface-variant">
-            Neither provider declared a manga for this anime. Searching by name is the
-            only way to find one.
-          </p>
+          {data.discarded_relations === null ? (
+            // Recording fills forward from the next ANIME_LIST_SYNC. NULL means
+            // this anime predates that, not that AniList declared nothing — the
+            // one claim this panel must never make without having checked.
+            <p className="text-body-sm text-on-surface-variant">
+              This anime has not been through a sync that records why no manga was
+              found for it. That will show here after the next anime sync.
+            </p>
+          ) : data.discarded_relations.length === 0 ? (
+            <p className="text-body-sm text-on-surface-variant">
+              Neither provider declared a manga for this anime. Searching by name is the
+              only way to find one.
+            </p>
+          ) : (
+            <section className="flex flex-col gap-space-xs">
+              <h3 className="font-mono text-label-sm uppercase tracking-wide text-outline">
+                Why nothing matched
+              </h3>
+              <div className="flex flex-col gap-space-xs">
+                {data.discarded_relations.map((relation) => (
+                  <p
+                    key={`${relation.provider}:${relation.media_id}:${relation.relation}`}
+                    className="text-body-sm text-on-surface-variant"
+                  >
+                    AniList declared {relationPhrase(relation.relation)}, and it is{' '}
+                    {discardedFormatPhrase(relation.format)}: {discardedRelationTitle(relation)}.
+                  </p>
+                ))}
+              </div>
+              <p className="text-body-sm text-outline">
+                The downloader can only fetch manga, manhwa, manhua or OEL chapters.
+              </p>
+            </section>
+          )}
         </>
       )}
     </DetailPanel>

@@ -472,29 +472,43 @@ def parse_manga_search(data: dict[str, Any]) -> list[MangaMeta]:
     return results
 
 
-def parse_relations(media: dict[str, Any]) -> list[RelatedManga]:
+def parse_relations(media: dict[str, Any]) -> tuple[list[RelatedManga], list[RelatedManga]]:
+    """Split an anime's relations into what discovery can use and what Unmatched
+    can explain itself with.
+
+    Both outcomes share `RelatedManga` rather than a dedicated DTO: a discarded
+    relation carries exactly the same four facts - provider, media id, relation
+    type, title, format - as a usable one, the only difference being which side
+    of the `MANGA_FORMATS` check it landed on. A `relationType` outside
+    `WANTED_RELATIONS` (a `SIDE_STORY`, a `CHARACTER` link) is noise either way
+    and lands in neither list; only a relation the user *would* have wanted -
+    `SOURCE` or `ADAPTATION` - reaches the type/format check that decides which
+    list it goes to.
+    """
     related: list[RelatedManga] = []
+    discarded: list[RelatedManga] = []
     for edge in ((media.get("relations") or {}).get("edges") or []):
         node = edge.get("node") or {}
-        if edge.get("relationType") not in WANTED_RELATIONS:
-            continue
-        if node.get("type") != "MANGA" or node.get("format") not in MANGA_FORMATS:
+        relation_type = edge.get("relationType")
+        if relation_type not in WANTED_RELATIONS:
             continue
         # str(None) is the string "None", which would travel all the way to a
         # PATCH /manga/None/my_list_status before anything noticed.
         if not node.get("id"):
             continue
         title = node.get("title") or {}
-        related.append(
-            RelatedManga(
-                provider=Provider.ANILIST,
-                media_id=str(node.get("id")),
-                relation=edge["relationType"],
-                title=title.get("romaji") or title.get("english") or "",
-                format=node.get("format"),
-            )
+        entry = RelatedManga(
+            provider=Provider.ANILIST,
+            media_id=str(node.get("id")),
+            relation=relation_type,
+            title=title.get("romaji") or title.get("english") or "",
+            format=node.get("format"),
         )
-    return related
+        if node.get("type") != "MANGA" or node.get("format") not in MANGA_FORMATS:
+            discarded.append(entry)
+        else:
+            related.append(entry)
+    return related, discarded
 
 
 def parse_anime_list(data: dict[str, Any]) -> list[AnimeEntryDTO]:
@@ -510,6 +524,7 @@ def parse_anime_list(data: dict[str, Any]) -> list[AnimeEntryDTO]:
             native = title.get("native")
             if native:
                 synonyms.append(native)
+            related, discarded = parse_relations(media)
             entries.append(
                 AnimeEntryDTO(
                     provider=Provider.ANILIST,
@@ -521,7 +536,8 @@ def parse_anime_list(data: dict[str, Any]) -> list[AnimeEntryDTO]:
                     progress_episode=int(entry.get("progress") or 0),
                     total_episodes=media.get("episodes"),
                     cover_url=(media.get("coverImage") or {}).get("large"),
-                    related_manga=parse_relations(media),
+                    related_manga=related,
+                    discarded_relations=discarded,
                     raw=entry,
                 )
             )

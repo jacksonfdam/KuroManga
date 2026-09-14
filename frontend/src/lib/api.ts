@@ -536,15 +536,33 @@ export interface AnimeMember {
 }
 
 /**
+ * A relation AniList declared as this anime's SOURCE or ADAPTATION that still
+ * cannot become a manga — a light novel, most often. MyAnimeList never asks
+ * for anime relations at all, so `provider` is always `"anilist"` here; kept
+ * as a plain string anyway since this type mirrors what the wire sends.
+ */
+export interface DiscardedRelation {
+  provider: string
+  media_id: string
+  relation: string
+  title: string
+  format: string | null
+}
+
+/**
  * The list payload carries only what a row renders; everything else is
- * fetched one anime at a time when the panel opens. There is no relation
- * list here — both providers drop a relation whose format is not a manga
- * format before it is ever stored, so an anime that reaches this screen has
- * none, by construction.
+ * fetched one anime at a time when the panel opens. There is no *usable*
+ * relation list here — both providers drop a relation whose format is not a
+ * manga format before it is ever stored, so an anime that reaches this
+ * screen has none, by construction. `discarded_relations` is the other half
+ * of that same filter, kept instead of dropped: null means this anime has
+ * not been through a sync that records it yet, and that is a different fact
+ * from the empty array recorded for an anime where AniList declared nothing.
  */
 export interface UnmatchedDetail extends UnmatchedAnime {
   synonyms: string[]
   members: AnimeMember[]
+  discarded_relations: DiscardedRelation[] | null
 }
 
 /** Null when the provider did not say, which the screen has to admit to. */

@@ -593,6 +593,12 @@ ANIME_URL = {
     "mal": "https://myanimelist.net/anime/{media_id}",
 }
 
+# The anime's `id` is the primary member's own anime_entry row (collapse_anime
+# picks the AniList row as primary when there is one), and discarded relations
+# only ever come from AniList - MyAnimeList never asks for anime relations at
+# all - so reading this one row is reading everything there is to read.
+DISCARDED_RELATIONS_ROW = "select discarded_relations from anime_entry where id = :id"
+
 
 @router.get("/discovery/unmatched/{anime_id}")
 async def unmatched_detail(anime_id: int, session: Session) -> dict[str, Any]:
@@ -602,16 +608,25 @@ async def unmatched_detail(anime_id: int, session: Session) -> dict[str, Any]:
     hundred rows paged at fifty would otherwise carry five hundred relation
     lists - so everything the panel adds is fetched one anime at a time.
 
-    There is no relation list here. Both parsers drop a relation whose format
-    is outside `MANGA_FORMATS` before it is ever stored, and `SETTLED_ROWS`
-    takes any relation that does survive as proof the anime is already
-    matched - so an anime that reaches this screen has none, by construction.
+    `related_manga` never appears here: both parsers drop a relation whose
+    format is outside `MANGA_FORMATS` before it is ever stored, and
+    `SETTLED_ROWS` takes any relation that does survive as proof the anime is
+    already matched - so an anime that reaches this screen has none, by
+    construction. `discarded_relations` is the other half of that filter: the
+    relations that were wanted (a declared SOURCE or ADAPTATION) but pointed at
+    something the downloader could never fetch, kept so the panel can say why
+    instead of just that. NULL there means the anime has not been through a
+    sync that records this yet, and is not the same answer as "[]".
     """
     anime = await _load_anime(session, anime_id)
+    discarded = (
+        await session.execute(text(DISCARDED_RELATIONS_ROW), {"id": anime.id})
+    ).scalar_one()
 
     return {
         **anime_payload(anime),
         "synonyms": list(anime.synonyms),
+        "discarded_relations": discarded,
         "members": [
             {
                 "provider": str(member.provider),

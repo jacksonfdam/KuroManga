@@ -15,7 +15,15 @@ from app.providers.base import AnimeEntryDTO, RelatedManga
 pytestmark = pytest.mark.asyncio
 
 
-def dto(*, media_id="21", status=ListStatus.COMPLETED, progress=24, related=None, provider=Provider.ANILIST):
+# A dedicated sentinel, because `None` is itself a meaningful value here: it is
+# what a DTO from a provider that never asked about relations (MyAnimeList)
+# carries. Defaulting the parameter to `None` would make it impossible for a
+# test to ask for that DTO on purpose and distinguish it from "didn't say".
+_UNSET = object()
+
+
+def dto(*, media_id="21", status=ListStatus.COMPLETED, progress=24, related=None,
+        discarded=_UNSET, provider=Provider.ANILIST):
     return AnimeEntryDTO(
         provider=provider,
         media_id=media_id,
@@ -30,6 +38,10 @@ def dto(*, media_id="21", status=ListStatus.COMPLETED, progress=24, related=None
             RelatedManga(provider=Provider.ANILIST, media_id="3000", relation="SOURCE",
                          title="Vinland Saga", format="MANGA")
         ],
+        # AniList always looked, so the default here is "[]", not None -
+        # only a caller explicitly building a MyAnimeList-shaped DTO passes
+        # discarded=None.
+        discarded_relations=[] if discarded is _UNSET else discarded,
         raw={"status": "COMPLETED"},
     )
 
@@ -63,3 +75,134 @@ async def test_syncing_twice_updates_instead_of_duplicating():
         await session.commit()
         rows = (await session.execute(text("select progress_episode from anime_entry"))).all()
     assert [r.progress_episode for r in rows] == [25]
+
+
+async def test_a_discarded_relation_is_stored_with_its_format():
+    discarded = [
+        RelatedManga(provider=Provider.ANILIST, media_id="4000", relation="SOURCE",
+                     title="Mushoku Tensei (LN)", format="NOVEL")
+    ]
+    async with get_sessionmaker()() as session:
+        await upsert_anime(session, dto(discarded=discarded))
+        await session.commit()
+        row = (
+            await session.execute(text("select discarded_relations from anime_entry"))
+        ).one()
+    assert row.discarded_relations == [
+        {"provider": "anilist", "media_id": "4000", "relation": "SOURCE",
+         "title": "Mushoku Tensei (LN)", "format": "NOVEL"}
+    ]
+
+
+async def test_a_row_that_has_never_synced_leaves_discarded_relations_null():
+    async with get_sessionmaker()() as session:
+        await session.execute(
+            text(
+                """
+                insert into anime_entry (provider, provider_media_id, title_romaji, status,
+                                         related_manga, raw)
+                values ('anilist', '21', 'Vinland Saga', 'completed', '[]'::jsonb, '{}'::jsonb)
+                """
+            )
+        )
+        await session.commit()
+        row = (
+            await session.execute(text("select discarded_relations from anime_entry"))
+        ).one()
+    assert row.discarded_relations is None
+
+
+async def test_a_resync_turns_null_into_an_empty_list_when_nothing_is_discarded():
+    """NULL means "not recorded yet"; a sync that finds nothing to discard has
+    to say so with "[]", not leave the row looking like it never ran."""
+    async with get_sessionmaker()() as session:
+        await session.execute(
+            text(
+                """
+                insert into anime_entry (provider, provider_media_id, title_romaji, status,
+                                         related_manga, raw)
+                values ('anilist', '21', 'Vinland Saga', 'completed', '[]'::jsonb, '{}'::jsonb)
+                """
+            )
+        )
+        await session.commit()
+
+        await upsert_anime(session, dto())
+        await session.commit()
+        row = (
+            await session.execute(text("select discarded_relations from anime_entry"))
+        ).one()
+    assert row.discarded_relations == []
+
+
+async def test_a_mal_sync_over_a_never_synced_row_leaves_it_null():
+    """MyAnimeList never asks AniList's relations question; its DTO carries
+    discarded_relations=None, and NULL has to stay NULL rather than read as
+    an answer nobody gave."""
+    async with get_sessionmaker()() as session:
+        await upsert_anime(session, dto(provider=Provider.MAL, discarded=None))
+        await session.commit()
+        row = (
+            await session.execute(text("select discarded_relations from anime_entry"))
+        ).one()
+    assert row.discarded_relations is None
+
+
+async def test_a_mal_sync_does_not_flatten_an_already_recorded_discard():
+    """A resync from a provider that carries discarded_relations=None must
+    leave whatever is already stored alone - the coalesce protects the column
+    itself, not just a freshly-NULL row. Only a provider that actually asked
+    the question may overwrite the answer, empty included."""
+    async with get_sessionmaker()() as session:
+        await session.execute(
+            text(
+                """
+                insert into anime_entry (provider, provider_media_id, title_romaji, status,
+                                         related_manga, discarded_relations, raw)
+                values ('mal', '21', 'Vinland Saga', 'completed', '[]'::jsonb,
+                        '[{"provider": "anilist", "media_id": "4000", "relation": "SOURCE",
+                           "title": "Mushoku Tensei (LN)", "format": "NOVEL"}]'::jsonb,
+                        '{}'::jsonb)
+                """
+            )
+        )
+        await session.commit()
+
+        await upsert_anime(session, dto(provider=Provider.MAL, media_id="21", discarded=None))
+        await session.commit()
+        row = (
+            await session.execute(text("select discarded_relations from anime_entry"))
+        ).one()
+    assert row.discarded_relations == [
+        {"provider": "anilist", "media_id": "4000", "relation": "SOURCE",
+         "title": "Mushoku Tensei (LN)", "format": "NOVEL"}
+    ]
+
+
+async def test_an_anilist_resync_that_finds_nothing_replaces_a_stored_discard():
+    """The transition the coalesce fix has to allow, not just avoid breaking:
+    a row already holding a real discarded relation - the light novel got
+    dropped from the anime's relations, or reclassified - resynced by AniList,
+    which is the provider that gets to answer this question. The column has
+    to become "[]", not keep the stale entry and not go back to NULL either."""
+    async with get_sessionmaker()() as session:
+        await session.execute(
+            text(
+                """
+                insert into anime_entry (provider, provider_media_id, title_romaji, status,
+                                         related_manga, discarded_relations, raw)
+                values ('anilist', '21', 'Vinland Saga', 'completed', '[]'::jsonb,
+                        '[{"provider": "anilist", "media_id": "4000", "relation": "SOURCE",
+                           "title": "Mushoku Tensei (LN)", "format": "NOVEL"}]'::jsonb,
+                        '{}'::jsonb)
+                """
+            )
+        )
+        await session.commit()
+
+        await upsert_anime(session, dto(discarded=[]))
+        await session.commit()
+        row = (
+            await session.execute(text("select discarded_relations from anime_entry"))
+        ).one()
+    assert row.discarded_relations == []
