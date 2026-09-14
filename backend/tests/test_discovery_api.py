@@ -546,3 +546,30 @@ async def test_a_skipped_target_is_an_absence_and_not_a_failure(client):
     )
     body = (await client.get("/api/suggestions?state=added&write_failed=true")).json()
     assert body == []
+
+
+async def test_the_badge_count_is_counted_rather_than_measured_off_a_capped_page(client):
+    """/api/suggestions pages at 100, so its length is a floor and not a total.
+
+    The nav badge read that length and told a user with 237 waiting that 100
+    were — the one number the badge exists to give was the one it could not.
+    """
+    async with get_sessionmaker()() as session:
+        for media_id in range(3100, 3104):
+            await session.execute(
+                text(
+                    """
+                    insert into suggestion (provider, provider_media_id, title, rank_score, meta)
+                    values ('anilist', :media_id, 'Vinland Saga', 0.5, '{}'::jsonb)
+                    """
+                ),
+                {"media_id": str(media_id)},
+            )
+        await session.execute(
+            text("update suggestion set state = 'dismissed' where provider_media_id = '3103'")
+        )
+        await session.commit()
+
+    counts = (await client.get("/api/suggestions/counts")).json()
+
+    assert counts == {"new": 3, "dismissed": 1, "added": 0}

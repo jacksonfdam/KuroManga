@@ -1,3 +1,5 @@
+import type { ListStatus } from './format'
+
 export type SeriesState = 'mapped' | 'needs_review' | 'downloading' | 'failed'
 
 export interface Series {
@@ -15,6 +17,12 @@ export interface Series {
   total_chapters: number | null
   auto_download: boolean
   state: SeriesState
+  status: ListStatus | null
+  progress: number
+  score: number | null
+  genres: string[]
+  format: string | null
+  updated_at: string | null
 }
 
 export interface Candidate {
@@ -26,6 +34,28 @@ export interface Candidate {
   chapter_count: number | null
   year: number | null
   score: number
+}
+
+export interface SeriesChapter {
+  number: number
+  title: string | null
+  state: string
+  file_path: string | null
+}
+
+export interface SeriesEntry {
+  provider: string
+  provider_media_id: string
+  status: ListStatus | null
+  user_progress_chapter: number
+  updated_at: string | null
+}
+
+export interface SeriesDetail {
+  series: Series
+  mapping: { source_site: string; source_url: string } | null
+  chapters: SeriesChapter[]
+  entries: SeriesEntry[]
 }
 
 export interface ReviewPayload {
@@ -65,9 +95,50 @@ export interface JobEvent {
 
 export interface SettingsPayload {
   values: Record<string, string>
-  providers: Record<string, { connected: boolean; configured: boolean; account_name?: string }>
+  providers: Record<
+    string,
+    { connected: boolean; configured: boolean; account_name?: string; expires_at?: string | null }
+  >
   sources: Record<string, SourceStatus>
   library_path: string
+}
+
+// The PUT answers with more than the GET: what was ignored, and whether the
+// worker has to be restarted for the new schedule to be read. It is not a
+// SettingsPayload, and typing it as one is what let the restart flag go
+// unnoticed.
+export interface SettingsSaved {
+  ok: boolean
+  ignored: string[]
+  restart_worker_required: boolean
+  values: Record<string, string>
+}
+
+export interface Integration {
+  name: string
+  state: 'ok' | 'unauthenticated' | 'unreachable'
+  detail: string | null
+}
+
+// Callers that need to tell "the thing you asked for doesn't exist" apart
+// from "the request failed" (and show one, not the other) need the status
+// code — a plain Error only carries a message a caller would have to
+// string-match against.
+export class ApiError extends Error {
+  status: number
+
+  constructor(message: string, status: number) {
+    super(message)
+    this.status = status
+  }
+}
+
+/**
+ * The sentence a user is shown for a rejection. Every screen reports a failure
+ * through this, so the wording never depends on which screen made the request.
+ */
+export function messageOf(failure: unknown): string {
+  return failure instanceof Error ? failure.message : String(failure)
 }
 
 /** MangaDex has an account; comick has none, so it only reports whether it answers. */
@@ -109,8 +180,6 @@ export interface Suggestion {
     at?: string
   }[]
 }
-
-export type ListStatusValue = 'reading' | 'plan_to_read' | 'completed' | 'on_hold' | 'dropped'
 
 /** One anime from the list that no relation could turn into a manga. */
 export interface UnmatchedAnime {
@@ -200,14 +269,38 @@ export interface HiddenResult {
   rows: number
 }
 
+/**
+ * The sentence out of a rejected response.
+ *
+ * FastAPI answers a refusal with `{"detail": "..."}` and a failed validation
+ * with `{"detail": [{"msg": "...", ...}]}`. Passing the raw body through meant
+ * every screen showed a user the JSON — a refused +1 read as
+ * `{"detail":"this series is only known to have 30 chapters"}`, braces and all.
+ */
+function sentenceOf(body: string, response: Response): string {
+  try {
+    const parsed = JSON.parse(body) as { detail?: unknown }
+    const detail = parsed.detail
+    if (typeof detail === 'string' && detail) return detail
+    if (Array.isArray(detail)) {
+      const messages = detail
+        .map((item) => (item as { msg?: unknown }).msg)
+        .filter((msg): msg is string => typeof msg === 'string')
+      if (messages.length > 0) return messages.join('. ')
+    }
+  } catch {
+    // Not JSON — a proxy error page or an empty body. Fall through.
+  }
+  return body || `${response.status} ${response.statusText}`
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
     headers: { 'Content-Type': 'application/json' },
     ...init,
   })
   if (!response.ok) {
-    const detail = await response.text()
-    throw new Error(detail || `${response.status} ${response.statusText}`)
+    throw new ApiError(sentenceOf(await response.text(), response), response.status)
   }
   return response.json() as Promise<T>
 }
@@ -216,6 +309,7 @@ export const api = {
   series: (state?: string) =>
     request<Series[]>(`/api/series${state ? `?state=${state}` : ''}`),
   chapters: (id: number) => request<unknown[]>(`/api/series/${id}/chapters`),
+  seriesDetail: (id: number) => request<SeriesDetail>(`/api/series/${id}`),
   candidates: (id: number) => request<ReviewPayload>(`/api/series/${id}/candidates`),
   confirmMapping: (id: number, sourceUrl: string) =>
     request<{ ok: boolean }>(`/api/series/${id}/mapping`, {
@@ -224,6 +318,11 @@ export const api = {
     }),
   research: (id: number) =>
     request<{ ok: boolean }>(`/api/series/${id}/search`, { method: 'POST' }),
+  setProgress: (id: number, chapter: number) =>
+    request<{ progress: number; queued: boolean }>(`/api/series/${id}/progress`, {
+      method: 'POST',
+      body: JSON.stringify({ chapter }),
+    }),
   setAutoDownload: (id: number, enabled: boolean) =>
     request<{ auto_download: boolean; queued: number }>(`/api/series/${id}/auto-download`, {
       method: 'POST',
@@ -242,18 +341,25 @@ export const api = {
     request<{ ok: boolean }>(`/api/sync/${provider}`, { method: 'POST' }),
   settings: () => request<SettingsPayload>('/api/settings'),
   saveSettings: (values: Record<string, string>) =>
-    request<SettingsPayload>('/api/settings', {
+    request<SettingsSaved>('/api/settings', {
       method: 'PUT',
       body: JSON.stringify({ values }),
     }),
   authStart: (provider: string) => request<{ url: string }>(`/api/auth/${provider}/start`),
   disconnect: (provider: string) =>
     request<{ ok: boolean }>(`/api/auth/${provider}`, { method: 'DELETE' }),
+  integrations: () =>
+    request<{ integrations: Integration[] }>('/api/health/integrations').then(
+      (body) => body.integrations,
+    ),
   suggestions: (state = 'new', options: { writeFailed?: boolean } = {}) =>
     request<Suggestion[]>(
       `/api/suggestions?state=${state}${options.writeFailed ? '&write_failed=true' : ''}`,
     ),
-  addSuggestion: (id: number, status: ListStatusValue, download: boolean) =>
+  // Counted, not measured off the list: /api/suggestions pages at 100, so the
+  // length of its first page is a floor and not a total.
+  suggestionCounts: () => request<Record<string, number>>('/api/suggestions/counts'),
+  addSuggestion: (id: number, status: ListStatus, download: boolean) =>
     request<{ ok: boolean; series_id: number; needs_review: boolean }>(
       `/api/suggestions/${id}/add`,
       { method: 'POST', body: JSON.stringify({ status, download }) },
@@ -282,7 +388,7 @@ export const api = {
   addUnmatched: (
     id: number,
     candidate: SearchCandidate,
-    status: ListStatusValue,
+    status: ListStatus,
     download: boolean,
   ) =>
     request<UnmatchedAdded>(`/api/discovery/unmatched/${id}/add`, {

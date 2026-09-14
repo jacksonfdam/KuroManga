@@ -27,6 +27,8 @@
           }
         ],
         "start_date": "2019-04-01",
+        "mean": 7.53,
+        "media_type": "manga",
         "authors": [
           {
             "node": {

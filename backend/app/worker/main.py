@@ -24,6 +24,7 @@ from app.handlers import (  # noqa: F401
     list_write,
     match_search,
     progress_push,
+    progress_write,
     suggest_build,
 )
 from app.queue import repo

@@ -19,6 +19,9 @@ DOWNLOAD_CONCURRENCY = "download_concurrency"
 PER_SOURCE_CONCURRENCY = "per_source_concurrency"
 DOWNLOAD_BATCH_SIZE = "download_batch_size"
 AUTO_DOWNLOAD_NEW = "auto_download_new"
+COMICK_URL = "comick_url"
+COMICK_ENABLED = "comick_enabled"
+READING_MINUTES_PER_CHAPTER = "reading_minutes_per_chapter"
 
 
 @dataclass(frozen=True)
@@ -26,10 +29,16 @@ class Defaults:
     cron_list_sync: str = "0 */6 * * *"
     cron_chapter_discover: str = "0 */2 * * *"
     cron_progress_push: str = "30 * * * *"
+    # Twelve hours, not the six or two the reading crons use: an anime list
+    # changes when an episode airs, not continuously, and the discovery pass
+    # it feeds is expensive.
     cron_anime_list_sync: str = "0 */12 * * *"
     per_source_concurrency: int = 2
     download_batch_size: int = 20
     auto_download_new: bool = True
+    comick_url: str = ""
+    comick_enabled: bool = False
+    reading_minutes_per_chapter: int = 8
 
 
 DEFAULTS = Defaults()
@@ -53,6 +62,12 @@ def _fallback(key: str) -> str:
             return str(DEFAULTS.download_batch_size)
         case k if k == AUTO_DOWNLOAD_NEW:
             return "true" if DEFAULTS.auto_download_new else "false"
+        case k if k == COMICK_URL:
+            return DEFAULTS.comick_url
+        case k if k == COMICK_ENABLED:
+            return "true" if DEFAULTS.comick_enabled else "false"
+        case k if k == READING_MINUTES_PER_CHAPTER:
+            return str(DEFAULTS.reading_minutes_per_chapter)
         case _:
             return ""
 
@@ -101,5 +116,8 @@ async def all_settings(session: AsyncSession) -> dict[str, str]:
         PER_SOURCE_CONCURRENCY,
         DOWNLOAD_BATCH_SIZE,
         AUTO_DOWNLOAD_NEW,
+        COMICK_URL,
+        COMICK_ENABLED,
+        READING_MINUTES_PER_CHAPTER,
     ]
     return {key: stored.get(key, _fallback(key)) for key in keys}

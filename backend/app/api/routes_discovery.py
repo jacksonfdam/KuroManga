@@ -130,6 +130,21 @@ async def list_suggestions(
     return suggestions
 
 
+@router.get("/suggestions/counts")
+async def suggestion_counts(session: Session) -> dict[str, int]:
+    """How many suggestions are in each state, counted rather than listed.
+
+    The nav badge used to be the length of the first page of /api/suggestions,
+    which is capped at 100 — a user with 237 waiting was told 100, and the one
+    number the badge exists to give was the one it could not give.
+    """
+    result = await session.execute(
+        text("select state, count(*) as total from suggestion group by state")
+    )
+    counted = {row.state: row.total for row in result.all()}
+    return {str(state): counted.get(str(state), 0) for state in SuggestionState}
+
+
 async def _load(session: AsyncSession, suggestion_id: int) -> Any:
     result = await session.execute(
         text(
