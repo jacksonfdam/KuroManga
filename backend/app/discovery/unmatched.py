@@ -7,6 +7,7 @@ per provider. They are the same fold `seeds.collapse` does, for the same reason
 spelled - so the rule is written once per shape and tested from ordinary data.
 """
 
+import re
 from dataclasses import dataclass, field
 from itertools import combinations
 
@@ -132,12 +133,76 @@ def _keys(titles) -> list[str]:
     return folded
 
 
+# A word placing an entry somewhere in a run, and the number beside it. Titles
+# state a season in every spelling a provider felt like - `2nd Season`,
+# `Season 2`, `Part 2`, or a bare trailing `2` - so all of them have to read the
+# same way.
+_RUN_WORDS = frozenset({"season", "part", "cour", "stage", "chapter", "act", "series"})
+_ORDINAL = re.compile(r"^(\d+)(?:st|nd|rd|th)?$")
+
+# A trailing number this large is part of the name rather than a place in a run:
+# `Mob Psycho 100` and `Yowamushi Pedal 1000` are one anime each, not hundreds.
+_LONGEST_RUN = 20
+
+# How many rows have to carry a spelling before it is read as the franchise's
+# name rather than one anime's. Two rows carrying it are as likely to be one
+# anime spelled two ways, and refusing those costs real merges: the library has
+# nine pairs - `Oneechan ga Kita` against `Onee-chan ga Kita`, `Kusoge` against
+# `Kusogee` - that agree on nothing but a synonym only they two carry.
+_FRANCHISE_ROWS = 3
+
+
+def _run_positions(titles) -> set[int]:
+    """The places in a run a row claims outright, over all its own spellings.
+
+    A number a run word vouches for, or one a title ends on after a couple of
+    other words. Nothing else: `5-toubun no Hanayome` and `86` carry their
+    numbers at the front or as the whole name, and neither is a season index.
+    """
+    found: set[int] = set()
+    for title in titles:
+        words = normalize(title).split()
+        for index, word in enumerate(words):
+            ordinal = _ORDINAL.match(word)
+            if not ordinal:
+                continue
+            vouched = (index and words[index - 1] in _RUN_WORDS) or (
+                index + 1 < len(words) and words[index + 1] in _RUN_WORDS
+            )
+            trailing = index == len(words) - 1 and index >= 2
+            if vouched or (trailing and int(ordinal.group(1)) <= _LONGEST_RUN):
+                found.add(int(ordinal.group(1)))
+    return found
+
+
+def _says_everything_the_other_does(left: list[set[str]], right: list[set[str]]) -> bool:
+    """Is one row's spelling the other's, plus words naming no other entry?
+
+    The two providers disagree about punctuation and about whether to write
+    `(TV Special)` at all, and that disagreement is spelling rather than
+    identity: `kiss×sis (TV)` and `Kiss x Sis (TV)` are one anime, and so are a
+    special the one provider suffixed and the other did not. A run word is the
+    exception: a title that adds `2nd Season` is naming a different anime, not
+    the same one at greater length, which is what keeps a first season from
+    reading as its own fifth here.
+    """
+    for one, other in ((left, right), (right, left)):
+        for short in one:
+            for long in other:
+                extra = long - short
+                if short <= long and not any(
+                    word in _RUN_WORDS or _ORDINAL.match(word) for word in extra
+                ):
+                    return True
+    return False
+
+
 def _same_anime(rows: list) -> list[list]:
     """The rows two providers hold for one anime, grouped.
 
     Electing one field to group on loses every pair the providers only agree on
     elsewhere - `86` against `86: Eighty Six`, one English title apart - so all
-    of them count, synonyms included. Two rules keep that from folding a whole
+    of them count, synonyms included. Three rules keep that from folding a whole
     franchise into a single row:
 
     A group holds at most one row per provider. A provider lists an anime once,
@@ -152,16 +217,6 @@ def _same_anime(rows: list) -> list[list]:
     then by id is also what makes the fold independent of the order rows arrive
     in - nothing here reads the list's own order.
 
-    Both guards only refuse a merge that competes with a stronger one - and a
-    franchise synonym shared by two *different* anime, each known to only one
-    provider (a spin-off AniList mirrors that MyAnimeList never listed, sharing
-    a name with one only MyAnimeList has), has no competing pair to be refused
-    by: nothing here reads the rows' own titles before merging on a synonym
-    alone, so that pair goes through unconditionally. No guard against this
-    exists today; it is latent rather than triggered because it takes two such
-    anime landing in the same sync, and the real library has not yet produced
-    one - but one sync could.
-
     A pair whose episode counts disagree is demoted, not forbidden: it is tried
     only after every pair with no such disagreement is settled. Two providers
     occasionally use the identical string for two different entries of a
@@ -171,21 +226,64 @@ def _same_anime(rows: list) -> list[list]:
     matters because providers also legitimately disagree about how many
     episodes the same anime has; a pair like that must still merge when nothing
     else competes for either row.
+
+    Both guards above are competitive: they refuse a merge only when a stronger
+    one wants the row. Two *different* anime each known to only one
+    provider - a spin-off AniList mirrors that MyAnimeList never listed, sharing
+    a franchise name with one only MyAnimeList has - have no competitor, so a
+    third rule reads the pair on its own terms and refuses it outright, before
+    any ranking. A pair is two anime when either holds:
+
+    The two state different places in the same run. `Boku no Hero Academia 5th
+    Season` and `Boku no Hero Academia 6` are a fifth season and a sixth
+    whatever else they share, and no amount of shared franchise name makes them
+    one show.
+
+    Or everything they share is a franchise name - a spelling carried by
+    `_FRANCHISE_ROWS` rows or more, and a synonym rather than an own title on
+    both sides - and neither row's own spelling is the other's plus qualifiers.
+    A name six seasons answer to is not evidence about which season this is.
+
+    What that leaves open is narrower: two entries told apart only by a mark
+    `normalize` throws away, where the later one also lists the plain title
+    among its synonyms. `5-toubun no Hanayome` and `5-toubun no Hanayome ∬`
+    share an own-title spelling exactly, so neither rule reaches them, and if
+    one provider knew only the first and the other only the second they would
+    still fold together. Every pair of them the real library holds is paired off
+    against its own mirror, which is what keeps it theoretical.
     """
     spellings = {r.id: _keys([r.title_romaji, r.title_english, *(r.synonyms or [])]) for r in rows}
     own = {r.id: set(_keys([r.title_romaji, r.title_english])) for r in rows}
     episodes = {r.id: r.total_episodes for r in rows}
+    titles = {r.id: [t for t in (r.title_romaji, r.title_english) if t] for r in rows}
+    positions = {r.id: _run_positions(titles[r.id]) for r in rows}
+    words = {r.id: [set(normalize(t).split()) for t in titles[r.id]] for r in rows}
 
     sharing: dict[str, list] = {}
     for row in rows:
         for key in spellings[row.id]:
             sharing.setdefault(key, []).append(row)
+    carriers = {key: len(rows_sharing) for key, rows_sharing in sharing.items()}
+
+    def different_anime(pair: tuple[int, int]) -> bool:
+        """Does the pair itself say these are two entries, whatever it shares?"""
+        left, right = pair
+        if positions[left] and positions[right] and not positions[left] & positions[right]:
+            return True
+        shared = set(spellings[left]) & set(spellings[right])
+        if shared & (own[left] | own[right]):
+            return False
+        return all(carriers[key] >= _FRANCHISE_ROWS for key in shared) and (
+            not _says_everything_the_other_does(words[left], words[right])
+        )
+
     pairs: set[tuple[int, int]] = {
         (min(left.id, right.id), max(left.id, right.id))
         for rows_sharing in sharing.values()
         for left, right in combinations(rows_sharing, 2)
         if left.provider != right.provider
     }
+    pairs = {pair for pair in pairs if not different_anime(pair)}
 
     def evidence(pair: tuple[int, int]) -> tuple[int, int, int, int, int]:
         left, right = pair
