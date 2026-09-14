@@ -11,6 +11,7 @@ from app import settings_store
 from app.api.deps import db_session
 from app.config import get_settings
 from app.enums import Provider
+from app.providers import get_source
 from app.sources.comick_client import ComickClient
 from app.sources.mangadex_auth import tokens as mangadex_tokens
 
@@ -34,6 +35,25 @@ class SettingsIn(BaseModel):
     values: dict[str, str]
 
 
+def _provider_status(
+    provider: Provider, connected: dict[str, dict[str, Any]], settings: Any
+) -> dict[str, Any]:
+    """A token provider is never in `provider_token`, so its state is read from
+    the credential it actually uses instead of from a row that will never exist.
+    """
+    source = get_source(provider)
+    if not source.uses_oauth:
+        return {"uses_oauth": False, "configured": bool(source.static_credential())}
+
+    client_id = settings.mal_client_id if provider == Provider.MAL else settings.anilist_client_id
+    return {
+        "uses_oauth": True,
+        "connected": str(provider) in connected,
+        "configured": bool(client_id),
+        **connected.get(str(provider), {}),
+    }
+
+
 @router.get("")
 async def read_settings(session: Session) -> dict[str, Any]:
     result = await session.execute(
@@ -51,16 +71,7 @@ async def read_settings(session: Session) -> dict[str, Any]:
     return {
         "values": await settings_store.all_settings(session),
         "providers": {
-            str(provider): {
-                "connected": str(provider) in connected,
-                "configured": bool(
-                    settings.mal_client_id
-                    if provider == Provider.MAL
-                    else settings.anilist_client_id
-                ),
-                **connected.get(str(provider), {}),
-            }
-            for provider in Provider
+            str(provider): _provider_status(provider, connected, settings) for provider in Provider
         },
         "library_path": str(settings.library_path),
         "sources": {

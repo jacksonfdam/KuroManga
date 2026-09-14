@@ -9,6 +9,7 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
 
 from app.api.main import app
+from app.config import get_settings
 from app.db import get_sessionmaker
 from app.enums import Provider
 
@@ -80,6 +81,51 @@ async def test_settings_expose_defaults_and_provider_status(client):
 async def test_settings_reject_unknown_keys_instead_of_storing_them(client):
     body = (await client.put("/api/settings", json={"values": {"nope": "1"}})).json()
     assert body["ignored"] == ["nope"]
+
+
+async def test_settings_report_oauth_providers_exactly_as_before(client):
+    body = (await client.get("/api/settings")).json()
+    for name in ("mal", "anilist"):
+        provider = body["providers"][name]
+        assert provider["uses_oauth"] is True
+        assert set(provider) >= {"uses_oauth", "connected", "configured"}
+
+
+async def test_settings_report_a_token_provider_as_configured_when_its_token_is_set(
+    client, monkeypatch
+):
+    monkeypatch.setenv("MANGABAKA_TOKEN", "mb-configured")
+    get_settings.cache_clear()
+    try:
+        body = (await client.get("/api/settings")).json()
+        assert body["providers"]["mangabaka"] == {"uses_oauth": False, "configured": True}
+    finally:
+        get_settings.cache_clear()
+
+
+async def test_settings_report_a_token_provider_as_unconfigured_without_a_token(
+    client, monkeypatch
+):
+    monkeypatch.setenv("MANGABAKA_TOKEN", "")
+    get_settings.cache_clear()
+    try:
+        body = (await client.get("/api/settings")).json()
+        assert body["providers"]["mangabaka"] == {"uses_oauth": False, "configured": False}
+    finally:
+        get_settings.cache_clear()
+
+
+async def test_connecting_a_token_provider_is_refused_not_a_500(client):
+    response = await client.get("/api/auth/mangabaka/start")
+    assert response.status_code == 400
+    assert "MANGABAKA_TOKEN" in response.json()["detail"]
+
+
+async def test_the_oauth_callback_refuses_a_token_provider_too(client):
+    response = await client.get(
+        "/api/auth/mangabaka/callback", params={"code": "x", "state": "y"}
+    )
+    assert response.status_code == 400
 
 
 async def test_candidates_for_a_missing_series_is_a_404(client):
