@@ -72,6 +72,12 @@ STATUS_MAP = {
     "DROPPED": ListStatus.DROPPED,
 }
 
+# Every field below is read by the series detail screen out of `list_entry.raw`,
+# which stores this entry verbatim. Only scalars and small objects belong here:
+# `characters`, `recommendations`, `rankings` and `stats` are per-media graphs
+# and are fetched one series at a time by the media_enrich job instead, because
+# asking for them across a seven-hundred-entry list is one response AniList
+# will not send twice.
 LIST_QUERY = """
 query ($userId: Int) {
   MediaListCollection(userId: $userId, type: MANGA) {
@@ -79,18 +85,34 @@ query ($userId: Int) {
       entries {
         status
         progress
+        progressVolumes
+        score(format: POINT_10_DECIMAL)
+        repeat
+        notes
+        startedAt { year month day }
+        completedAt { year month day }
+        updatedAt
         media {
           id
           chapters
+          volumes
           synonyms
           description(asHtml: false)
           genres
           averageScore
+          popularity
+          favourites
           format
-          startDate { year }
+          status
+          countryOfOrigin
+          siteUrl
+          bannerImage
+          startDate { year month day }
+          endDate { year month day }
           title { romaji english native }
           coverImage { large }
           staff(perPage: 4) { edges { role node { name { full } } } }
+          tags { name rank isGeneralSpoiler }
         }
       }
     }
