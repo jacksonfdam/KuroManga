@@ -48,8 +48,9 @@ async def find_series_by_alias(
              where jsonb_exists_any(meta -> 'aliases', cast(:aliases as text[]))
                and (
                    cast(:provider as text) is null
-                   or (meta -> 'cross_refs') ->> cast(:provider as text) is null
-                   or (meta -> 'cross_refs') ->> cast(:provider as text) = cast(:media_id as text)
+                   or ((meta -> 'cross_refs') -> cast(:provider as text)) ->> 'id' is null
+                   or ((meta -> 'cross_refs') -> cast(:provider as text)) ->> 'id'
+                      = cast(:media_id as text)
                )
              order by id
              limit 1
@@ -61,9 +62,51 @@ async def find_series_by_alias(
     return row[0] if row else None
 
 
+def assertions(dto: ListEntryDTO) -> dict[str, dict[str, str]]:
+    """What this entry says about which work it is, and on whose authority.
+
+    Two different kinds of statement arrive in the same payload and have never
+    been worth the same. A provider stating its own identifier is reporting a
+    fact about its own database. A provider stating that the work is also
+    MyAnimeList 7001 is repeating something about someone else's.
+
+    An assertion is authoritative exactly when the provider making it is the
+    provider being identified, so `by == key` carries that without a flag.
+    """
+    made_by = str(dto.provider)
+    stated = {made_by: {"id": dto.media_id, "by": made_by}}
+    for provider, media_id in dto.cross_refs.items():
+        if provider != made_by:
+            stated[provider] = {"id": media_id, "by": made_by}
+    return stated
+
+
+def is_authoritative(provider: str, assertion: dict[str, str]) -> bool:
+    """True when the provider identified is the one that made the statement."""
+    return assertion.get("by") == provider
+
+
+def merge_assertions(
+    existing: dict[str, dict[str, str]], incoming: dict[str, dict[str, str]]
+) -> dict[str, dict[str, str]]:
+    """Fold new statements in without letting hearsay overwrite firsthand knowledge.
+
+    A provider correcting its own identifier is believed. A third party
+    contradicting what a provider said about itself is not, because the provider
+    is the authority on its own database and the third party is quoting it.
+    """
+    merged = dict(existing)
+    for provider, assertion in incoming.items():
+        held = merged.get(provider)
+        if held and is_authoritative(provider, held) and not is_authoritative(provider, assertion):
+            continue
+        merged[provider] = assertion
+    return merged
+
+
 def identity_pairs(dto: ListEntryDTO) -> dict[str, str]:
     """Every (provider, media id) this entry is known by, including its own."""
-    return {**dto.cross_refs, str(dto.provider): dto.media_id}
+    return {provider: a["id"] for provider, a in assertions(dto).items()}
 
 
 async def find_series_by_cross_reference(
@@ -101,7 +144,7 @@ async def find_series_by_cross_reference(
             select s.id
               from series s
               join jsonb_each_text(cast(:pairs as jsonb)) p
-                on (s.meta -> 'cross_refs') ->> p.key = p.value
+                on ((s.meta -> 'cross_refs') -> p.key) ->> 'id' = p.value
              limit 1
             """
         ),
@@ -114,27 +157,36 @@ async def find_series_by_cross_reference(
 async def record_cross_references(
     session: AsyncSession, series_id: int, dto: ListEntryDTO
 ) -> None:
-    """Keep the identifiers on the series, so a later entry resolves without them.
+    """Keep the statements on the series, with who made each one.
 
-    An entry arriving from a provider that states nothing still matches, because
-    the series already carries what an earlier provider said about it.
+    Read, merge, write rather than a jsonb concatenation: the rule about hearsay
+    is a comparison between what is held and what is arriving, which the merge
+    operator cannot express. One worker handles a series at a time, so the read
+    and the write are not racing each other.
     """
-    pairs = identity_pairs(dto)
-    if not pairs:
+    incoming = assertions(dto)
+    if not incoming:
         return
+
+    held = (
+        await session.execute(
+            text("select coalesce(meta -> 'cross_refs', '{}'::jsonb) from series where id = :id"),
+            {"id": series_id},
+        )
+    ).scalar_one_or_none()
+
+    merged = merge_assertions(held or {}, incoming)
     await session.execute(
         text(
             """
             update series
                set meta = jsonb_set(
-                       coalesce(meta, '{}'::jsonb),
-                       '{cross_refs}',
-                       coalesce(meta -> 'cross_refs', '{}'::jsonb) || cast(:pairs as jsonb)
+                       coalesce(meta, '{}'::jsonb), '{cross_refs}', cast(:refs as jsonb)
                    )
              where id = :series_id
             """
         ),
-        {"series_id": series_id, "pairs": json.dumps(pairs)},
+        {"series_id": series_id, "refs": json.dumps(merged)},
     )
 
 

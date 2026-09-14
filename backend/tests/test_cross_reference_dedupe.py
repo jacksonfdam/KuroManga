@@ -138,6 +138,7 @@ async def test_the_identifiers_are_kept_on_the_series():
             )
         ).scalar_one()
 
-    assert stored["mal"] == "7001"
-    assert stored["anilist"] == "30013"
-    assert stored["mangabaka"] == "1238"
+    # Each statement now travels with who made it; see test_cross_reference_provenance.
+    assert stored["mal"]["id"] == "7001"
+    assert stored["anilist"]["id"] == "30013"
+    assert stored["mangabaka"]["id"] == "1238"
