@@ -16,10 +16,38 @@ from app.providers import get_source
 from app.providers.tokens import NotConnected, access_token_for
 
 
+async def latest_requested(ctx: JobContext, series_id: int) -> str | None:
+    """The status the most recently queued or leased write for this series carries.
+
+    progress_write takes the max of the queued chapters, because a chapter
+    number is one line that only moves forward. A status has no such order —
+    "on_hold" is not greater or less than "completed" — so the rule here is
+    latest, not greatest: order by the job's id descending and take the first.
+    The route rewrites the payload of the pending-or-leased row it finds for
+    this series when a second click arrives, including one already leased;
+    this is what reading that rewrite looks like from inside the job that was
+    leased before it happened.
+    """
+    result = await ctx.session.execute(
+        text(
+            """
+            select payload->>'status' as status
+              from job
+             where type = :type and series_id = :series_id
+               and state in ('pending', 'leased')
+             order by id desc
+             limit 1
+            """
+        ),
+        {"type": str(JobType.STATUS_WRITE), "series_id": series_id},
+    )
+    return result.scalar_one_or_none()
+
+
 @register(JobType.STATUS_WRITE)
 async def handle(ctx: JobContext) -> None:
     series_id = int(ctx.payload["series_id"])
-    status = ListStatus(ctx.payload["status"])
+    status = ListStatus(await latest_requested(ctx, series_id) or ctx.payload["status"])
 
     # A left join, so an entry whose provider has no stored token is still seen:
     # joining it away would let the job report success while never attempting

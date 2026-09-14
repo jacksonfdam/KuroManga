@@ -617,13 +617,19 @@ async def set_list_status(series_id: int, body: StatusIn, session: Session) -> d
     )
     # One job per series, carrying the status last asked for. A second click
     # while the first is queued raises that job rather than adding one, or the
-    # status the user moved away from lands on their account second.
+    # status the user moved away from lands on their account second. Matching
+    # 'leased' too, not only 'pending': a worker can have already claimed the
+    # row by the time this second click arrives, and the dedupe key still
+    # refuses a fresh insert in that state. The handler re-reads the latest
+    # row before pushing, which is what keeps this from silently dropping the
+    # click the way updating only the pending row would.
     await session.execute(
         text(
             """
             update job
                set payload = jsonb_set(payload, '{status}', to_jsonb(cast(:status as text)))
-             where type = :type and series_id = :series_id and state = 'pending'
+             where type = :type and series_id = :series_id
+               and state in ('pending', 'leased')
             """
         ),
         {"status": str(body.status), "type": str(JobType.STATUS_WRITE), "series_id": series_id},

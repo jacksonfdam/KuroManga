@@ -6,8 +6,23 @@ from sqlalchemy import text
 
 from app.api.main import app
 from app.db import get_sessionmaker
+from app.enums import JobType, Provider
+from app.handlers import status_write
+from app.handlers.base import JobContext
+from app.queue import repo
 
 pytestmark = pytest.mark.asyncio
+
+
+class RecordingSource:
+    """Stands in for the provider's HTTP client; records what reached it."""
+
+    def __init__(self, written: list[tuple[str, str]], provider: Provider):
+        self.written = written
+        self.provider = provider
+
+    async def set_status(self, access_token: str, media_id: str, status) -> None:
+        self.written.append((str(self.provider), str(status)))
 
 
 @pytest.fixture
@@ -102,3 +117,51 @@ async def test_a_second_click_raises_the_queued_job_rather_than_adding_one(clien
     # a status the user moved away from reaches their real account second.
     assert len(rows) == 1
     assert rows[0].payload["status"] == "on_hold"
+
+
+async def test_a_click_that_lands_after_the_job_is_leased_still_reaches_the_provider(
+    client, monkeypatch
+):
+    """The gap a leased-only 'pending' match left open: a worker leases the
+    job, then a second click arrives. The dedupe key refuses a fresh insert
+    (a row for this series is still leased, not done), so if the update only
+    matched 'pending' the payload rewrite would match nothing, the route
+    would still answer ok, and the provider would end on the first status
+    while the screen showed the second. Matching 'leased' too, and having the
+    handler re-read the row instead of trusting the payload it was leased
+    with, is what makes the second click win.
+    """
+    await seed()
+    async with get_sessionmaker()() as session:
+        await session.execute(
+            text(
+                """
+                insert into provider_token (provider, access_token, refresh_token, expires_at)
+                values ('mal', 'token', null, null)
+                """
+            )
+        )
+        await repo.enqueue(
+            session,
+            JobType.STATUS_WRITE,
+            {"series_id": 1, "status": "completed"},
+            series_id=1,
+            dedupe_key="status_write:1",
+        )
+        await session.commit()
+        job = await repo.lease(session)
+        assert job is not None
+
+    written: list[tuple[str, str]] = []
+    monkeypatch.setattr(
+        status_write, "get_source", lambda provider: RecordingSource(written, provider)
+    )
+
+    response = await client.post("/api/series/1/status", json={"status": "on_hold"})
+    assert response.json() == {"ok": True, "status": "on_hold", "queued": True}
+
+    async with get_sessionmaker()() as session:
+        await status_write.handle(JobContext(session=session, job=job))
+        await session.commit()
+
+    assert written == [("mal", "on_hold")]
