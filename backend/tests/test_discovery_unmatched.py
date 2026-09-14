@@ -16,9 +16,10 @@ from app.api.main import app
 from app.db import get_sessionmaker
 from app.discovery.unmatched import collapse_anime, merge_candidates
 from app.enums import ListStatus, Provider
+from app.handlers.anime_list_sync import upsert_anime
 from app.providers import get_source
 from app.providers.anilist import parse_manga_search as parse_anilist_search
-from app.providers.base import AnimeEntryDTO, MangaMeta
+from app.providers.base import AnimeEntryDTO, MangaMeta, RelatedManga
 from app.providers.mal import parse_manga_search as parse_mal_search
 from app.providers.tokens import NotConnected
 
@@ -62,6 +63,9 @@ async def insert_anime(
     status: str = "completed",
     synonyms: list[str] | None = None,
     related: list | None = None,
+    # None, not [], is the default: a plain None leaves the column NULL, the
+    # same as an anime that has never synced under this feature.
+    discarded: list | None = None,
     hidden: bool = False,
 ) -> int:
     async with get_sessionmaker()() as session:
@@ -71,11 +75,13 @@ async def insert_anime(
                     """
                     insert into anime_entry (provider, provider_media_id, title_romaji,
                                              title_english, synonyms, status, progress_episode,
-                                             total_episodes, cover_url, related_manga, raw,
+                                             total_episodes, cover_url, related_manga,
+                                             discarded_relations, raw,
                                              manga_dismissed_at, updated_at)
                     values (:provider, :media_id, :romaji, :english,
                             cast(:synonyms as jsonb), :status, 24, 24,
-                            'https://covers/vs.jpg', cast(:related as jsonb), '{}'::jsonb,
+                            'https://covers/vs.jpg', cast(:related as jsonb),
+                            cast(:discarded as jsonb), '{}'::jsonb,
                             case when :hidden then now() end, now())
                     returning id
                     """
@@ -88,6 +94,7 @@ async def insert_anime(
                     "status": status,
                     "synonyms": json.dumps(synonyms or []),
                     "related": json.dumps(related or []),
+                    "discarded": json.dumps(discarded) if discarded is not None else None,
                     "hidden": hidden,
                 },
             )
@@ -1099,6 +1106,57 @@ async def test_the_detail_carries_every_spelling_and_every_provider_row(client):
 async def test_a_detail_for_a_missing_anime_is_a_404(client):
     response = await client.get("/api/discovery/unmatched/999999")
     assert response.status_code == 404
+
+
+async def test_the_detail_explains_a_discarded_source(client):
+    discarded = [
+        {"provider": "anilist", "media_id": "4000", "relation": "SOURCE",
+         "title": "Mushoku Tensei (LN)", "format": "NOVEL"}
+    ]
+    anime_id = await insert_anime("anilist", "40", discarded=discarded)
+    body = (await client.get(f"/api/discovery/unmatched/{anime_id}")).json()
+    assert body["discarded_relations"] == discarded
+
+
+async def test_the_list_never_carries_relations(client):
+    """The list pages up to five hundred anime; a relation list per row is what
+    the detail route exists to avoid paying for on every page load."""
+    await insert_anime(
+        "anilist", "40",
+        discarded=[{"provider": "anilist", "media_id": "4000", "relation": "SOURCE",
+                    "title": "Mushoku Tensei (LN)", "format": "NOVEL"}],
+    )
+    item = (await client.get("/api/discovery/unmatched")).json()["items"][0]
+    assert "discarded_relations" not in item
+
+
+async def test_null_and_empty_discarded_relations_stay_distinguishable_end_to_end(client):
+    """NULL is "not recorded yet"; "[]" is "recorded, and nothing was discarded" -
+    collapsing them would tell the user no source was ever declared for an anime
+    that simply has not resynced since this shipped."""
+    anime_id = await insert_anime("anilist", "21")  # discarded left unset: NULL
+
+    not_yet_synced = (await client.get(f"/api/discovery/unmatched/{anime_id}")).json()
+    assert not_yet_synced["discarded_relations"] is None
+
+    async with get_sessionmaker()() as session:
+        await upsert_anime(
+            session,
+            AnimeEntryDTO(
+                provider=Provider.ANILIST,
+                media_id="21",
+                status=ListStatus.READING,
+                title_romaji="Vinland Saga",
+                related_manga=[
+                    RelatedManga(provider=Provider.ANILIST, media_id="3000",
+                                 relation="SOURCE", title="Vinland Saga", format="MANGA")
+                ],
+            ),
+        )
+        await session.commit()
+
+    resynced = (await client.get(f"/api/discovery/unmatched/{anime_id}")).json()
+    assert resynced["discarded_relations"] == []
 
 
 def candidate_body(**overrides) -> dict:
