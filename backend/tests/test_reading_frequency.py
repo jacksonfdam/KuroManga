@@ -12,12 +12,20 @@ from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
 import pytest
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
 
+from app.api.main import app
 from app.api.reading_frequency import WEEKDAY_LABELS, _assemble, reading_frequency
 from app.db import get_sessionmaker
 
 TABLES = "job, job_event, chapter, source_mapping, series_candidate, list_entry, progress_event, series"
+
+
+@pytest.fixture
+async def client():
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as http:
+        yield http
 
 
 @pytest.fixture(autouse=True)
@@ -193,3 +201,24 @@ async def test_the_weekday_bucket_follows_the_utc_calendar_day_not_the_session_t
     chapters_by_weekday = {bucket["weekday"]: bucket["chapters"] for bucket in result["weekdays"]}
     assert chapters_by_weekday[6] == 5.0  # Sunday
     assert chapters_by_weekday[0] == 0.0  # Monday - where a local-date bug would file it
+
+
+# -- the API surface -----------------------------------------------------
+
+
+async def test_series_detail_serves_reading_frequency(client):
+    series_id = await _series()
+    await _event(series_id, datetime(2026, 9, 14, 9, 0, tzinfo=UTC), 3.0)
+
+    body = (await client.get(f"/api/series/{series_id}")).json()
+
+    assert body["reading_frequency"]["total_chapters"] == 3.0
+    assert len(body["reading_frequency"]["weekdays"]) == 7
+
+
+async def test_the_list_route_does_not_carry_reading_frequency(client):
+    await _series()
+
+    body = (await client.get("/api/series")).json()
+
+    assert "reading_frequency" not in body[0]
