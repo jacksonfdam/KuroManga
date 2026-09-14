@@ -2,7 +2,7 @@ import { Button } from '../../ui'
 import type { SearchCandidate, UnmatchedAnime, UnmatchedSearch } from '../../lib/api'
 import type { ListStatus } from '../../lib/format'
 import { SearchResults } from './SearchResults'
-import { providerName, titleOf } from './labels'
+import { episodesCounted, providerName, titleOf } from './labels'
 import type { Choice } from './useUnmatched'
 
 export function AnimeRow({
@@ -66,10 +66,18 @@ export function AnimeRow({
             <span className="rounded-full bg-surface-container-high px-space-sm py-0.5 text-on-surface-variant">
               {anime.status.replace('_', ' ')}
             </span>
-            <span>
-              {anime.progress_episode} / {anime.total_episodes ?? '?'} episode
-              {anime.total_episodes === 1 ? '' : 's'} watched
-            </span>
+            {episodesCounted(anime) ? (
+              <span>
+                {anime.progress_episode} / {anime.total_episodes ?? '?'} episode
+                {anime.total_episodes === 1 ? '' : 's'} watched
+              </span>
+            ) : (
+              anime.total_episodes !== null && (
+                <span>
+                  {anime.total_episodes} episode{anime.total_episodes === 1 ? '' : 's'}
+                </span>
+              )
+            )}
             {anime.providers.map((provider) => (
               <span
                 key={provider}

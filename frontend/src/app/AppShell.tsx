@@ -13,10 +13,12 @@ type Integration = { name: string; state: string; detail: string | null }
 
 // Home leads, because it is the front page: `/` used to redirect to the
 // library, which meant the interface had a shelf where its dashboard should
-// be. Stats is still omitted — its endpoint exists but its screen does not,
-// and a nav item that leads nowhere is worse than a nav that grows later.
+// be. Statistics sits beside it, as the design has it: the two answer the same
+// kind of question — what is happening, and what has happened — before the
+// shelf and the queues that act on it.
 const NAV: { to: string; label: string; icon: IconName; badge?: 'review' | 'jobs' | 'suggestions' }[] = [
   { to: '/', label: 'Home', icon: 'server' },
+  { to: '/stats', label: 'Statistics', icon: 'chart' },
   { to: '/library', label: 'Library', icon: 'book' },
   { to: '/discovery', label: 'Discovery', icon: 'sparkle', badge: 'suggestions' },
   { to: '/unmatched', label: 'Unmatched', icon: 'search' },

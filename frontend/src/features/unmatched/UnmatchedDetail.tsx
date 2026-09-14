@@ -4,7 +4,7 @@ import { DetailPanel, ErrorState, Skeleton } from '../../ui'
 import { api, type UnmatchedAnime } from '../../lib/api'
 import { STATUS_LABEL, type ListStatus } from '../../lib/format'
 import { useAsyncData } from '../../lib/useAsyncData'
-import { providerName, titleOf } from './labels'
+import { episodesCounted, providerName, titleOf } from './labels'
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
@@ -48,14 +48,23 @@ export function UnmatchedDetail({
           // ever reached here, it would still render as-is instead of "undefined".
           value={STATUS_LABEL[anime.status as ListStatus] ?? anime.status.replace('_', ' ')}
         />
-        <Row
-          label="Episodes"
-          value={
-            anime.total_episodes != null
-              ? `${anime.progress_episode} of ${anime.total_episodes}`
-              : `${anime.progress_episode} watched`
-          }
-        />
+        {/* Same rule as the row behind this panel: a counter at zero beside
+            a status of completed is MyAnimeList's two fields disagreeing, not
+            a fact about the anime. */}
+        {episodesCounted(anime) ? (
+          <Row
+            label="Episodes"
+            value={
+              anime.total_episodes != null
+                ? `${anime.progress_episode} of ${anime.total_episodes}`
+                : `${anime.progress_episode} watched`
+            }
+          />
+        ) : (
+          anime.total_episodes != null && (
+            <Row label="Episodes" value={String(anime.total_episodes)} />
+          )
+        )}
       </div>
 
       {!data && error ? (
