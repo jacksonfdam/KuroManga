@@ -28,7 +28,7 @@ from app.handlers.list_sync import (
 )
 from app.handlers.suggest_build import upsert_suggestion
 from app.providers import get_source
-from app.providers.base import MANGA_FORMATS, ListEntryDTO, MangaMeta, QueryUnsupported
+from app.providers.base import ListEntryDTO, MangaMeta, QueryUnsupported
 from app.providers.tokens import NotConnected, access_token_for
 from app.queue import repo
 from app.sources import source_for_url
@@ -601,35 +601,13 @@ async def unmatched_detail(anime_id: int, session: Session) -> dict[str, Any]:
     The list payload deliberately carries only what a row renders - five
     hundred rows paged at fifty would otherwise carry five hundred relation
     lists - so everything the panel adds is fetched one anime at a time.
+
+    There is no relation list here. Both parsers drop a relation whose format
+    is outside `MANGA_FORMATS` before it is ever stored, and `SETTLED_ROWS`
+    takes any relation that does survive as proof the anime is already
+    matched - so an anime that reaches this screen has none, by construction.
     """
     anime = await _load_anime(session, anime_id)
-
-    related = await session.execute(
-        text(
-            """
-            select provider, related_manga
-              from anime_entry
-             where id = any(:ids)
-            """
-        ),
-        {"ids": [member.row_id for member in anime.members]},
-    )
-    declared: list[dict[str, Any]] = []
-    for row in related.all():
-        for item in row.related_manga or []:
-            declared.append(
-                {
-                    "provider": item.get("provider") or row.provider,
-                    "media_id": str(item.get("media_id") or ""),
-                    "relation": item.get("relation"),
-                    "title": item.get("title"),
-                    "format": item.get("format"),
-                    # The same set that keeps a light novel from being offered
-                    # as a download. False here is the answer to "why is this
-                    # anime on the unmatched screen at all".
-                    "usable": item.get("format") in MANGA_FORMATS,
-                }
-            )
 
     return {
         **anime_payload(anime),
@@ -645,7 +623,6 @@ async def unmatched_detail(anime_id: int, session: Session) -> dict[str, Any]:
             }
             for member in anime.members
         ],
-        "related": declared,
     }
 
 

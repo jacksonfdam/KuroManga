@@ -1096,59 +1096,6 @@ async def test_the_detail_carries_every_spelling_and_every_provider_row(client):
     ]
 
 
-async def test_a_declared_relation_that_is_not_a_manga_says_so(client):
-    # SETTLED_ROWS treats any non-empty related_manga as already handled, so this
-    # row never reaches /discovery/unmatched - in production a relation only
-    # lands there once parse_relations has already dropped unusable formats, so
-    # the two never coexist. Fetched by id directly, the same way `_load_anime`
-    # itself resolves one: without the eligibility filter the list applies.
-    async with get_sessionmaker()() as session:
-        anime_id = (
-            await session.execute(
-                text(
-                    """
-                    insert into anime_entry
-                           (provider, provider_media_id, title_romaji, title_english,
-                            synonyms, status, progress_episode, total_episodes,
-                            related_manga, raw)
-                    values ('anilist', '21', 'Tousou Kikou', 'Escape Machine',
-                            '[]'::jsonb, 'reading', 12, 24, :related, '{}'::jsonb)
-                    returning id
-                    """
-                ),
-                {
-                    "related": json.dumps(
-                        [
-                            {
-                                "provider": "anilist",
-                                "media_id": "900",
-                                "relation": "SOURCE",
-                                "title": "Escape Machine (Light Novel)",
-                                "format": "NOVEL",
-                            }
-                        ]
-                    )
-                },
-            )
-        ).scalar_one()
-        await session.commit()
-
-    body = (await client.get(f"/api/discovery/unmatched/{anime_id}")).json()
-
-    # The whole reason this anime is on the unmatched screen: a relation was
-    # declared, and it points at something the downloader can never fetch.
-    assert body["related"] == [
-        {
-            "provider": "anilist",
-            "media_id": "900",
-            "relation": "SOURCE",
-            "title": "Escape Machine (Light Novel)",
-            "format": "NOVEL",
-            "usable": False,
-        }
-    ]
-
-
 async def test_a_detail_for_a_missing_anime_is_a_404(client):
     response = await client.get("/api/discovery/unmatched/999999")
     assert response.status_code == 404
