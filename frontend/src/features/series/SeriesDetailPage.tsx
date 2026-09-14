@@ -134,7 +134,12 @@ export function SeriesDetailPage() {
 
       <div className="grid grid-cols-1 gap-space-lg lg:grid-cols-[1fr_320px]">
         <section className="flex flex-col gap-space-md">
-          <h2 className="text-headline-md font-extrabold tracking-tight text-on-surface">Chapters</h2>
+          {/* The count belongs in the heading, as the reference's own
+              "Capítulos & Histórico (172)" puts it: the table below is bounded,
+              so the heading is where the total is stated. */}
+          <h2 className="text-headline-md font-extrabold tracking-tight text-on-surface">
+            Chapters {chapters.length > 0 && <span className="font-mono text-outline">({chapters.length})</span>}
+          </h2>
           <ChapterTable chapters={chapters} />
         </section>
 
