@@ -142,7 +142,11 @@ export function SeriesDetailPage() {
               <NotesPanel metadata={metadata} onSave={saveNotes} />
             </div>
             <div hidden={panel !== 'characters'}>
-              <CharacterGrid characters={metadata.characters} />
+              <CharacterGrid
+                characters={metadata.characters}
+                providers={metadata.providers}
+                enrichedAt={metadata.enriched_at}
+              />
             </div>
           </section>
         </div>
