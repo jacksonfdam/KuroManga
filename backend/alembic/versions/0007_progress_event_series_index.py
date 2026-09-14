@@ -10,7 +10,11 @@ from collections.abc import Sequence
 from alembic import op
 
 revision: str = "0007_progress_event_series_index"
-down_revision: str | None = "0006_review_ignored"
+# Re-parented onto the other migration that was written from 0006 in parallel.
+# Two revisions naming the same parent are two heads, and `alembic upgrade head`
+# refuses to choose between them. The revision id is deliberately left alone:
+# it is what any database that already ran this has recorded.
+down_revision: str | None = "0007_cross_reference_provenance"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
