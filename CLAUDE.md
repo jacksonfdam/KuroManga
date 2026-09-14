@@ -36,6 +36,12 @@ POSTGRES_HOST=localhost POSTGRES_PORT=5433 .venv/bin/python -m alembic revision 
 
 `alembic` is not on PATH — invoke it as `python -m alembic`, including from subprocesses in tests.
 
+The `5433` container above is what a fresh clone gets. A worktree wants its own: two
+branches sharing one database means whichever ran `alembic upgrade head` last decides the
+schema, and a schema ahead of the branch under test makes the suite lie about that branch.
+Start a second container on another port and pass `POSTGRES_PORT` — the `web-redesign`
+worktree uses `5434` (`manga-pg-web-redesign`).
+
 Frontend (from `frontend/`): `npm install`, `npm run build` (runs `tsc -b` first), `npm run dev`
 (proxies `/api` to `localhost:8000`).
 
@@ -93,6 +99,30 @@ the ladder. Progress is announced with `pg_notify` and reaches the browser over 
 `providers/`, `sources/`, `downloader/` and `komga/` are pure at their edges: they take arguments
 and return values, and never touch the database. Only `handlers/` writes. That is what lets the
 first four be tested from recorded fixtures with no network.
+
+### The interface
+
+`frontend/src/` is a token layer, presentational primitives in `ui/`, one folder per screen
+in `features/`, and shared non-visual code in `lib/`. Four rules hold it together, and each
+one is there because breaking it cost real time:
+
+- **`frontend/tailwind.config.ts` is the only place a colour, size, radius or spacing value
+  lives.** No hex, px or rem literal belongs in a component.
+- **A Tailwind class is only real if the built CSS contains it.** Three times on this
+  branch a class looked right, typechecked, built clean and generated nothing: a name built
+  by string interpolation, which the scanner never sees; `font-label-md`, where the scale
+  exists only under `fontSize` so `text-label-md` already carries size *and* weight; and
+  `bg-secondary/12`, where the opacity modifier takes scale steps and 12 needed `/[0.12]`.
+  They fail identically and silently. Verification is `grep` over `frontend/dist/` after a
+  build — the source is what lies, the build output is what tells the truth.
+- **Feature folders never import from each other.** Anything two screens need lives in
+  `ui/` or `lib/`; a small duplicated helper is cheaper than a cross-feature edge.
+- **No screen renders a number the API cannot serve.** An invented figure that fills a gap
+  in a mockup is worse than the gap.
+
+A screen's own data goes through `lib/useAsyncData.ts`, which is what decides whether a
+request that has not landed, one that failed, and a refresh that failed over loaded data
+look different. Built one screen at a time, they did not.
 
 ### Batching
 

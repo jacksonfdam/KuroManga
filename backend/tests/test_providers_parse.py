@@ -50,6 +50,18 @@ def test_missing_english_title_falls_back_for_display(fixture):
     assert second.display_title == "Shizuka na Umi"
 
 
+def test_anilist_raw_carries_the_score_and_format_the_query_now_requests(fixture):
+    first = parse_list(fixture("anilist_list.json"))[0]
+    assert first.raw["media"]["averageScore"] == 82
+    assert first.raw["media"]["format"] == "MANGA"
+
+
+def test_mal_raw_carries_the_score_and_media_type_the_fields_param_now_requests(fixture):
+    entry = parse_page(fixture("mal_page.json"))[0]
+    assert entry.raw["node"]["mean"] == 7.53
+    assert entry.raw["node"]["media_type"] == "manga"
+
+
 def test_anilist_percent_encodes_the_redirect_uri(monkeypatch):
     monkeypatch.setenv("ANILIST_CLIENT_ID", "51042")
     get_settings.cache_clear()

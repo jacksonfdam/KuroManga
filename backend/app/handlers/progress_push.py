@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.enums import JobType, Provider
 from app.handlers.base import JobContext, PermanentError, register
+from app.handlers.progress_write import forward_only
 from app.komga import KomgaBook, from_settings
 from app.providers import get_source
 from app.providers.tokens import access_token_for
@@ -79,7 +80,7 @@ async def handle(ctx: JobContext) -> None:
     pushed = 0
 
     for entry in await entries_of(ctx.session, series_id):
-        if read_chapter <= entry.user_progress_chapter:
+        if forward_only(entry.user_progress_chapter, read_chapter) is None:
             continue
         provider = Provider(entry.provider)
         token = await access_token_for(ctx.session, provider)
