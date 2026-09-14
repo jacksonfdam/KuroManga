@@ -586,6 +586,46 @@ async def list_unmatched(
     }
 
 
+# Where each provider publishes the anime the user is looking at. A media id on
+# its own is not something anyone can check; a link is.
+ANIME_URL = {
+    "anilist": "https://anilist.co/anime/{media_id}",
+    "mal": "https://myanimelist.net/anime/{media_id}",
+}
+
+
+@router.get("/discovery/unmatched/{anime_id}")
+async def unmatched_detail(anime_id: int, session: Session) -> dict[str, Any]:
+    """One anime, in full.
+
+    The list payload deliberately carries only what a row renders - five
+    hundred rows paged at fifty would otherwise carry five hundred relation
+    lists - so everything the panel adds is fetched one anime at a time.
+
+    There is no relation list here. Both parsers drop a relation whose format
+    is outside `MANGA_FORMATS` before it is ever stored, and `SETTLED_ROWS`
+    takes any relation that does survive as proof the anime is already
+    matched - so an anime that reaches this screen has none, by construction.
+    """
+    anime = await _load_anime(session, anime_id)
+
+    return {
+        **anime_payload(anime),
+        "synonyms": list(anime.synonyms),
+        "members": [
+            {
+                "provider": str(member.provider),
+                "media_id": member.media_id,
+                "url": ANIME_URL.get(str(member.provider), "").format(
+                    media_id=member.media_id
+                )
+                or None,
+            }
+            for member in anime.members
+        ],
+    }
+
+
 @router.post("/discovery/unmatched/{anime_id}/search")
 async def search_unmatched(anime_id: int, session: Session) -> dict[str, Any]:
     """One request per provider per click. Persists nothing, decides nothing."""

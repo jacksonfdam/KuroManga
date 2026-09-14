@@ -1,7 +1,7 @@
 import { AddToList, ProgressBar } from '../../ui'
 import type { SearchCandidate } from '../../lib/api'
-import type { ListStatus } from '../../lib/format'
-import { FORMAT_LABELS, KNOWN_STATES, PUBLISHING_LABELS, providerName } from './labels'
+import { PUBLISHING_LABELS, type ListStatus } from '../../lib/format'
+import { FORMAT_LABELS, KNOWN_STATES, providerName } from './labels'
 import type { Choice } from './useUnmatched'
 
 export function SearchCandidateCard({

@@ -1,7 +1,9 @@
+import { useCallback, useState } from 'react'
 import { Link, useOutletContext } from 'react-router-dom'
 
 import { Button, EmptyState, ErrorState, NoticeBar, Skeleton } from '../../ui'
 import { SuggestionCard } from './SuggestionCard'
+import { SuggestionDetail } from './SuggestionDetail'
 import { WriteFailures } from './WriteFailures'
 import { useDiscovery } from './useDiscovery'
 
@@ -28,6 +30,13 @@ export function DiscoveryPage() {
     dismiss,
     refresh,
   } = useDiscovery(refreshShell)
+
+  const [selectedId, setSelectedId] = useState<number | null>(null)
+  // Approving or dismissing a suggestion mutates it in place, so the panel
+  // reads the current entry out of the list on every render rather than
+  // holding a copy that would go stale the moment the card beside it changed.
+  const selected = items.find((item) => item.id === selectedId) ?? null
+  const closeDetail = useCallback(() => setSelectedId(null), [])
 
   if (!loaded && error) {
     return <ErrorState title="Couldn't load suggestions" detail={error} onRetry={reload} />
@@ -68,31 +77,37 @@ export function DiscoveryPage() {
           ))}
         </div>
       ) : (
-        <>
-          <WriteFailures items={writeFailures} />
-          {items.length === 0 ? (
-            <EmptyState
-              icon="sparkle"
-              title="Nothing new"
-              detail="Every anime on your lists already has a manga match, or you have answered for the ones that did not."
-            />
-          ) : (
-            <div className="grid grid-cols-2 gap-space-md sm:grid-cols-3 xl:grid-cols-5">
-              {items.map((item) => (
-                <SuggestionCard
-                  key={item.id}
-                  item={item}
-                  choice={settingFor(item)}
-                  busy={busy === item.id}
-                  onStatus={(status) => setStatus(item, status)}
-                  onDownload={(download) => setDownload(item, download)}
-                  onAdd={() => add(item)}
-                  onDismiss={() => dismiss(item)}
-                />
-              ))}
-            </div>
-          )}
-        </>
+        <div className={selected ? 'grid grid-cols-1 gap-space-lg lg:grid-cols-[1fr_360px]' : ''}>
+          <div className="flex min-w-0 flex-col gap-space-lg">
+            <WriteFailures items={writeFailures} />
+            {items.length === 0 ? (
+              <EmptyState
+                icon="sparkle"
+                title="Nothing new"
+                detail="Every anime on your lists already has a manga match, or you have answered for the ones that did not."
+              />
+            ) : (
+              <div className="grid grid-cols-2 gap-space-md sm:grid-cols-3 xl:grid-cols-5">
+                {items.map((item) => (
+                  <SuggestionCard
+                    key={item.id}
+                    item={item}
+                    choice={settingFor(item)}
+                    busy={busy === item.id}
+                    selected={selectedId === item.id}
+                    onSelect={() => setSelectedId(item.id)}
+                    onStatus={(status) => setStatus(item, status)}
+                    onDownload={(download) => setDownload(item, download)}
+                    onAdd={() => add(item)}
+                    onDismiss={() => dismiss(item)}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+
+          {selected && <SuggestionDetail suggestion={selected} onClose={closeDetail} />}
+        </div>
       )}
     </div>
   )

@@ -1065,6 +1065,42 @@ async def test_an_unknown_anime_is_a_not_found(client):
     assert (await client.delete("/api/discovery/unmatched/999/hide")).status_code == 404
 
 
+async def test_the_detail_carries_every_spelling_and_every_provider_row(client):
+    async with get_sessionmaker()() as session:
+        await session.execute(
+            text(
+                """
+                insert into anime_entry
+                       (provider, provider_media_id, title_romaji, title_english,
+                        synonyms, status, progress_episode, total_episodes,
+                        related_manga, raw)
+                values ('anilist', '21', 'Tousou Kikou', 'Escape Machine',
+                        '["逃走機構"]'::jsonb, 'reading', 12, 24,
+                        '[]'::jsonb, '{}'::jsonb)
+                """
+            )
+        )
+        await session.commit()
+
+    row = (await client.get("/api/discovery/unmatched")).json()["items"][0]
+    body = (await client.get(f"/api/discovery/unmatched/{row['id']}")).json()
+
+    assert body["title_english"] == "Escape Machine"
+    assert "逃走機構" in body["synonyms"]
+    assert body["members"] == [
+        {
+            "provider": "anilist",
+            "media_id": "21",
+            "url": "https://anilist.co/anime/21",
+        }
+    ]
+
+
+async def test_a_detail_for_a_missing_anime_is_a_404(client):
+    response = await client.get("/api/discovery/unmatched/999999")
+    assert response.status_code == 404
+
+
 def candidate_body(**overrides) -> dict:
     """The candidate as the search route handed it to the screen."""
     return {

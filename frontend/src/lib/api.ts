@@ -401,6 +401,24 @@ export interface UnmatchedPage {
   items: UnmatchedAnime[]
 }
 
+export interface AnimeMember {
+  provider: string
+  media_id: string
+  url: string | null
+}
+
+/**
+ * The list payload carries only what a row renders; everything else is
+ * fetched one anime at a time when the panel opens. There is no relation
+ * list here — both providers drop a relation whose format is not a manga
+ * format before it is ever stored, so an anime that reaches this screen has
+ * none, by construction.
+ */
+export interface UnmatchedDetail extends UnmatchedAnime {
+  synonyms: string[]
+  members: AnimeMember[]
+}
+
 /** Null when the provider did not say, which the screen has to admit to. */
 export type MangaFormat = 'MANGA' | 'MANHWA' | 'MANHUA' | 'OEL'
 
@@ -593,6 +611,8 @@ export const api = {
     if (options.q) query.set('q', options.q)
     return request<UnmatchedPage>(`/api/discovery/unmatched?${query}`)
   },
+  unmatchedDetail: (id: number) =>
+    request<UnmatchedDetail>(`/api/discovery/unmatched/${id}`),
   searchUnmatched: (id: number) =>
     request<UnmatchedSearch>(`/api/discovery/unmatched/${id}/search`, { method: 'POST' }),
   addUnmatched: (

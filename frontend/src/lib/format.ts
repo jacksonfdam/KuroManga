@@ -51,6 +51,16 @@ export function formatChapter(value: number): string {
 
 // Providers spell this in their own vocabulary (MANGA, ONE_SHOT, manhwa, ...).
 // The screen shows one consistent case regardless of which provider it came from.
+// AniList and MyAnimeList both use this vocabulary raw; a screen that shows it
+// unmapped shows the user a provider's own enum member instead of a sentence.
+export const PUBLISHING_LABELS: Record<string, string> = {
+  FINISHED: 'Finished',
+  RELEASING: 'Releasing',
+  NOT_YET_RELEASED: 'Not yet released',
+  HIATUS: 'On hiatus',
+  CANCELLED: 'Cancelled',
+}
+
 export function formatSeriesFormat(value: string | null): string | null {
   if (!value) return null
   return value
