@@ -24,6 +24,7 @@ from app.handlers import (  # noqa: F401
     list_write,
     match_search,
     media_enrich,
+    notes_write,
     progress_push,
     progress_write,
     status_write,

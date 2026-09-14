@@ -210,6 +210,21 @@ class MyAnimeListSource(ListSource):
                 response = await client.patch(url, data=data, headers=headers)
         response.raise_for_status()
 
+    async def set_notes(
+        self, access_token: str, media_id: str, notes: str, tags: list[str]
+    ) -> None:
+        headers = {"Authorization": f"Bearer {access_token}"}
+        # The field is form-encoded and comma-separated, as the whole
+        # my_list_status PATCH body is.
+        data = {"comments": notes, "tags": ",".join(tags)}
+        url = f"{API_BASE}/manga/{media_id}/my_list_status"
+        if self._client is not None:
+            response = await self._client.patch(url, data=data, headers=headers)
+        else:
+            async with httpx.AsyncClient(timeout=30) as client:
+                response = await client.patch(url, data=data, headers=headers)
+        response.raise_for_status()
+
     def authorize_url(self, redirect_uri: str, state: str, verifier: str) -> str:
         query = urlencode(
             {

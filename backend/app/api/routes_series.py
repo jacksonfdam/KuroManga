@@ -1,10 +1,11 @@
 """Library and review screens."""
 
+import json
 from datetime import UTC, datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -41,6 +42,14 @@ class ProgressIn(BaseModel):
 
 class StatusIn(BaseModel):
     status: ListStatus
+
+
+class NotesIn(BaseModel):
+    # MyAnimeList refuses a comment past 5000 characters, and refuses it again
+    # however many times it is asked - so the refusal belongs here, where the
+    # user can still edit what they typed.
+    notes: str = Field(max_length=5000)
+    tags: list[str] = Field(default_factory=list, max_length=20)
 
 
 LIST_SQL = """
@@ -621,3 +630,42 @@ async def set_list_status(series_id: int, body: StatusIn, session: Session) -> d
     )
     await session.commit()
     return {"ok": True, "status": str(body.status), "queued": True}
+
+
+@router.post("/{series_id}/notes")
+async def save_notes(series_id: int, body: NotesIn, session: Session) -> dict[str, Any]:
+    exists = await session.execute(
+        text("select 1 from series where id = :id"), {"id": series_id}
+    )
+    if exists.first() is None:
+        raise HTTPException(status_code=404, detail="series not found")
+
+    await repo.enqueue(
+        session,
+        JobType.NOTES_WRITE,
+        {"series_id": series_id, "notes": body.notes, "tags": body.tags},
+        priority=0,
+        series_id=series_id,
+        dedupe_key=f"notes_write:{series_id}",
+    )
+    # One job per series, carrying the note last asked for. A second save
+    # while the first is queued raises that job rather than adding one, or the
+    # note the user moved away from lands on their account second.
+    await session.execute(
+        text(
+            """
+            update job
+               set payload = cast(:payload as jsonb)
+             where type = :type and series_id = :series_id and state = 'pending'
+            """
+        ),
+        {
+            "payload": json.dumps(
+                {"series_id": series_id, "notes": body.notes, "tags": body.tags}
+            ),
+            "type": str(JobType.NOTES_WRITE),
+            "series_id": series_id,
+        },
+    )
+    await session.commit()
+    return {"ok": True, "queued": True}

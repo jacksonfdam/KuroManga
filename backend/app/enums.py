@@ -45,6 +45,7 @@ class JobType(StrEnum):
     LIST_WRITE = "list_write"
     MEDIA_ENRICH = "media_enrich"
     STATUS_WRITE = "status_write"
+    NOTES_WRITE = "notes_write"
 
 
 class SuggestionState(StrEnum):

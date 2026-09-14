@@ -201,6 +201,15 @@ mutation ($mediaId: Int, $status: MediaListStatus) {
 }
 """
 
+# Notes alone. SaveMediaListEntry writes whatever fields it is handed, so
+# sending progress or status alongside would overwrite what the user set on
+# their own account with whatever this screen was holding at the time.
+NOTES_MUTATION = """
+mutation ($mediaId: Int, $notes: String) {
+  SaveMediaListEntry(mediaId: $mediaId, notes: $notes) { id notes }
+}
+"""
+
 
 class AniListSource(ListSource):
     provider = Provider.ANILIST
@@ -272,6 +281,13 @@ class AniListSource(ListSource):
             STATUS_MUTATION,
             {"mediaId": int(media_id), "status": anilist_status(status)},
         )
+
+    async def set_notes(
+        self, access_token: str, media_id: str, notes: str, tags: list[str]
+    ) -> None:
+        # AniList has no free-tag field on a list entry - customLists are named
+        # lists, not tags - so tags are dropped here rather than approximated.
+        await self._post(access_token, NOTES_MUTATION, {"mediaId": int(media_id), "notes": notes})
 
     def authorize_url(self, redirect_uri: str, state: str, verifier: str) -> str:
         # Percent-encoded: providers compare the redirect against the registered
