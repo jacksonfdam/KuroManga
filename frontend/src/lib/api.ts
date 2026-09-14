@@ -121,6 +121,7 @@ export interface SeriesDetail {
   mapping: { source_site: string; source_url: string } | null
   chapters: SeriesChapter[]
   entries: SeriesEntry[]
+  reading_minutes_per_chapter: number
 }
 
 export interface ReviewPayload {

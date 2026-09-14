@@ -607,3 +607,20 @@ async def test_a_warm_cache_queues_nothing(client):
     async with get_sessionmaker()() as session:
         queued = await session.execute(text("select count(*) from job"))
     assert queued.scalar_one() == 0
+
+
+async def test_series_detail_carries_the_reading_pace_setting(client):
+    async with get_sessionmaker()() as session:
+        await session.execute(
+            text(
+                """
+                insert into series (canonical_title, slug, needs_review, meta)
+                values ('Eleceed', 'eleceed', false, '{}'::jsonb)
+                """
+            )
+        )
+        await session.commit()
+
+    body = (await client.get("/api/series/1")).json()
+    # The default in settings_store, because nothing has set the key.
+    assert body["reading_minutes_per_chapter"] == 8

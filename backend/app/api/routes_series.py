@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app import settings_store
 from app.api.deps import db_session
 from app.api.series_metadata import metadata_of
 from app.enums import JobType, ListStatus, Provider
@@ -277,6 +278,13 @@ async def series_detail(series_id: int, session: Session) -> dict[str, Any]:
             }
             for e in entry_rows
         ],
+        # The detail screen derives "chapters left, about Nh" from this. Served
+        # here rather than fetched from /api/settings, which would cost the
+        # screen a second request for the whole settings blob and its provider
+        # health with it.
+        "reading_minutes_per_chapter": int(
+            await settings_store.get(session, settings_store.READING_MINUTES_PER_CHAPTER)
+        ),
     }
 
     # Opening the page is what asks for the extras. A job rather than a fetch
