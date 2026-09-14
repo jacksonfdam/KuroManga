@@ -269,14 +269,38 @@ export interface HiddenResult {
   rows: number
 }
 
+/**
+ * The sentence out of a rejected response.
+ *
+ * FastAPI answers a refusal with `{"detail": "..."}` and a failed validation
+ * with `{"detail": [{"msg": "...", ...}]}`. Passing the raw body through meant
+ * every screen showed a user the JSON — a refused +1 read as
+ * `{"detail":"this series is only known to have 30 chapters"}`, braces and all.
+ */
+function sentenceOf(body: string, response: Response): string {
+  try {
+    const parsed = JSON.parse(body) as { detail?: unknown }
+    const detail = parsed.detail
+    if (typeof detail === 'string' && detail) return detail
+    if (Array.isArray(detail)) {
+      const messages = detail
+        .map((item) => (item as { msg?: unknown }).msg)
+        .filter((msg): msg is string => typeof msg === 'string')
+      if (messages.length > 0) return messages.join('. ')
+    }
+  } catch {
+    // Not JSON — a proxy error page or an empty body. Fall through.
+  }
+  return body || `${response.status} ${response.statusText}`
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
     headers: { 'Content-Type': 'application/json' },
     ...init,
   })
   if (!response.ok) {
-    const detail = await response.text()
-    throw new ApiError(detail || `${response.status} ${response.statusText}`, response.status)
+    throw new ApiError(sentenceOf(await response.text(), response), response.status)
   }
   return response.json() as Promise<T>
 }
