@@ -2,7 +2,7 @@ import { Icon } from '../../ui'
 import type { Series, SeriesState } from '../../lib/api'
 import { PROVIDER_LABEL, formatChapter, formatSeriesFormat } from '../../lib/format'
 import { totalChapters } from './useLibrary'
-import { useIncrementFlash, type FlashState } from './useIncrementFlash'
+import { useIncrementFlash, type FlashState } from '../../ui/useIncrementFlash'
 
 // The stepper's own flash colours — small and flat, unlike QuickIncrement's
 // bordered glass button, so it keeps its own literal map rather than

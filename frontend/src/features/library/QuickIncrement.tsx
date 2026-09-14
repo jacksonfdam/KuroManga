@@ -1,5 +1,5 @@
 import { Icon } from '../../ui'
-import { useIncrementFlash, type FlashState } from './useIncrementFlash'
+import { useIncrementFlash, type FlashState } from '../../ui/useIncrementFlash'
 
 // Markup reference: the `quick-plus-btn` overlay in
 // .redesign/biblioteca_principal_sincronizada_com_komga_provedores/code.html.
