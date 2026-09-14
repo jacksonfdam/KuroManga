@@ -33,19 +33,22 @@ export function useDiscovery(onChanged: () => void) {
   const load = useCallback(async (): Promise<Feed> => {
     const [items, added, counts] = await Promise.all([
       api.suggestions('new'),
-      api.suggestions('added'),
+      api.suggestions('added', { writeFailed: true }),
       api.suggestionCounts(),
     ])
     return {
       items,
       total: counts.new ?? items.length,
       // The card is gone by the time LIST_WRITE finishes, so a rejected status
-      // or a stale token would otherwise never reach the user. A skipped target
-      // is an absence rather than a failure: MangaDex without personal
-      // credentials is the default setup and has nothing to say here.
-      writeFailures: added.filter((item) =>
-        item.write_results.some((result) => !result.ok && !result.skipped),
-      ),
+      // or a stale token would otherwise never reach the user.
+      //
+      // Asked of the database rather than filtered here: the list is ranked and
+      // capped at a hundred, so once a hundred suggestions had been added, a
+      // failure on an unpopular title fell off the page and the user never
+      // heard about it. A skipped target is still an absence rather than a
+      // failure — MangaDex without personal credentials is the default setup
+      // and has nothing to say here — and the API applies that same rule.
+      writeFailures: added,
     }
   }, [])
 

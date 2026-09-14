@@ -237,3 +237,14 @@ def test_mal_refuses_to_be_asked_when_no_name_fits():
 
 def test_anilist_has_no_such_limit_and_takes_the_first_name():
     assert AniListSource().search_query(["86", "86 Eighty-Six"]) == "86"
+
+
+def test_a_manga_without_an_id_never_becomes_a_list_entry():
+    """`str(None)` is "None", and that id would be PATCHed onto the real account."""
+    page = {"data": [{"node": {"title": "No id"}, "list_status": {"status": "reading"}}]}
+    assert parse_page(page) == []
+
+
+def test_anilist_also_drops_a_manga_without_an_id():
+    data = {"MediaListCollection": {"lists": [{"entries": [{"media": {"title": {}}}]}]}}
+    assert parse_list(data) == []

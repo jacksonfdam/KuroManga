@@ -271,6 +271,10 @@ def parse_page(page: dict[str, Any]) -> list[ListEntryDTO]:
     entries: list[ListEntryDTO] = []
     for item in page.get("data", []) or []:
         node = item.get("node") or {}
+        # An id-less node would become the literal string "None", and that id is
+        # what a later status write PATCHes against the user's real account.
+        if not node.get("id"):
+            continue
         status = item.get("list_status") or {}
         alt = node.get("alternative_titles") or {}
         synonyms = [s for s in (alt.get("synonyms") or []) if s]
@@ -298,6 +302,10 @@ def parse_anime_page(page: dict[str, Any]) -> list[AnimeEntryDTO]:
     entries: list[AnimeEntryDTO] = []
     for item in page.get("data", []) or []:
         node = item.get("node") or {}
+        # Same reason as the manga list: "None" would seed a suggestion whose
+        # approval writes to /manga/None.
+        if not node.get("id"):
+            continue
         status = item.get("list_status") or {}
         alt = node.get("alternative_titles") or {}
         synonyms = [s for s in (alt.get("synonyms") or []) if s]

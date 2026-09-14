@@ -151,8 +151,21 @@ def test_the_mangadex_uuid_is_kept_even_when_another_site_is_preferred():
     assert summary["mangadex_uuid"] == "uuid-1"
 
 
-def test_no_candidates_writes_neither_key_rather_than_writing_nulls():
-    assert source_summary([]) == {"sources": []}
+def test_no_candidates_writes_nothing_rather_than_blanking_what_is_stored():
+    assert source_summary([]) == {}
+
+
+async def test_a_rebuild_that_found_nothing_keeps_the_sources_an_earlier_one_found(fixture):
+    """A card with no chips and a preferred source is a card that contradicts itself."""
+    meta = parse_manga_meta(fixture("anilist_manga_meta.json"))["3000"]
+    found = source_summary([candidate("mangadex", "https://mangadex.org/title/uuid-1", 0.95)])
+    async with get_sessionmaker()() as session:
+        await upsert_suggestion(session, SEED, meta, 0.75, found)
+        await session.commit()
+        await upsert_suggestion(session, SEED, meta, 0.75, source_summary([]))
+        await session.commit()
+        stored = (await session.execute(text("select meta from suggestion"))).scalar_one()
+    assert [s["url"] for s in stored["sources"]] == ["https://mangadex.org/title/uuid-1"]
 
 
 class FakeSource:

@@ -352,7 +352,10 @@ export const api = {
     request<{ integrations: Integration[] }>('/api/health/integrations').then(
       (body) => body.integrations,
     ),
-  suggestions: (state = 'new') => request<Suggestion[]>(`/api/suggestions?state=${state}`),
+  suggestions: (state = 'new', options: { writeFailed?: boolean } = {}) =>
+    request<Suggestion[]>(
+      `/api/suggestions?state=${state}${options.writeFailed ? '&write_failed=true' : ''}`,
+    ),
   // Counted, not measured off the list: /api/suggestions pages at 100, so the
   // length of its first page is a floor and not a total.
   suggestionCounts: () => request<Record<string, number>>('/api/suggestions/counts'),
