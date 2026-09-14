@@ -282,8 +282,8 @@ async def series_detail(series_id: int, session: Session) -> dict[str, Any]:
         # here rather than fetched from /api/settings, which would cost the
         # screen a second request for the whole settings blob and its provider
         # health with it.
-        "reading_minutes_per_chapter": int(
-            await settings_store.get(session, settings_store.READING_MINUTES_PER_CHAPTER)
+        "reading_minutes_per_chapter": await settings_store.get_int(
+            session, settings_store.READING_MINUTES_PER_CHAPTER
         ),
     }
 

@@ -132,9 +132,18 @@ export function SeriesDetailPage() {
               value={panel}
               onChange={setPanel}
             />
-            {panel === 'chapters' && <ChapterTable chapters={chapters} />}
-            {panel === 'notes' && <NotesPanel metadata={metadata} onSave={saveNotes} />}
-            {panel === 'characters' && <CharacterGrid characters={metadata.characters} />}
+            <div hidden={panel !== 'chapters'}>
+              <ChapterTable chapters={chapters} />
+            </div>
+            <div hidden={panel !== 'notes'}>
+              {/* Mounted even while hidden: NotesPanel holds an unsaved draft in local
+                  state, and unmounting the inactive tab would throw it away on a tab
+                  click — the same loss the draft-preservation flag exists to prevent. */}
+              <NotesPanel metadata={metadata} onSave={saveNotes} />
+            </div>
+            <div hidden={panel !== 'characters'}>
+              <CharacterGrid characters={metadata.characters} />
+            </div>
           </section>
         </div>
 
