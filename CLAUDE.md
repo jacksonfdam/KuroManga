@@ -4,19 +4,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-KuroManga is a self-hosted pipeline that reads manga reading lists from MyAnimeList and AniList, resolves each
-entry to a source site URL through a mapping the user confirms by hand, downloads chapters as CBZ
-with `ComicInfo.xml` embedded, and hands the library to Komga for reading.
+KuroManga is a self-hosted pipeline that reads manga reading lists from MyAnimeList and AniList,
+resolves each entry to a source site URL through a mapping the user confirms by hand, downloads
+chapters as CBZ with `ComicInfo.xml` embedded, and hands the library to Komga for reading.
 
 The design of record is `docs/superpowers/specs/2026-09-13-manga-komga-pipeline-design.md`. Read it
 before changing the job pipeline or the data model — it explains why the deliberate stops exist.
+
+User-facing documentation lives in `docs/features.md` and `docs/configuration.md`.
 
 ## Commands
 
 Backend (from `backend/`):
 
 ```bash
-uv venv && uv pip install -e ".[dev]" alembic
+uv venv && uv pip install -e ".[dev]"
 
 # The suite needs a throwaway Postgres; the queue and API tests run against a real one.
 docker run -d --name manga-pg-dev -e POSTGRES_USER=manga -e POSTGRES_PASSWORD=manga \
@@ -29,24 +31,25 @@ POSTGRES_HOST=localhost POSTGRES_PORT=5433 .venv/bin/python -m pytest \
 
 .venv/bin/python -m ruff check app/ tests/
 .venv/bin/python -m ruff check --fix app/ tests/
-
-POSTGRES_HOST=localhost POSTGRES_PORT=5433 .venv/bin/python -m alembic upgrade head
-POSTGRES_HOST=localhost POSTGRES_PORT=5433 .venv/bin/python -m alembic revision -m "what changed"
 ```
 
-`alembic` is not on PATH — invoke it as `python -m alembic`, including from subprocesses in tests.
+The suite migrates the test database itself, from a session fixture in `tests/conftest.py`. It
+belongs there rather than in the modules that happen to need it: a module that truncates a table
+without owning that fixture passes on any database migrated by an earlier run and fails on a fresh
+one, which is invisible locally and fails every time in CI.
 
-The `5433` container above is what a fresh clone gets. A worktree wants its own: two
-branches sharing one database means whichever ran `alembic upgrade head` last decides the
-schema, and a schema ahead of the branch under test makes the suite lie about that branch.
-Start a second container on another port and pass `POSTGRES_PORT` — the `web-redesign`
-worktree uses `5434` (`manga-pg-web-redesign`).
+The `5433` container above is what a fresh clone gets. A worktree wants its own: two branches
+sharing one database means whichever migrated last decides the schema, and a schema ahead of the
+branch under test makes the suite lie about that branch. Start a second container on another port
+and pass `POSTGRES_PORT`.
 
 Frontend (from `frontend/`): `npm install`, `npm run build` (runs `tsc -b` first), `npm run dev`
 (proxies `/api` to `localhost:8000`).
 
 Stack (from the repo root): `docker compose up -d --build`. The interface is on `:8080`, Komga on
 `:25600`. `.env` is required and gitignored; copy `.env.example`.
+
+CI runs the same checks on every push and pull request, against a Postgres that is fresh each time.
 
 ## Rebuilding after a code change
 
@@ -100,29 +103,33 @@ the ladder. Progress is announced with `pg_notify` and reaches the browser over 
 and return values, and never touch the database. Only `handlers/` writes. That is what lets the
 first four be tested from recorded fixtures with no network.
 
+A provider is not required to use OAuth. `uses_oauth` says which kind it is, and
+`static_credential()` lets a configured key answer before the token table is consulted. `writable`
+says whether anything may be written back to it.
+
 ### The interface
 
-`frontend/src/` is a token layer, presentational primitives in `ui/`, one folder per screen
-in `features/`, and shared non-visual code in `lib/`. Four rules hold it together, and each
-one is there because breaking it cost real time:
+`frontend/src/` is a token layer, presentational primitives in `ui/`, one folder per screen in
+`features/`, and shared non-visual code in `lib/`. Four rules hold it together, and each one is
+there because breaking it cost real time:
 
 - **`frontend/tailwind.config.ts` is the only place a colour, size, radius or spacing value
   lives.** No hex, px or rem literal belongs in a component.
-- **A Tailwind class is only real if the built CSS contains it.** Three times on this
-  branch a class looked right, typechecked, built clean and generated nothing: a name built
-  by string interpolation, which the scanner never sees; `font-label-md`, where the scale
-  exists only under `fontSize` so `text-label-md` already carries size *and* weight; and
-  `bg-secondary/12`, where the opacity modifier takes scale steps and 12 needed `/[0.12]`.
-  They fail identically and silently. Verification is `grep` over `frontend/dist/` after a
-  build — the source is what lies, the build output is what tells the truth.
-- **Feature folders never import from each other.** Anything two screens need lives in
-  `ui/` or `lib/`; a small duplicated helper is cheaper than a cross-feature edge.
-- **No screen renders a number the API cannot serve.** An invented figure that fills a gap
-  in a mockup is worse than the gap.
+- **A Tailwind class is only real if the built CSS contains it.** Three times a class looked right,
+  typechecked, built clean and generated nothing: a name built by string interpolation, which the
+  scanner never sees; `font-label-md`, where the scale exists only under `fontSize` so
+  `text-label-md` already carries size *and* weight; and `bg-secondary/12`, where the opacity
+  modifier takes scale steps and 12 needed `/[0.12]`. They fail identically and silently.
+  Verification is `grep` over `frontend/dist/` after a build — the source is what lies, the build
+  output is what tells the truth.
+- **Feature folders never import from each other.** Anything two screens need lives in `ui/` or
+  `lib/`; a small duplicated helper is cheaper than a cross-feature edge.
+- **No screen renders a number the API cannot serve.** An invented figure that fills a gap in a
+  mockup is worse than the gap.
 
-A screen's own data goes through `lib/useAsyncData.ts`, which is what decides whether a
-request that has not landed, one that failed, and a refresh that failed over loaded data
-look different. Built one screen at a time, they did not.
+A screen's own data goes through `lib/useAsyncData.ts`, which is what decides whether a request that
+has not landed, one that failed, and a refresh that failed over loaded data look different. Built
+one screen at a time, they did not.
 
 ### Batching
 
@@ -143,60 +150,17 @@ or nothing. Partial results are kept and the remainder requeued.
   `cast(:x as text) is null`, or the query fails at bind time rather than in review.
 - **Every provider contract in this repo was read from the provider's own documentation or OpenAPI
   document, not from memory.** Komga's library creation needs 27 booleans stated; MyAnimeList only
-  supports the `plain` PKCE method and its access tokens last an hour; MangaDex is an OAuth personal
-  client, not an API key, and its docs ask you not to authenticate unless an endpoint needs it.
-  Verify the same way before changing these.
+  supports the `plain` PKCE method and its access tokens last an hour; MangaBaka issues an API key
+  for `X-API-Key`, and sent as a bearer token it reports an invalid token rather than a wrong header;
+  a MangaBaka library entry is addressed by `series_id`, not by its own `id`. Verify the same way
+  before changing these.
+- **A value that looks numeric may arrive as a string, or as an empty one.** Chapter counts from both
+  MangaDex and MangaBaka do. An empty string reaching an integer column fails at bind time, far from
+  the parser that let it through.
 - **Tests dispose the SQLAlchemy engine between cases** (`tests/conftest.py`). asyncpg connections
   belong to the loop that opened them, and pytest-asyncio gives each test its own.
 
-## Working agreement
-
-KuroManga is open source and **everything in the repository is written in English**: code, comments,
-commit messages, issues, pull requests, documentation and the interface. Conversation with the
-maintainer happens in English too, whichever language he writes in.
-
-Credit for the project belongs to Jackson Mafra. Nothing in this repository may credit, mention or
-otherwise reference the tools used to write it — not in commits, not in pull requests, not in
-issues, not in code comments. Commits read as the maintainer's own work.
-
-Git identity is set per repository to the personal account:
-
-```bash
-git config user.name "Jackson Mafra"
-git config user.email "jacksonfdam@gmail.com"
-gh auth switch --user jacksonfdam   # two accounts are logged in; the other one is work
-```
-
-### Commits
-
-Micro commits: one focused change each, self-contained and buildable. The subject is imperative and
-scoped (`feat(queue):`, `fix(api):`, `docs:`, `chore:`). The body says *why*, never what the diff
-already shows. No trailers of any kind.
-
-That last rule is enforced rather than trusted. Enable the hook once per clone:
-
-```bash
-git config core.hooksPath .githooks
-```
-
-`.githooks/commit-msg` removes assistant attribution — `Co-Authored-By` naming an assistant,
-`Claude-Session`, generated-with footers — before the commit is written. A `Co-Authored-By` naming
-a person survives, because that is a real credit. The hook exists because several assistants append
-those lines on their own, without being asked, and three such commits reached `main` before anyone
-noticed; by then, removing them would have meant rewriting the default branch under twelve
-dependent branches.
-
-### Every feature
-
-1. Open a GitHub issue describing the change, with labels, assigned to `jacksonfdam`.
-2. Branch from `main`.
-3. Micro commits on the branch.
-4. Open a pull request that closes the issue, with labels, assigned to `jacksonfdam`.
-
-Labels in use: `feature`, `bug`, `docs`, `infra`, `dependencies`, plus an area label
-(`area:queue`, `area:providers`, `area:sources`, `area:downloader`, `area:komga`, `area:web`).
-
-### Comments
+## Comments
 
 Comments explain the reason a line exists, never what it does. Several in this repository record a
 failure that cost real time; keep them.
