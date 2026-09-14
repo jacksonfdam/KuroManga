@@ -43,8 +43,15 @@ class ProgressIn(BaseModel):
     chapter: int
 
 
+# Above the whole library as it stands (295 titles), so selecting everything on
+# the grid still goes through in one request. The cap is not about the grid
+# though: series_ids arrives from the network, and one job per series means an
+# unbounded list is an unbounded number of provider writes queued by one POST.
+BATCH_STATUS_LIMIT = 500
+
+
 class BatchStatusIn(BaseModel):
-    series_ids: list[int]
+    series_ids: list[int] = Field(max_length=BATCH_STATUS_LIMIT)
     status: ListStatus
 
 
