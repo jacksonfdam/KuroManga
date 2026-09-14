@@ -50,7 +50,9 @@ export function AppShell() {
   // page with a banner the user cannot act on.
   const refresh = () => {
     api.jobCounts().then(setCounts).catch(() => undefined)
-    api.series('needs_review').then((s) => setReviewCount(s.length)).catch(() => undefined)
+    // The queue endpoint is the one that knows about ignored series; counting
+    // needs_review here would overstate the badge by however many were ignored.
+    api.reviewQueue().then((q) => setReviewCount(q.total)).catch(() => undefined)
     api.suggestionCounts().then((c) => setSuggestionCount(c.new ?? 0)).catch(() => undefined)
     api.integrations().then(setIntegrations).catch(() => undefined)
   }
