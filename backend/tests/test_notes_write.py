@@ -266,7 +266,7 @@ async def test_writing_the_note_updates_the_anilist_entry_s_stored_raw(monkeypat
 async def test_writing_the_note_updates_the_mal_entry_s_stored_comments_and_tags(monkeypatch):
     """MyAnimeList nests the note under `list_status.comments` and the personal
     tags under `list_status.tags` - a different shape from AniList's top-level
-    `notes`, and `series_metadata.py` reads exactly this shape back."""
+    `notes`, and `list_raw.py` reads exactly this shape back."""
     async with get_sessionmaker()() as session:
         await session.execute(
             text(
@@ -328,7 +328,7 @@ async def test_writing_the_note_updates_the_mal_entry_s_stored_comments_and_tags
 async def test_writing_the_note_lands_on_a_mal_entry_with_no_list_status_at_all(monkeypatch):
     """jsonb_set only creates the final path segment, never an absent parent:
     an entry whose raw has no `list_status` object at all — an endpoint shape
-    series_metadata._from_mal was hedged against without ever proving it could
+    list_raw._from_mal was hedged against without ever proving it could
     not happen — used to leave the note unwritten with no error and no log."""
     async with get_sessionmaker()() as session:
         await session.execute(

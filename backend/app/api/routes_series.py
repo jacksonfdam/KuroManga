@@ -11,8 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import settings_store
 from app.api.deps import db_session
-from app.api.list_raw import display_fields
-from app.api.series_metadata import metadata_of
+from app.api.list_raw import display_fields, metadata_of
 from app.enums import JobType, ListStatus, Provider
 from app.handlers.batching import queue_batches
 from app.handlers.media_enrich import is_stale

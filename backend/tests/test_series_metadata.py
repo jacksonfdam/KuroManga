@@ -8,7 +8,7 @@ from both must read both, and a series synced from one must not lose the
 fields that one does report.
 """
 
-from app.api.series_metadata import metadata_of
+from app.api.list_raw import metadata_of
 
 ANILIST_RAW = {
     "status": "CURRENT",
@@ -202,3 +202,29 @@ def test_enrichment_supplies_what_the_list_queries_cannot_carry():
 def test_a_field_the_entries_already_carry_beats_a_stale_enrichment():
     meta = metadata_of([MAL_RAW], {"rank": 900})
     assert meta["rank"] == 14
+
+
+def test_wrapper_less_raw_with_a_mean_resolves_through_the_mal_reader():
+    """This is the fallback whose guess changed in the fold that merged this
+    module into list_raw.py. Before the fold, any raw with neither "node" nor
+    "media" was always read as AniList's shape, so a flattened MyAnimeList
+    payload's "mean" never reached the MyAnimeList reader and its score came
+    back None. The fold made the guess consistent with display_fields's:
+    "mean" exists only on MyAnimeList's node, so this now resolves through
+    the MyAnimeList reader and reports MyAnimeList's own 0-10 scale rather
+    than an all-absent AniList block."""
+    raw = {"mean": 9.07, "num_scoring_users": 54291}
+    meta = metadata_of([raw])
+    assert meta["global_score"] == 9.1
+    assert meta["vote_count"] == 54291
+
+
+def test_wrapper_less_raw_with_neither_field_defaults_to_anilist_and_does_not_raise():
+    """A raw with no "node", no "media", and none of MyAnimeList's own field
+    names either has nothing to guess from. The shared resolver falls back to
+    AniList's shape, same as before the fold, and produces an all-absent
+    block rather than raising."""
+    meta = metadata_of([{"some_other_field": "whatever"}])
+    assert meta["native_title"] is None
+    assert meta["global_score"] is None
+    assert meta["credits"] == []

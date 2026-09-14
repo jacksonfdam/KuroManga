@@ -12,7 +12,7 @@ on a ten-point scale, so a score is comparable no matter which provider it
 came from.
 """
 
-from app.api.list_raw import display_fields
+from app.api.list_raw import display_fields, publication_year
 
 
 def test_anilist_shape_converts_the_hundred_point_score():
@@ -43,3 +43,59 @@ def test_fields_the_provider_never_fetched_are_none_not_an_error():
 
 def test_missing_raw_is_treated_as_empty():
     assert display_fields(None) == {"score": None, "genres": [], "format": None}
+
+
+def test_wrapper_less_raw_with_a_mean_reads_the_mal_scale_and_genre_shape():
+    """A raw with neither "node" nor "media" is guessed by which field it
+    carries. "mean" exists only on MyAnimeList's node, so this must be read
+    with MyAnimeList's rounding (already 0-10) and its {"id", "name"} genre
+    shape, not AniList's plain string list or 0-100 scale."""
+    raw = {"mean": 7.53, "genres": [{"id": 1, "name": "Action"}], "media_type": "manga"}
+    assert display_fields(raw) == {"score": 7.5, "genres": ["Action"], "format": "manga"}
+
+
+def test_wrapper_less_raw_without_a_mean_reads_the_anilist_scale_and_genre_shape():
+    """The counterpart of the case above: nothing that says "mean" means the
+    fallback reads it as AniList's shape, dividing the 0-100 score and
+    reading genres as a plain string list."""
+    raw = {"averageScore": 82, "genres": ["Action", "Drama"], "format": "MANGA"}
+    assert display_fields(raw) == {"score": 8.2, "genres": ["Action", "Drama"], "format": "MANGA"}
+
+
+def test_wrapper_less_raw_reads_genres_and_format_under_either_providers_spelling():
+    """The fallback picks its score from whichever of "mean" or "averageScore"
+    is present, but genres and format are tried under both providers'
+    spellings regardless - a raw with MyAnimeList's "mean" can still carry
+    AniList's plain string genre list or "format" key (and vice versa), and
+    committing to one provider's spelling for every field would silently
+    drop whichever of the two the raw actually used."""
+    mal_score_anilist_genre_shape = {"mean": 7.5, "genres": ["Action"], "format": "MANGA"}
+    assert display_fields(mal_score_anilist_genre_shape) == {
+        "score": 7.5,
+        "genres": ["Action"],
+        "format": "MANGA",
+    }
+
+    anilist_score_mal_genre_shape = {
+        "averageScore": 82,
+        "genres": [{"name": "Action"}],
+        "media_type": "manga",
+    }
+    assert display_fields(anilist_score_mal_genre_shape) == {
+        "score": 8.2,
+        "genres": ["Action"],
+        "format": "manga",
+    }
+
+
+def test_publication_year_of_a_null_mal_wrapper_is_none_not_a_crash():
+    """A thin row can carry the "node" key with a null value rather than
+    omitting it outright - the wrapper is present, but empty. The stats
+    screen counts this series as one without a publication year rather than
+    failing the whole request over it."""
+    assert publication_year({"node": None}) is None
+
+
+def test_publication_year_of_a_null_anilist_wrapper_is_none_not_a_crash():
+    """The AniList counterpart of the case above."""
+    assert publication_year({"media": None}) is None
