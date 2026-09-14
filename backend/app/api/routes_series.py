@@ -239,11 +239,14 @@ async def series_detail(series_id: int, session: Session) -> dict[str, Any]:
     entries = await session.execute(
         text(
             """
-            select provider, provider_media_id, status, user_progress_chapter,
-                   updated_at, raw
-              from list_entry
-             where series_id = :id
-             order by updated_at desc nulls last, provider
+            select e.provider, e.provider_media_id, e.status, e.user_progress_chapter,
+                   e.updated_at, e.raw,
+                   exists (
+                       select 1 from provider_token t where t.provider = 'anilist'
+                   ) as anilist_connected
+              from list_entry e
+             where e.series_id = :id
+             order by e.updated_at desc nulls last, e.provider
             """
         ),
         {"id": series_id},
@@ -290,8 +293,14 @@ async def series_detail(series_id: int, session: Session) -> dict[str, Any]:
     # Opening the page is what asks for the extras. A job rather than a fetch
     # in the request path: AniList rate-limits, and a detail page must not fail
     # to render because a third party was slow.
-    if is_stale(enrichment, datetime.now(UTC)) and any(
-        entry.provider == str(Provider.ANILIST) for entry in entry_rows
+    #
+    # Queuing this with no AniList token stored made the handler raise
+    # PermanentError on every run — is_stale never turns false, so every visit
+    # to the page added one more failure the jobs screen never lost.
+    if (
+        is_stale(enrichment, datetime.now(UTC))
+        and any(entry.provider == str(Provider.ANILIST) for entry in entry_rows)
+        and any(entry.anilist_connected for entry in entry_rows)
     ):
         await repo.enqueue(
             session,

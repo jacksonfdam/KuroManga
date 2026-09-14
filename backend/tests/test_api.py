@@ -576,6 +576,14 @@ async def test_opening_a_detail_with_a_cold_cache_queues_the_enrichment(client):
                 """
             )
         )
+        await session.execute(
+            text(
+                """
+                insert into provider_token (provider, access_token, refresh_token, expires_at)
+                values ('anilist', 'token', null, null)
+                """
+            )
+        )
         await session.commit()
 
     await client.get("/api/series/1")
@@ -587,6 +595,38 @@ async def test_opening_a_detail_with_a_cold_cache_queues_the_enrichment(client):
         rows = queued.all()
     assert [row.type for row in rows] == ["media_enrich"]
     assert rows[0].payload["series_id"] == 1
+
+
+async def test_a_cold_cache_with_no_anilist_token_queues_nothing(client):
+    """Without a stored AniList token the handler raises PermanentError on
+    every run: is_stale never turns false, so every visit to the page would
+    add one more failure the jobs screen never loses."""
+    async with get_sessionmaker()() as session:
+        await session.execute(
+            text(
+                """
+                insert into series (canonical_title, slug, needs_review, meta)
+                values ('Sakamoto Days', 'sakamoto-days', false, '{}'::jsonb)
+                """
+            )
+        )
+        await session.execute(
+            text(
+                """
+                insert into list_entry
+                       (provider, provider_media_id, series_id, status,
+                        user_progress_chapter, synonyms, raw)
+                values ('anilist', '119257', 1, 'reading', 148, '[]'::jsonb, '{}'::jsonb)
+                """
+            )
+        )
+        await session.commit()
+
+    await client.get("/api/series/1")
+
+    async with get_sessionmaker()() as session:
+        queued = await session.execute(text("select count(*) from job where series_id = 1"))
+    assert queued.scalar_one() == 0
 
 
 async def test_a_warm_cache_queues_nothing(client):
