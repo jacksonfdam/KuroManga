@@ -3,6 +3,7 @@ import { NavLink, Outlet } from 'react-router-dom'
 
 import { api, messageOf } from '../lib/api'
 import { useJobEvents } from '../lib/useEvents'
+import { PROVIDER_LABEL } from '../lib/format'
 import { useNotice } from '../lib/useNotice'
 import { Badge, Button, NoticeBar } from '../ui'
 import { Icon, type IconName } from '../ui/Icon'
@@ -21,10 +22,6 @@ const NAV: { to: string; label: string; icon: IconName; badge?: 'review' | 'jobs
   { to: '/downloads', label: 'Downloads', icon: 'download', badge: 'jobs' },
   { to: '/settings', label: 'Settings', icon: 'settings' },
 ]
-
-const STRIP_LABEL: Record<string, string> = {
-  mal: 'MyAnimeList', anilist: 'AniList', mangadex: 'MangaDex', komga: 'Komga', comick: 'Comick',
-}
 
 const DOT: Record<string, string> = {
   ok: 'bg-secondary', unauthenticated: 'bg-warning', unreachable: 'bg-error',
@@ -87,7 +84,7 @@ export function AppShell() {
     <div className="min-h-screen bg-background">
       <header className="fixed inset-x-0 top-0 z-50 h-20 border-b border-white/5 bg-surface-container-lowest/80 backdrop-blur-xl">
         <div className="flex h-full items-center justify-between gap-space-md px-gutter">
-          <div className="flex shrink-0 items-center gap-space-lg">
+          <div className="flex shrink-0 items-center gap-space-md">
             <div className="flex items-center gap-space-sm">
               <span className="text-headline-sm tracking-tight text-on-surface">KuroManga</span>
               <span className="rounded bg-surface-container px-space-sm py-space-xs font-mono text-label-sm text-primary">
@@ -115,17 +112,30 @@ export function AppShell() {
               ))}
             </nav>
           </div>
-          <div className="flex items-center gap-space-md">
-            <div className="hidden items-center gap-space-sm rounded bg-surface-container-lowest px-space-sm py-space-xs 2xl:flex">
-              {integrations.map((item) => (
-                <span key={item.name} className="flex items-center gap-1.5 font-mono text-label-sm text-on-surface-variant">
+          <div className="flex min-w-0 items-center gap-space-sm">
+            {/* md, not 2xl. The reference render's own strip is `hidden
+                md:flex`, and 2xl put it above 1536px — invisible at the 1280
+                every mockup was rendered at, which is to say invisible at the
+                width it was designed for. Below md the header has room for the
+                brand and the primary action only; the same states are on the
+                Settings screen. */}
+            <div className="hidden min-w-0 items-center gap-space-xs overflow-hidden rounded bg-surface-container-lowest px-space-sm py-space-xs md:flex">
+              {integrations.map((item, index) => (
+                <span key={item.name} className="flex shrink-0 items-center gap-1.5 font-mono text-label-sm text-on-surface-variant">
+                  {/* The reference separates its entries with a middot; it is
+                      decoration, so it is hidden from the reading order. */}
+                  {index > 0 && <span aria-hidden="true" className="text-outline-variant">·</span>}
                   <span aria-hidden="true" className={`h-2 w-2 rounded-full ${DOT[item.state] ?? 'bg-outline'}`} />
-                  {STRIP_LABEL[item.name] ?? item.name}
+                  {/* The short names the reference's own strip uses ("MAL", not
+                      "MyAnimeList"): the header has a six-item nav beside this
+                      at 1280, and the long forms pushed the primary action onto
+                      a second line. */}
+                  {PROVIDER_LABEL[item.name] ?? item.name}
                   <span className="sr-only"> ({STATE_LABEL[item.state] ?? item.state})</span>
                 </span>
               ))}
             </div>
-            <Button variant="surface" size="sm" icon="sync" onClick={syncAll}>
+            <Button variant="surface" size="sm" icon="sync" className="shrink-0 whitespace-nowrap" onClick={syncAll}>
               Sync all
             </Button>
           </div>
