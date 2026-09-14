@@ -2,13 +2,16 @@
 
 **Your reading lists, downloaded and organised, ready to read on any device.**
 
-KuroManga watches the manga lists you already keep on MyAnimeList and AniList, fetches the
-chapters you are missing, tags them properly, and hands them to [Komga](https://komga.org) so
-you can read in a browser or on your phone.
+KuroManga watches the manga lists you already keep on MyAnimeList, AniList and MangaBaka,
+fetches the chapters you are missing, tags them properly, and hands them to
+[Komga](https://komga.org) so you can read in a browser or on your phone.
+
+It also reads your **anime** lists, and tells you which of those stories continue in a manga you
+have not started.
 
 Self-hosted. One `docker compose up`. Nothing leaves your machine.
 
-<!-- Screenshot goes here: docs/images/library.png -->
+![The KuroManga dashboard](docs/images/dashboard.png)
 
 ---
 
@@ -22,6 +25,8 @@ KuroManga closes that gap and then stays out of the way.
 
 - **Reads the lists you already keep.** MyAnimeList, AniList and MangaBaka. No new list to
   maintain.
+- **Finds what to read next.** The anime you have finished, matched to the manga that carries the
+  story on, with how far the adaptation got and how much is left.
 - **Downloads only what is missing.** It knows what is already in your library and fetches the
   difference.
 - **Tags everything.** Each file carries series, chapter, author, genres and a summary, so your
@@ -29,7 +34,8 @@ KuroManga closes that gap and then stays out of the way.
 - **Reads on any device.** Komga serves the web, and any Komga-compatible reader on iOS and
   Android.
 - **Tells you what it is doing.** Live progress, a queue you can see, and failures that say why.
-- **Syncs your progress back.** Finish a chapter in your reader and your lists follow.
+- **Syncs your progress back.** Finish a chapter in your reader and every connected list follows,
+  in one step.
 
 ## Nothing downloads without you
 
