@@ -1,6 +1,8 @@
-import { Card, Icon, ProgressBar, SegmentedControl } from '../../ui'
+import { useState } from 'react'
+
+import { Card, Icon, NoticeBar, ProgressBar, SegmentedControl } from '../../ui'
 import type { ListStatus } from '../../lib/format'
-import type { SeriesDetail } from '../../lib/api'
+import { messageOf, type SeriesDetail } from '../../lib/api'
 import { formatChapter, relativeTime } from '../../lib/format'
 import { useIncrementFlash } from '../../ui/useIncrementFlash'
 
@@ -45,24 +47,30 @@ export function ProgressManager({
 }) {
   const { series, metadata } = detail
   const { busy, trigger } = useIncrementFlash(onProgress)
+  const [statusError, setStatusError] = useState<string | null>(null)
   const remaining = total != null ? Math.max(total - series.progress, 0) : null
   const estimate =
     remaining != null && minutesPerChapter != null ? remaining * minutesPerChapter : null
+
+  const changeStatus = (status: ListStatus) => {
+    setStatusError(null)
+    onStatus(status).catch((failure: unknown) => setStatusError(messageOf(failure)))
+  }
 
   return (
     <Card as="section" elevated className="flex flex-col gap-space-lg">
       <div className="flex flex-wrap items-center justify-between gap-space-md">
         <h2 className="text-headline-sm text-on-surface">Progress</h2>
+        {/* Hidden entirely with no status at all — a control with nothing to
+            select is worse than no control. plan_to_read and dropped are
+            real values of the same vocabulary, set on the provider rather
+            than from this screen, and correctly show no selection here: both
+            are outside the three options this control offers. */}
         {series.status && (
-          <SegmentedControl
-            options={STATUS_OPTIONS}
-            value={series.status}
-            onChange={(status) => {
-              void onStatus(status)
-            }}
-          />
+          <SegmentedControl options={STATUS_OPTIONS} value={series.status} onChange={changeStatus} />
         )}
       </div>
+      {statusError && <NoticeBar tone="error" text={statusError} />}
 
       <div className="grid grid-cols-1 gap-space-lg md:grid-cols-2">
         <div className="flex flex-col gap-space-sm">
