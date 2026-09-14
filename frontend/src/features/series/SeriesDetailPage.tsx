@@ -80,8 +80,11 @@ export function SeriesDetailPage() {
           over a transient failure. */}
       {error && <NoticeBar tone="error" text={`Couldn't refresh this series: ${error}`} onRetry={reload} />}
 
-      <section className="flex flex-col gap-space-lg sm:flex-row">
-        <div className="aspect-[2/3] w-40 shrink-0 overflow-hidden rounded-lg bg-surface-container-highest shadow-card sm:w-48">
+      {/* The reference's own hero geometry: a twelve-column grid, the cover on
+          three of them (about 270px at the 1280 the mockups were rendered at,
+          not the 192 this started with) and the text on the other nine. */}
+      <section className="grid grid-cols-1 items-start gap-space-xl lg:grid-cols-12">
+        <div className="aspect-[2/3] w-56 shrink-0 overflow-hidden rounded-xl bg-surface-container-highest shadow-card sm:w-64 lg:col-span-3 lg:w-full">
           {series.cover_url && (
             <img
               src={series.cover_url}
@@ -90,14 +93,17 @@ export function SeriesDetailPage() {
             />
           )}
         </div>
-        <div className="flex min-w-0 flex-1 flex-col gap-space-sm">
+        <div className="flex min-w-0 flex-col gap-space-sm lg:col-span-9">
           <div className="flex flex-wrap items-center gap-2">
             {format && <Badge tone="tertiary">{format}</Badge>}
             {series.status && <StatusPill status={series.status} />}
             {series.state === 'needs_review' && <Badge tone="error">Needs review</Badge>}
             {series.auto_download && <Badge tone="secondary">Auto-download active</Badge>}
           </div>
-          <h1 className="text-headline-lg font-extrabold tracking-tight text-on-surface">{series.title}</h1>
+          {/* display-lg, as the reference render's own title is. The scale
+              already carries weight 800 and -0.03em tracking, so a paired
+              font-extrabold/tracking-tight would only fight it. */}
+          <h1 className="text-display-lg text-on-surface">{series.title}</h1>
           {series.genres.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
               {series.genres.map((genre) => (
@@ -110,7 +116,7 @@ export function SeriesDetailPage() {
               ))}
             </div>
           )}
-          <div className="flex flex-wrap items-center gap-space-md font-mono text-body-sm text-outline">
+          <div className="flex flex-wrap items-center gap-space-md font-mono text-label-md text-outline">
             {series.score !== null && <span className="text-tertiary">★ {series.score.toFixed(1)}</span>}
             <span>
               Ch {formatChapter(series.progress)}
@@ -119,11 +125,13 @@ export function SeriesDetailPage() {
             {series.updated_at && <span>Updated {relativeTime(series.updated_at)}</span>}
           </div>
           {total !== null && (
-            <div className="max-w-sm">
+            // The reference's hero runs the full nine columns; a sm-width bar
+            // under a display-lg title is what made this header read light.
+            <div className="max-w-xl">
               <ProgressBar value={series.progress} max={total} tone="secondary" />
             </div>
           )}
-          <div className="flex flex-wrap gap-x-space-md gap-y-1 font-mono text-label-sm text-outline">
+          <div className="flex flex-wrap gap-x-space-md gap-y-1 font-mono text-label-md text-outline">
             <span>{series.downloaded} downloaded</span>
             <span>{series.known} known</span>
             {series.in_flight > 0 && <span className="text-tertiary">{series.in_flight} in flight</span>}
