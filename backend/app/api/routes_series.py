@@ -657,11 +657,21 @@ async def set_list_status(series_id: int, body: StatusIn, session: Session) -> d
 
 @router.post("/{series_id}/notes")
 async def save_notes(series_id: int, body: NotesIn, session: Session) -> dict[str, Any]:
+    """Validated here as well as in the handler, so the screen learns of a
+    refusal on the click rather than from a job that failed minutes later."""
     exists = await session.execute(
         text("select 1 from series where id = :id"), {"id": series_id}
     )
     if exists.first() is None:
         raise HTTPException(status_code=404, detail="series not found")
+
+    entries = await session.execute(
+        text("select count(*) from list_entry where series_id = :id"), {"id": series_id}
+    )
+    if entries.scalar_one() == 0:
+        raise HTTPException(
+            status_code=409, detail="this series is not on any reading list"
+        )
 
     await repo.enqueue(
         session,
