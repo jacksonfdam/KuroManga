@@ -53,7 +53,12 @@ export function SuggestionDetail({
             Your anime{' '}
             <span className="font-semibold text-on-surface">{reason.origin_title}</span>
             {reason.relation && <> is linked to it as {reason.relation.toLowerCase()}</>}
-            {reason.total_episodes != null && <> across {reason.total_episodes} episodes</>}.
+            {reason.total_episodes != null && (
+              <>
+                {' '}
+                across {reason.total_episodes} episode{reason.total_episodes === 1 ? '' : 's'}
+              </>
+            )}.
           </p>
         ) : (
           <p className="text-body-sm text-outline">
