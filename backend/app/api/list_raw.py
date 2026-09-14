@@ -78,7 +78,7 @@ def display_fields(raw: dict[str, Any] | None) -> dict[str, Any]:
         score = _tenths(node.get("mean"), divisor=1, zero_is_absent=False)
         genres = [g["name"] for g in node.get("genres") or [] if isinstance(g, dict)]
         media_format = node.get("media_type")
-    else:
+    elif provider == "anilist":
         # AniList's averageScore is 0-100; the screen renders a ten-point scale.
         # Left unconverted, a 92 next to MyAnimeList's 9.2 for the same manga
         # reads as a wildly different opinion rather than the same one on two
@@ -86,6 +86,22 @@ def display_fields(raw: dict[str, Any] | None) -> dict[str, Any]:
         score = _tenths(node.get("averageScore"), divisor=10, zero_is_absent=False)
         genres = [g for g in node.get("genres") or [] if isinstance(g, str)]
         media_format = node.get("format")
+    else:
+        # Neither wrapper: a hand-built fixture, or a payload already
+        # flattened to the fields this endpoint cares about. Nothing here
+        # says which provider wrote it, so each field is tried under both
+        # providers' spellings instead of committing to a single guess -
+        # committing to one would silently drop a field the other provider's
+        # spelling would have found.
+        score = (
+            _tenths(node.get("mean"), divisor=1, zero_is_absent=False)
+            if "mean" in node
+            else _tenths(node.get("averageScore"), divisor=10, zero_is_absent=False)
+        )
+        genres = [g["name"] for g in node.get("genres") or [] if isinstance(g, dict)] or [
+            g for g in node.get("genres") or [] if isinstance(g, str)
+        ]
+        media_format = node.get("format") or node.get("media_type")
 
     return {
         "score": score,
@@ -110,10 +126,9 @@ def publication_year(raw: dict[str, Any] | None) -> int | None:
         value = node.get(key)
         if isinstance(value, int):
             return value
-        if isinstance(value, str):
-            year = _leading_year(value)
-            if year is not None:
-                return year
+        year = _leading_year(value)
+        if year is not None:
+            return year
     return None
 
 
@@ -154,78 +169,37 @@ def metadata_of(
     return merged
 
 
-def _shape_of(raw: dict[str, Any]) -> tuple[str, dict[str, Any]]:
+def _shape_of(raw: dict[str, Any]) -> tuple[str | None, dict[str, Any]]:
     """Which provider wrote this raw, and the node to read it from.
 
     MyAnimeList nests its media object under "node"; AniList nests it under
-    "media". A raw with neither key is a hand-built fixture, or a payload
-    already flattened to the fields a caller wants, and which provider's scale
-    it was written in has to be guessed from the field it does carry — "mean"
-    exists only on MyAnimeList's node — defaulting to AniList's shape (reading
-    the raw itself as the node) when even that is absent, an empty raw among
-    them.
+    "media" - the `or {}` on each guards a wrapper present but null, a thin
+    row from before a field was widened onto the query. A raw with neither
+    key returns (None, raw): there is nothing here to say which provider
+    wrote it, so unwrapping is a decision only the caller can make, and
+    everyone who calls this gets the exact same answer for it instead of
+    re-testing "node" and "media" themselves.
     """
     if "node" in raw:
-        return "mal", raw["node"]
+        return "mal", raw["node"] or {}
     if "media" in raw:
-        return "anilist", raw["media"]
-    return ("mal", raw) if "mean" in raw else ("anilist", raw)
-
-
-def _tenths(value: Any, *, divisor: int, zero_is_absent: bool = True) -> float | None:
-    """Round a provider's score to one decimal on a ten-point scale.
-
-    The metadata block calls this with the default: a zero score means
-    "unrated" on both providers, not a genuine nought, so it is reported as
-    absent. The library card and stats screen call it with
-    zero_is_absent=False and keep a zero score as 0.0 instead — that
-    difference predates this shared helper and is kept deliberately rather
-    than harmonised away.
-    """
-    if value is None:
-        return None
-    if zero_is_absent and value == 0:
-        return None
-    return round(float(value) / divisor, 1)
-
-
-def _leading_year(value: str) -> int | None:
-    """The leading four digits of a "YYYY", "YYYY-MM" or "YYYY-MM-DD" string."""
-    head = value[:4]
-    return int(head) if head.isdigit() else None
-
-
-def _year(date: str | None) -> int | None:
-    """MyAnimeList dates are "YYYY", "YYYY-MM" or "YYYY-MM-DD"."""
-    if not date:
-        return None
-    return _leading_year(date)
-
-
-def _fuzzy_date(date: dict[str, Any] | None) -> str | None:
-    """AniList's FuzzyDate, as an ISO date. Any part may be null, and a date
-    with no year is no date at all."""
-    date = date or {}
-    year = date.get("year")
-    if not year:
-        return None
-    month, day = date.get("month"), date.get("day")
-    if month and day:
-        return f"{year:04d}-{month:02d}-{day:02d}"
-    if month:
-        return f"{year:04d}-{month:02d}"
-    return f"{year:04d}"
+        return "anilist", raw["media"] or {}
+    return None, raw
 
 
 def _block_of(raw: dict[str, Any]) -> dict[str, Any]:
-    provider, _ = _shape_of(raw)
-    if provider == "mal":
-        return _from_mal(raw if "node" in raw else {"node": raw})
-    return _from_anilist(raw if "media" in raw else {"media": raw})
+    provider, node = _shape_of(raw)
+    if provider is None:
+        # Neither wrapper: a hand-built fixture, or a raw already flattened to
+        # the fields this reader wants. "mean" exists only on MyAnimeList's
+        # node, so a raw carrying it is read as MyAnimeList's; anything else
+        # defaults to AniList's shape, which yields an all-None block rather
+        # than a KeyError for a raw this cannot identify at all.
+        provider = "mal" if "mean" in raw else "anilist"
+    return _from_mal(node, raw) if provider == "mal" else _from_anilist(node, raw)
 
 
-def _from_anilist(raw: dict[str, Any]) -> dict[str, Any]:
-    media = raw.get("media") or {}
+def _from_anilist(media: dict[str, Any], raw: dict[str, Any]) -> dict[str, Any]:
     title = media.get("title") or {}
     tags = [t.get("name") for t in media.get("tags") or [] if isinstance(t, dict)]
     return {
@@ -265,8 +239,7 @@ def _from_anilist(raw: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _from_mal(raw: dict[str, Any]) -> dict[str, Any]:
-    node = raw.get("node") or {}
+def _from_mal(node: dict[str, Any], raw: dict[str, Any]) -> dict[str, Any]:
     # MyAnimeList answers the list endpoint with `list_status` on every item and
     # `my_list_status` on the node only when it is asked for, and the two are not
     # the same object: the documented list_status carries the status, score and
@@ -283,8 +256,8 @@ def _from_mal(raw: dict[str, Any]) -> dict[str, Any]:
         "synopsis": node.get("synopsis"),
         "publisher": ((serialization[0] or {}).get("node") or {}).get("name") if serialization else None,
         "publication_status": PUBLICATION_STATUS.get(node.get("status") or ""),
-        "start_year": _year(node.get("start_date")),
-        "end_year": _year(node.get("end_date")),
+        "start_year": _leading_year(node.get("start_date")),
+        "end_year": _leading_year(node.get("end_date")),
         "country": None,  # MyAnimeList does not report one.
         "demographic": _demographic(genres),
         "site_url": f"https://myanimelist.net/manga/{node['id']}" if node.get("id") else None,
@@ -326,6 +299,47 @@ def _demographic(names: list[str | None]) -> str | None:
         if name in DEMOGRAPHICS:
             return name
     return None
+
+
+def _tenths(value: Any, *, divisor: int, zero_is_absent: bool = True) -> float | None:
+    """Round a provider's score to one decimal on a ten-point scale.
+
+    The metadata block calls this with the default: a zero score means
+    "unrated" on both providers, not a genuine nought, so it is reported as
+    absent. The library card and stats screen call it with
+    zero_is_absent=False and keep a zero score as 0.0 instead — that
+    difference predates this shared helper and is kept deliberately rather
+    than harmonised away.
+    """
+    if value is None:
+        return None
+    if zero_is_absent and value == 0:
+        return None
+    return round(float(value) / divisor, 1)
+
+
+def _leading_year(value: Any) -> int | None:
+    """The leading four digits of a MyAnimeList date string ("YYYY",
+    "YYYY-MM" or "YYYY-MM-DD"), or None for anything that is not one."""
+    if not isinstance(value, str):
+        return None
+    head = value[:4]
+    return int(head) if head.isdigit() else None
+
+
+def _fuzzy_date(date: dict[str, Any] | None) -> str | None:
+    """AniList's FuzzyDate, as an ISO date. Any part may be null, and a date
+    with no year is no date at all."""
+    date = date or {}
+    year = date.get("year")
+    if not year:
+        return None
+    month, day = date.get("month"), date.get("day")
+    if month and day:
+        return f"{year:04d}-{month:02d}-{day:02d}"
+    if month:
+        return f"{year:04d}-{month:02d}"
+    return f"{year:04d}"
 
 
 def _unique(items: list[Any], key: Any) -> list[Any]:
