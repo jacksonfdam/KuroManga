@@ -120,6 +120,18 @@ def test_busiest_weekday_picks_the_largest_bucket():
     assert result["busiest_weekday"] == 5
 
 
+def test_a_tie_in_busiest_weekday_resolves_to_the_earliest_weekday():
+    """Tuesday and Friday are tied at 5.0. Asserting on Tuesday (the earlier
+    of the two) is what makes this test mean something: a "last max"
+    implementation would report Friday here and fail, where picking either
+    bucket at random would pass half the time and prove nothing."""
+    rows = [_row(1, 5.0), _row(4, 5.0)]
+
+    result = _assemble(rows, first_event_at=None, active_days=2)
+
+    assert result["busiest_weekday"] == 1
+
+
 def test_first_event_at_is_reported_verbatim_when_present():
     first_event = datetime(2026, 9, 1, 12, 0, tzinfo=UTC)
 

@@ -73,9 +73,11 @@ def _assemble(
         for index in range(7)
     ]
     total_chapters = round(sum(bucket["chapters"] for bucket in weekdays), 2)
-    # max() breaks a tie by returning the first (lowest-index) match, the same
-    # way _velocity's busiest-day pick does - an arbitrary but stable choice,
-    # rather than one that could flip between two equally busy days on a retry.
+    # A tie resolves to the earliest weekday: max() returns the first match it
+    # sees, and range(7) hands it Monday before Sunday. This follows the same
+    # convention _velocity's busiest-day pick already uses, and is pinned here
+    # on purpose - reversing it would be an easy "fix" for a future reader with
+    # nothing else to say it was a deliberate choice, not an accident.
     busiest_weekday = (
         max(range(7), key=lambda index: weekdays[index]["chapters"]) if total_chapters else None
     )
