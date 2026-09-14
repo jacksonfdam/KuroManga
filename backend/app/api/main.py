@@ -14,6 +14,7 @@ from app.api import (
     routes_jobs,
     routes_series,
     routes_settings,
+    routes_stats,
 )
 from app.api.events import broker, event_stream
 
@@ -35,6 +36,7 @@ app.include_router(routes_settings.router)
 app.include_router(routes_auth.router)
 app.include_router(routes_health.router)
 app.include_router(routes_dashboard.router)
+app.include_router(routes_stats.router)
 
 
 @app.get("/api/health")
