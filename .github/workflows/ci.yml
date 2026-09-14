@@ -114,7 +114,23 @@ jobs:
           asyncio.run(main())
           "
 
-          (cd "$WORKTREE/backend" && "$GITHUB_WORKSPACE/backend/.venv/bin/python" -m alembic upgrade head)
+          # `heads`, not `head`: main's history is a given that a pull request
+          # cannot tidy before it merges, and demanding it already resolve to one
+          # head made this step fail on a broken main -- blocking the very branch
+          # that linearised it, while the API was down.
+          (cd "$WORKTREE/backend" && "$GITHUB_WORKSPACE/backend/.venv/bin/python" -m alembic upgrade heads)
+
+          # The invariant worth enforcing is the branch's: merged, it must leave
+          # one head. Alembic's own error does not name the revisions that
+          # collide, and working that out by hand is what this message saves.
+          HEADS=$(.venv/bin/python -m alembic heads | grep -c . || true)
+          if [ "$HEADS" -ne 1 ]; then
+            echo "This branch leaves $HEADS migration heads; a deployment cannot choose between them:"
+            .venv/bin/python -m alembic heads
+            echo "Re-parent this branch's revision onto the other head (down_revision) and push again."
+            exit 1
+          fi
+
           .venv/bin/python -m alembic upgrade head
 
           git worktree remove "$WORKTREE" --force
