@@ -12,7 +12,9 @@ import type { Choice } from './useDiscovery'
 function reasonOf(suggestion: Suggestion): string {
   const { origin_title, origin_status, total_episodes } = suggestion.reason
   if (!origin_title) return 'Related to an anime on your list.'
-  const episodes = total_episodes ? ` (${total_episodes} episodes)` : ''
+  const episodes = total_episodes
+    ? ` (${total_episodes} episode${total_episodes === 1 ? '' : 's'})`
+    : ''
   const watched =
     origin_status === 'completed' ? `completed anime${episodes}` : `airing anime${episodes}`
   const chapters = suggestion.total_chapters

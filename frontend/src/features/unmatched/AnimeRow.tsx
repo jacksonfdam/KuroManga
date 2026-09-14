@@ -55,7 +55,8 @@ export function AnimeRow({
               {anime.status.replace('_', ' ')}
             </span>
             <span>
-              {anime.progress_episode} / {anime.total_episodes ?? '?'} episodes watched
+              {anime.progress_episode} / {anime.total_episodes ?? '?'} episode
+              {anime.total_episodes === 1 ? '' : 's'} watched
             </span>
             {anime.providers.map((provider) => (
               <span
