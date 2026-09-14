@@ -1,7 +1,8 @@
-import { Navigate, Route, Routes, useOutletContext } from 'react-router-dom'
+import { Route, Routes, useOutletContext } from 'react-router-dom'
 
 import { DiscoveryPage } from '../features/discovery/DiscoveryPage'
 import { DownloadsPage } from '../features/downloads/DownloadsPage'
+import { HomePage } from '../features/home/HomePage'
 import { LibraryPage } from '../features/library/LibraryPage'
 import { ReviewPage } from '../features/review/ReviewPage'
 import { SeriesDetailPage } from '../features/series/SeriesDetailPage'
@@ -9,10 +10,15 @@ import { SettingsPage } from '../features/settings/SettingsPage'
 import { UnmatchedPage } from '../features/unmatched/UnmatchedPage'
 import { AppShell } from './AppShell'
 
-// /home and /stats are deliberately absent: those screens belong to later
-// plans, and a nav item that leads nowhere is worse than a nav that grows
-// later. Discovery arrived with its backend and is routed below; the anime it
-// could not match get their own route rather than a tab inside Discovery,
+// Home is the index now. It was designed as its own section and `/` stood in
+// for it with the library, which is a different screen answering a different
+// question — the front page is the pipeline at a glance, and the library is
+// the shelf. It lives at `/` rather than at `/home` so there is one address
+// for the front page instead of a redirect and a duplicate.
+//
+// /stats is still absent: its endpoint exists but its screen does not, and a
+// nav item that leads nowhere is worse than a nav that grows later. The anime
+// Discovery could not match get their own route rather than a tab inside it,
 // because the two are different questions and the shell's nav is where this
 // interface names a screen.
 
@@ -28,7 +34,7 @@ export function AppRoutes() {
   return (
     <Routes>
       <Route element={<AppShell />}>
-        <Route index element={<Navigate to="/library" replace />} />
+        <Route index element={<HomePage />} />
         <Route path="library" element={<LibraryPage />} />
         <Route path="series/:id" element={<SeriesDetailPage />} />
         <Route path="discovery" element={<DiscoveryPage />} />

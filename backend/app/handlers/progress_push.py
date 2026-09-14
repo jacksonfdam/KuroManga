@@ -10,7 +10,8 @@ from decimal import Decimal
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.enums import JobType, Provider
+from app.enums import JobType, ProgressSource, Provider
+from app.handlers import progress_events
 from app.handlers.base import JobContext, PermanentError, register
 from app.handlers.progress_write import forward_only
 from app.komga import KomgaBook, from_settings
@@ -77,6 +78,7 @@ async def handle(ctx: JobContext) -> None:
         return
 
     read_chapter = int(furthest)
+    before = await progress_events.furthest_read(ctx.session, series_id)
     pushed = 0
 
     for entry in await entries_of(ctx.session, series_id):
@@ -93,5 +95,17 @@ async def handle(ctx: JobContext) -> None:
         )
         await ctx.log(f"{provider}: progress set to chapter {read_chapter}")
         pushed += 1
+
+    # Guarded by `pushed` so the event cannot repeat: an entry that was not
+    # updated leaves the series' recorded progress where it was, and the next
+    # run of this job would measure the same distance all over again.
+    if pushed:
+        await progress_events.record(
+            ctx.session,
+            series_id,
+            before=before,
+            chapter=read_chapter,
+            source=ProgressSource.KOMGA,
+        )
 
     await ctx.log(f"chapter {read_chapter} read, {pushed} lists updated", pct=100)

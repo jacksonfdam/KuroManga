@@ -21,6 +21,26 @@ const SIZE: Record<string, string> = {
   md: 'px-space-md py-space-sm text-label-md',
 }
 
+/**
+ * The button's own classes, without the button.
+ *
+ * Home's "Review mappings" and "Explore discovery" navigate, so they are
+ * anchors and not buttons — but they are the same control to look at, and a
+ * second copy of this class list is how two controls that should match stop
+ * matching. `ui/` stays free of the router; the caller renders the element.
+ */
+export function buttonClass({
+  variant = 'surface',
+  size = 'md',
+  className = '',
+}: {
+  variant?: 'primary' | 'surface' | 'ghost' | 'danger'
+  size?: 'sm' | 'md'
+  className?: string
+} = {}): string {
+  return `inline-flex items-center gap-space-xs rounded-lg transition-colors duration-200 disabled:cursor-not-allowed disabled:opacity-50 ${VARIANT[variant]} ${SIZE[size]} ${className}`
+}
+
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'surface' | 'ghost' | 'danger'
   size?: 'sm' | 'md'
@@ -37,10 +57,7 @@ export function Button({
   ...rest
 }: ButtonProps) {
   return (
-    <button
-      className={`inline-flex items-center gap-space-xs rounded-lg transition-colors duration-200 disabled:cursor-not-allowed disabled:opacity-50 ${VARIANT[variant]} ${SIZE[size]} ${className}`}
-      {...rest}
-    >
+    <button className={buttonClass({ variant, size, className })} {...rest}>
       {icon && <Icon name={icon} />}
       {children}
     </button>
