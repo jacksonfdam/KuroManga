@@ -20,9 +20,9 @@ function Header() {
 }
 
 /**
- * The series detail mockup's "Frequência Semanal" chart — deferred out of
- * the screen's original build because `progress_event` had not landed on
- * `main` yet (docs/superpowers/plans/2026-09-14-series-detail-complete.md).
+ * The series detail mockup's weekly-frequency chart — deferred out of the
+ * screen's original build because `progress_event` had not landed on `main`
+ * yet.
  * It reads that table directly and infers nothing from progress or list
  * timestamps: a weekday pattern guessed from `updated_at` would be a pattern
  * in when the list was touched, not in when a chapter was actually read.

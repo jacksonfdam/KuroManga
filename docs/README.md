@@ -24,7 +24,7 @@ detail belongs.
 
 The design and implementation documents this project was built from have been removed. They
 described work that has shipped, and the set above covers the same ground from the running system
-instead. [`superpowers/specs/`](superpowers/) keeps only designs for work still ahead.
+instead. [`superpowers/specs/`](superpowers/specs/) keeps only designs for work still ahead.
 
 ## How to keep these accurate
 
