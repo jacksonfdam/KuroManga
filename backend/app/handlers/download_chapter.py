@@ -6,7 +6,6 @@ scratch folder on the same filesystem and renamed into place, so Komga never
 indexes a half-written file.
 """
 
-import os
 import re
 from decimal import Decimal
 from pathlib import Path
@@ -17,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import settings_store
 from app.config import get_settings
+from app.downloader.cbz import place_file
 from app.downloader.comicinfo import ComicInfo, inject
 from app.downloader.limits import source_semaphore
 from app.downloader.paths import chapter_path, series_dir
@@ -133,14 +133,6 @@ def _strip_markup(value: str) -> str:
     text_only = re.sub(r"<br\s*/?>", "\n", value)
     text_only = re.sub(r"<[^>]+>", "", text_only)
     return text_only.strip()
-
-
-async def place_file(produced: Path, destination: Path) -> None:
-    """Rename into place on the same filesystem, so readers never see a partial file."""
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    staging = destination.with_name(destination.name + ".part")
-    os.replace(produced, staging)
-    os.replace(staging, destination)
 
 
 @register(JobType.DOWNLOAD_CHAPTER)

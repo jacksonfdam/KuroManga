@@ -62,16 +62,20 @@ def _format_number(number: Decimal) -> str:
 
 def inject(cbz_path: Path, info: ComicInfo) -> None:
     """Add or replace ComicInfo.xml inside an existing archive."""
-    existing = []
     with zipfile.ZipFile(cbz_path) as archive:
-        existing = [name for name in archive.namelist() if name != COMIC_INFO_NAME]
-        payloads = {name: archive.read(name) for name in existing}
+        existing = [entry for entry in archive.infolist() if entry.filename != COMIC_INFO_NAME]
+        payloads = {entry.filename: archive.read(entry.filename) for entry in existing}
 
     # Rewriting is the only way to replace an entry: appending would leave the
     # old ComicInfo.xml in the archive and Komga would read whichever it found.
     temp_path = cbz_path.with_suffix(".cbz.rewrite")
     with zipfile.ZipFile(temp_path, "w", zipfile.ZIP_DEFLATED) as archive:
         archive.writestr(COMIC_INFO_NAME, info.to_xml())
-        for name in existing:
-            archive.writestr(name, payloads[name])
+        # Each page is written back under its own ZipInfo, so it keeps the
+        # compression it arrived with. Rewriting them all as deflate undid
+        # cbz.py's decision to store already-compressed images uncompressed:
+        # every page was deflated here anyway, one archive later, for a size
+        # saving images do not offer.
+        for entry in existing:
+            archive.writestr(entry, payloads[entry.filename])
     temp_path.replace(cbz_path)
