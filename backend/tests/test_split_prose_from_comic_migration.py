@@ -195,7 +195,7 @@ async def test_chapters_mapping_candidates_and_komga_id_stay_on_the_comic_series
         await _entry(
             session, comic_series, Provider.MAL, "70259", "MANGA", title="Mushoku Tensei"
         )
-        await _entry(
+        novel = await _entry(
             session, comic_series, Provider.MAL, "70261", "NOVEL", title="Mushoku Tensei"
         )
         await session.execute(
@@ -243,6 +243,10 @@ async def test_chapters_mapping_candidates_and_komga_id_stay_on_the_comic_series
     assert mapping_series == comic_series
     assert candidate_series == comic_series
     assert komga_id == "0RKRY4BRD870V"
+    # These staying put is only meaningful if the novel actually left - a
+    # no-op migration would make every assertion above true too.
+    async with get_sessionmaker()() as session:
+        assert await _entry_series(session, novel) != comic_series
 
 
 async def test_a_poisoned_cross_reference_is_repointed_to_the_comic_entry(at_head):
@@ -303,6 +307,41 @@ async def test_a_poisoned_cross_reference_with_no_comic_side_is_dropped(at_head)
     assert "anilist" not in refs
 
 
+async def test_a_repointed_reference_prefers_the_lowest_id_comic_entry(at_head):
+    """Not observed on the live database, but not structurally impossible:
+    a provider naming three entries in one series. The two manga rows are
+    both legitimate repoint targets; the lower id wins, matching the order
+    `entries` already carries from the migration's own query."""
+    async with get_sessionmaker()() as session:
+        comic_series = await _series(
+            session, "Mushoku Tensei", cross_refs={"mal": {"id": "70261", "by": "mal"}}
+        )
+        first_manga = await _entry(
+            session, comic_series, Provider.MAL, "70259", "MANGA", title="Mushoku Tensei"
+        )
+        await _entry(
+            session, comic_series, Provider.MAL, "70260", "MANGA", title="Mushoku Tensei"
+        )
+        await _entry(
+            session, comic_series, Provider.MAL, "70261", "NOVEL", title="Mushoku Tensei"
+        )
+        await session.commit()
+
+    alembic("downgrade", BEFORE)
+    alembic("upgrade", "head")
+
+    async with get_sessionmaker()() as session:
+        refs = await _cross_refs(session, comic_series)
+        winning_media_id = (
+            await session.execute(
+                text("select provider_media_id from list_entry where id = :id"),
+                {"id": first_manga},
+            )
+        ).scalar_one()
+
+    assert refs["mal"]["id"] == winning_media_id == "70259"
+
+
 async def test_a_healthy_series_is_untouched(at_head):
     async with get_sessionmaker()() as session:
         series_id = await _series(session, "Reborn")
@@ -347,6 +386,13 @@ async def test_running_the_repair_twice_changes_nothing_the_second_time(at_head)
         ).scalar_one()
         refs_first = await _cross_refs(session, comic_series)
         prose_series_first = await _entry_series(session, novel)
+
+    # Idempotency is meaningless if the first run never did anything - a
+    # stubbed-out upgrade() is perfectly "idempotent" too. Pin down that the
+    # first pass actually split the series and repointed the reference
+    # before checking that the second pass leaves that alone.
+    assert prose_series_first != comic_series
+    assert refs_first["mal"]["id"] == "70259"
 
     # The downgrade only moves the alembic version pointer back; the split
     # from the first run is still sitting in the database, so this upgrade
