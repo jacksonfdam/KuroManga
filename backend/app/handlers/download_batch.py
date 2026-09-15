@@ -1,14 +1,16 @@
-"""Download a batch of chapters in one invocation of the downloader.
+"""Download a batch of chapters through the Python source path.
 
-The tool fetches a manga's chapter index once per run, so asking for one chapter
-at a time meant re-reading a seven-hundred entry index for every file. A batch
-amortises that over its whole range, which is what keeps the source from
-answering with errors under load.
+Under the old binary path this batched because the tool re-read a manga's
+entire chapter index on every invocation, so one job per chapter meant paying
+that cost seven hundred times over. A ported source costs one request per
+chapter, so that reason is gone. A batch still exists to size the queue lease
+and to amortise the series metadata read (build_comicinfo, the mapping lookup)
+across however many chapters land in the same job, not to save index reads
+that no longer happen.
 """
 
 from decimal import Decimal
 from pathlib import Path
-from time import monotonic
 from typing import Any
 
 from sqlalchemy import text
@@ -16,25 +18,24 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import settings_store
 from app.config import get_settings
-from app.downloader.cbz import place_file
-from app.downloader.comicinfo import inject
+from app.downloader.cbz import write_cbz
+from app.downloader.fetcher import fetch_pages
 from app.downloader.limits import source_semaphore
-from app.downloader.paths import chapter_path, format_range_spec, match_to_requested, series_dir
-from app.downloader.runner import ChapterUnavailable, download_range
+from app.downloader.paths import chapter_path
 from app.enums import JobType
 from app.handlers.base import JobContext, PermanentError, register
-from app.handlers.download_chapter import build_comicinfo
+from app.handlers.download_chapter import build_comicinfo, load_catalogue_row
 from app.queue import repo
-
-SCRATCH_DIR = ".tmp"
-PROGRESS_POLL_SECONDS = 2.0
+from app.sources import source_for_url
+from app.sources.base import ChapterUnavailable
+from app.sources.net import get_client
 
 
 async def load_batch(session: AsyncSession, chapter_ids: list[int]) -> list[dict[str, Any]]:
     result = await session.execute(
         text(
             """
-            select c.id, c.number, c.title, c.state,
+            select c.id, c.number, c.title, c.state, c.source_url as chapter_url,
                    s.id as series_id, s.slug, s.canonical_title, s.meta,
                    m.source_site, m.source_url
               from chapter c
@@ -85,11 +86,12 @@ async def handle(ctx: JobContext) -> None:
         await ctx.log(f"all {already} chapters already in the library", pct=100)
         return
 
-    spec = format_range_spec(wanted)
-    await ctx.log(f"downloading {len(wanted)} chapters ({spec}) from {first['source_site']}")
+    await ctx.log(f"downloading {len(wanted)} chapters from {first['source_site']}")
 
     limit = await settings_store.get_int(ctx.session, settings_store.PER_SOURCE_CONCURRENCY)
     semaphore = await source_semaphore(first["source_site"], limit)
+    catalogue_row = await load_catalogue_row(ctx.session, first["source_site"])
+    client = get_client(catalogue_row)
 
     await ctx.session.execute(
         text("update chapter set state = 'downloading' where id = any(cast(:ids as bigint[]))"),
@@ -97,79 +99,73 @@ async def handle(ctx: JobContext) -> None:
     )
     await ctx.session.commit()
 
-    work_dir = series_dir(library_root, slug).parent / SCRATCH_DIR / f"job-{ctx.job.id}"
+    # Every chapter in a confirmed mapping's batch shares one site, so the
+    # source is resolved once from whichever chapter happens to be first
+    # rather than once per chapter.
+    source = source_for_url(next(iter(wanted.values()))["chapter_url"])
+
     total = len(wanted)
-    last_reported = -1
-    last_checked = 0.0
-
-    async def on_progress(line: str, pct: float | None) -> None:
-        """Report chapters finished, not pages.
-
-        The tool's own percentage restarts with every chapter in the range, so it
-        says nothing about how far the batch has come. Counting the archives it
-        has written does, and it does not depend on the output format.
-        """
-        nonlocal last_reported, last_checked
-        now = monotonic()
-        if now - last_checked < PROGRESS_POLL_SECONDS:
-            return
-        last_checked = now
-
-        finished = len(list(work_dir.rglob("*.cbz")))
-        if finished == last_reported:
-            return
-        last_reported = finished
-        await ctx.log(
-            f"{finished}/{total} chapters downloaded", pct=100.0 * finished / max(total, 1)
-        )
-        await ctx.session.commit()
-        await repo.renew_lease(ctx.session, ctx.job.id)
+    placed = 0
+    unavailable: list[Decimal] = []
 
     async with semaphore:
-        try:
-            result = await download_range(
-                first["source_url"], spec, work_dir, on_progress=on_progress
+        for index, number in enumerate(sorted(wanted), start=1):
+            row = wanted[number]
+
+            if row["chapter_url"] is None:
+                await ctx.session.execute(
+                    text("update chapter set state = 'skipped' where id = :id"),
+                    {"id": row["id"]},
+                )
+                unavailable.append(number)
+                await ctx.log(f"chapter {number} has no source url of its own", level="warning")
+                await ctx.session.commit()
+                continue
+
+            try:
+                pages = await source.list_pages(row["chapter_url"])
+                page_bytes = await fetch_pages(client, pages)
+            except ChapterUnavailable as exc:
+                # Decision (#95): one chapter the source refuses skips that
+                # chapter, not the whole batch - per-chapter listing means a
+                # single 404 no longer has to speak for every chapter in the
+                # range the way the binary's one-shot answer did.
+                await ctx.session.execute(
+                    text("update chapter set state = 'skipped' where id = :id"),
+                    {"id": row["id"]},
+                )
+                unavailable.append(number)
+                await ctx.log(f"chapter {number} unavailable: {exc}", level="warning")
+                await ctx.session.commit()
+                continue
+
+            info = await build_comicinfo(ctx.session, row)
+            destination = chapter_path(library_root, slug, number, row["title"])
+            await write_cbz(page_bytes, destination, info)
+            await mark_downloaded(ctx.session, row["id"], destination)
+            placed += 1
+
+            # One log line per chapter rather than a filesystem poll (decision
+            # #95): the page list already says how many pages a chapter has, so
+            # there is nothing left on disk that carries information this loop
+            # does not already hold. Renewing the lease here, once a chapter, is
+            # enough - even a slow chapter finishes in well under the 15 minute
+            # lease this job was granted.
+            await ctx.log(
+                f"chapter {number}: {len(page_bytes)}/{len(pages)} pages "
+                f"({index}/{total} chapters)",
+                pct=100.0 * index / total,
             )
-        except ChapterUnavailable as exc:
-            await ctx.session.execute(
-                text(
-                    "update chapter set state = 'skipped' where id = any(cast(:ids as bigint[]))"
-                ),
-                {"ids": [row["id"] for row in wanted.values()]},
-            )
-            raise PermanentError(str(exc)) from exc
+            await ctx.session.commit()
+            await repo.renew_lease(ctx.session, ctx.job.id)
 
-    placed = 0
-    for produced in result.paths:
-        number = match_to_requested(produced.name, wanted)
-        if number is None:
-            await ctx.log(f"unrecognised file from downloader: {produced.name}", level="warning")
-            continue
-        row = wanted.pop(number)
-        info = await build_comicinfo(ctx.session, row)
-        inject(produced, info)
-        destination = chapter_path(library_root, slug, number, row["title"])
-        await place_file(produced, destination)
-        await mark_downloaded(ctx.session, row["id"], destination)
-        placed += 1
+    if unavailable and len(unavailable) == total:
+        raise PermanentError(f"all {total} chapters in this batch are unavailable at the source")
 
-    await ctx.log(f"saved {placed} chapters", pct=100)
-
-    if wanted:
-        # Whatever the source did not hand over goes back to the queue on its own,
-        # so the chapters that did arrive are not downloaded a second time.
-        remaining = [row["id"] for row in wanted.values()]
-        await ctx.session.execute(
-            text("update chapter set state = 'known' where id = any(cast(:ids as bigint[]))"),
-            {"ids": remaining},
-        )
-        await ctx.enqueue(
-            JobType.DOWNLOAD_BATCH,
-            {"series_id": first["series_id"], "chapter_ids": remaining},
-            series_id=first["series_id"],
-            dedupe_key=f"download_batch:{first['series_id']}:{min(remaining)}",
-        )
-        await ctx.log(f"{len(remaining)} chapters not produced, requeued", level="warning")
+    summary = f"saved {placed} chapters"
+    if unavailable:
+        summary += f", {len(unavailable)} unavailable"
+    await ctx.log(summary, pct=100)
 
     await ctx.enqueue(
         JobType.KOMGA_SCAN,
