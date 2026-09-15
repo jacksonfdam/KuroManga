@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { api, type ReviewPayload, type ReviewQueueItem } from '../../lib/api'
 import { useAsyncData } from '../../lib/useAsyncData'
 import { useNotice } from '../../lib/useNotice'
-import { useUrlNumber, useUrlState } from '../../lib/useUrlState'
+import { useUrlNumber, useUrlPatch, useUrlState } from '../../lib/useUrlState'
 import { arrange, readSkipped, writeSkipped } from './queue'
 
 /** Which of the three things this screen is: the one in front of you, the list
@@ -45,6 +45,9 @@ export function useReview(onResolved: () => void) {
   const [layout, setLayout] = useUrlState<QueueLayout>('view', 'grid', LAYOUTS)
   const [skipped, setSkipped] = useState<number[]>(readSkipped)
   const [cursor, setCursor] = useUrlNumber('at', 0)
+  // Tab and cursor move together when a queue tile is picked, and two separate
+  // writes would lose one of them - see useUrlPatch.
+  const setTabAndCursor = useUrlPatch({ tab: 'reviewing', at: 0 })
   const [manualUrl, setManualUrl] = useState('')
   const [busy, setBusy] = useState(false)
   const [undo, setUndo] = useState<(() => void) | null>(null)
@@ -81,11 +84,10 @@ export function useReview(onResolved: () => void) {
 
   const goTo = useCallback(
     (index: number) => {
-      setCursor(index)
-      setView('reviewing')
+      setTabAndCursor({ tab: 'reviewing', at: index })
       settle()
     },
-    [setCursor, settle, setView],
+    [setTabAndCursor, settle],
   )
 
   const next = useCallback(() => {
