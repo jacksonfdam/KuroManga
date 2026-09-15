@@ -309,18 +309,7 @@ async def create_series(session: AsyncSession, dto: ListEntryDTO, aliases: list[
             "title": dto.display_title,
             "slug": slug,
             "meta": json.dumps(
-                {
-                    "aliases": aliases,
-                    "cover_url": dto.cover_url,
-                    "titles": dto.titles,
-                    # Not read by the merge guard - find_series_by_alias derives
-                    # a candidate's kind from its entries' raw instead, since
-                    # every series that exists today predates this field.
-                    # Recorded anyway as a cheap, direct answer for anything
-                    # that wants "what kind is this series" without joining
-                    # list_entry and re-deriving it, the detail screen included.
-                    "kind": dto.kind,
-                }
+                {"aliases": aliases, "cover_url": dto.cover_url, "titles": dto.titles}
             ),
         },
     )
