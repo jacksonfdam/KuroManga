@@ -666,6 +666,30 @@ function sentenceOf(body: string, response: Response): string {
   return body || `${response.status} ${response.statusText}`
 }
 
+export interface Source {
+  key: string
+  name: string
+  template: string
+  base_url: string
+  lang: string
+  nsfw: boolean
+  hand_ported: boolean
+  version: string
+  enabled: boolean
+  priority: number
+  /** Why this site cannot run, in the API's words. Null when it can. */
+  reason: string | null
+}
+
+export interface SourcePage {
+  items: Source[]
+  /** Every row matching the filters, which is not items.length: the catalogue
+      is generated output in four figures and the listing is paged. */
+  total: number
+  page: number
+  size: number
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
     headers: { 'Content-Type': 'application/json' },
@@ -753,6 +777,26 @@ export const api = {
   authStart: (provider: string) => request<{ url: string }>(`/api/auth/${provider}/start`),
   disconnect: (provider: string) =>
     request<{ ok: boolean }>(`/api/auth/${provider}`, { method: 'DELETE' }),
+  sources: (params: {
+    q?: string
+    lang?: string
+    nsfw?: boolean
+    enabled?: boolean
+    page?: number
+  }) => {
+    const query = new URLSearchParams()
+    if (params.q) query.set('q', params.q)
+    if (params.lang) query.set('lang', params.lang)
+    if (params.nsfw !== undefined) query.set('nsfw', String(params.nsfw))
+    if (params.enabled !== undefined) query.set('enabled', String(params.enabled))
+    query.set('page', String(params.page ?? 1))
+    return request<SourcePage>(`/api/sources?${query}`)
+  },
+  setSourceEnabled: (key: string, enabled: boolean) =>
+    request<Source>(`/api/sources/${key}`, {
+      method: 'PUT',
+      body: JSON.stringify({ enabled }),
+    }),
   integrations: () =>
     request<{ integrations: Integration[] }>('/api/health/integrations').then(
       (body) => body.integrations,

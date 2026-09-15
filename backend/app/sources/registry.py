@@ -10,6 +10,7 @@ from Postgres.
 """
 
 import logging
+from typing import Any
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,6 +18,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.sources.base import RegisteredSource, Source, install_registry
 from app.sources.comick import SITES, ComickSource
 from app.sources.mangadex import MangaDexSource
+from app.sources.mangageko import MangaGekoSource
+from app.sources.net import CatalogueRow
+from app.sources.templates import TemplateSource
+from app.sources.templates.iken import IkenSource
+from app.sources.templates.mangathemesia import MangaThemesiaSource
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +34,16 @@ logger = logging.getLogger(__name__)
 NATIVE_SOURCES: dict[str, Source] = {
     "mangadex": MangaDexSource(),
     "comick": ComickSource(*SITES[0]),
+    "mangageko": MangaGekoSource(),
+}
+
+# Ported templates, keyed by site_catalogue.template. A template with no entry
+# here is a row the catalogue knows about and this deployment cannot yet run -
+# reload says so and skips it, the same answer it already gives an unknown
+# template.
+TEMPLATE_CLASSES: dict[str, type[TemplateSource]] = {
+    "mangathemesia": MangaThemesiaSource,
+    "iken": IkenSource,
 }
 
 
@@ -42,7 +58,8 @@ async def reload(session: AsyncSession) -> None:
         await session.execute(
             text(
                 """
-                select c.key, c.template, c.base_url
+                select c.key, c.name, c.template, c.base_url, c.lang,
+                       c.overrides, c.rate_limit, p.rate_limit_override
                   from site_catalogue c
                   join source_pref p on p.key = c.key
                  where p.enabled
@@ -53,20 +70,51 @@ async def reload(session: AsyncSession) -> None:
 
     entries: dict[str, RegisteredSource] = {}
     for row in rows:
-        if row["template"] != "native":
-            logger.warning(
-                "site %s: template %r has no implementation yet, skipping",
-                row["key"],
-                row["template"],
-            )
+        source = _build(row)
+        if source is None:
             continue
+        entries[source.site] = RegisteredSource(source=source, base_url=row["base_url"])
+
+    install_registry(entries)
+
+
+def _build(row: Any) -> Source | None:
+    """One catalogue row as a Source, or None with a log line saying why not.
+
+    Every refusal is a warning rather than a raise: reload runs at boot, and a
+    single unimplemented template or malformed generated row must not be the
+    reason the API does not come up.
+    """
+    if row["template"] == "native":
         source = NATIVE_SOURCES.get(row["key"])
         if source is None:
             logger.warning(
                 "site %s: template=native but no class is registered for that key, skipping",
                 row["key"],
             )
-            continue
-        entries[source.site] = RegisteredSource(source=source, base_url=row["base_url"])
+        return source
 
-    install_registry(entries)
+    template_class = TEMPLATE_CLASSES.get(row["template"])
+    if template_class is None:
+        logger.warning(
+            "site %s: template %r has no implementation yet, skipping",
+            row["key"],
+            row["template"],
+        )
+        return None
+
+    try:
+        return template_class(
+            CatalogueRow(
+                key=row["key"],
+                base_url=row["base_url"],
+                rate_limit=row["rate_limit"],
+                rate_limit_override=row["rate_limit_override"],
+            ),
+            name=row["name"],
+            lang=row["lang"],
+            overrides=row["overrides"] or {},
+        )
+    except ValueError as exc:
+        logger.warning("site %s: %s, skipping", row["key"], exc)
+        return None

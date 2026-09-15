@@ -1,0 +1,997 @@
+{
+    "post": {
+        "chapters": [
+            {
+                "id": 32889,
+                "slug": "chapter-33",
+                "number": 33,
+                "title": "",
+                "unlockAt": null,
+                "becameFreeAt": null,
+                "isPermanentlyLocked": true,
+                "isShortLinkLocked": false,
+                "price": 100,
+                "mangaPostId": 643,
+                "createdAt": "2026-09-14T09:12:47.697Z",
+                "updatedAt": "2026-09-14T09:12:47.697Z",
+                "featuredImage": "",
+                "mangaPost": {
+                    "postTitle": "Rebirth: Monarch of the Dead",
+                    "slug": "rebirth-monarch-of-the-dead",
+                    "featuredImage": "https://storage.vortexscans.org/upload/series/featured/4/106b293a-7be1-4c35-8ce9-ba2f28843881.jpg",
+                    "saleActive": false,
+                    "salePercentage": 0,
+                    "saleEndDate": null
+                },
+                "likesCount": 0,
+                "_count": {
+                    "comments": 0
+                },
+                "chapterPurchased": false,
+                "isLocked": true,
+                "isAccessible": false
+            },
+            {
+                "id": 32888,
+                "slug": "chapter-32",
+                "number": 32,
+                "title": "",
+                "unlockAt": null,
+                "becameFreeAt": null,
+                "isPermanentlyLocked": true,
+                "isShortLinkLocked": false,
+                "price": 100,
+                "mangaPostId": 643,
+                "createdAt": "2026-09-14T09:11:17.695Z",
+                "updatedAt": "2026-09-14T09:11:17.695Z",
+                "featuredImage": "",
+                "mangaPost": {
+                    "postTitle": "Rebirth: Monarch of the Dead",
+                    "slug": "rebirth-monarch-of-the-dead",
+                    "featuredImage": "https://storage.vortexscans.org/upload/series/featured/4/106b293a-7be1-4c35-8ce9-ba2f28843881.jpg",
+                    "saleActive": false,
+                    "salePercentage": 0,
+                    "saleEndDate": null
+                },
+                "likesCount": 0,
+                "_count": {
+                    "comments": 0
+                },
+                "chapterPurchased": false,
+                "isLocked": true,
+                "isAccessible": false
+            },
+            {
+                "id": 32545,
+                "slug": "chapter-31",
+                "number": 31,
+                "title": "",
+                "unlockAt": null,
+                "becameFreeAt": null,
+                "isPermanentlyLocked": true,
+                "isShortLinkLocked": false,
+                "price": 100,
+                "mangaPostId": 643,
+                "createdAt": "2026-09-03T12:28:06.132Z",
+                "updatedAt": "2026-09-03T12:28:06.132Z",
+                "featuredImage": "",
+                "mangaPost": {
+                    "postTitle": "Rebirth: Monarch of the Dead",
+                    "slug": "rebirth-monarch-of-the-dead",
+                    "featuredImage": "https://storage.vortexscans.org/upload/series/featured/4/106b293a-7be1-4c35-8ce9-ba2f28843881.jpg",
+                    "saleActive": false,
+                    "salePercentage": 0,
+                    "saleEndDate": null
+                },
+                "likesCount": 4,
+                "_count": {
+                    "comments": 0
+                },
+                "chapterPurchased": false,
+                "isLocked": true,
+                "isAccessible": false
+            },
+            {
+                "id": 32288,
+                "slug": "chapter-30",
+                "number": 30,
+                "title": "",
+                "unlockAt": null,
+                "becameFreeAt": "2026-09-14T09:13:40.331Z",
+                "isPermanentlyLocked": false,
+                "isShortLinkLocked": false,
+                "price": 0,
+                "mangaPostId": 643,
+                "createdAt": "2026-08-28T16:02:12.945Z",
+                "updatedAt": "2026-09-14T09:13:40.331Z",
+                "featuredImage": null,
+                "mangaPost": {
+                    "postTitle": "Rebirth: Monarch of the Dead",
+                    "slug": "rebirth-monarch-of-the-dead",
+                    "featuredImage": "https://storage.vortexscans.org/upload/series/featured/4/106b293a-7be1-4c35-8ce9-ba2f28843881.jpg",
+                    "saleActive": false,
+                    "salePercentage": 0,
+                    "saleEndDate": null
+                },
+                "likesCount": 6,
+                "_count": {
+                    "comments": 0
+                },
+                "chapterPurchased": false,
+                "isLocked": false,
+                "isAccessible": true
+            },
+            {
+                "id": 32110,
+                "slug": "chapter-29",
+                "number": 29,
+                "title": "",
+                "unlockAt": null,
+                "becameFreeAt": "2026-09-14T09:13:06.686Z",
+                "isPermanentlyLocked": false,
+                "isShortLinkLocked": false,
+                "price": 0,
+                "mangaPostId": 643,
+                "createdAt": "2026-08-21T20:59:40.741Z",
+                "updatedAt": "2026-09-14T09:13:06.686Z",
+                "featuredImage": null,
+                "mangaPost": {
+                    "postTitle": "Rebirth: Monarch of the Dead",
+                    "slug": "rebirth-monarch-of-the-dead",
+                    "featuredImage": "https://storage.vortexscans.org/upload/series/featured/4/106b293a-7be1-4c35-8ce9-ba2f28843881.jpg",
+                    "saleActive": false,
+                    "salePercentage": 0,
+                    "saleEndDate": null
+                },
+                "likesCount": 12,
+                "_count": {
+                    "comments": 0
+                },
+                "chapterPurchased": false,
+                "isLocked": false,
+                "isAccessible": true
+            },
+            {
+                "id": 32109,
+                "slug": "chapter-28",
+                "number": 28,
+                "title": "",
+                "unlockAt": null,
+                "becameFreeAt": null,
+                "isPermanentlyLocked": false,
+                "isShortLinkLocked": false,
+                "price": 0,
+                "mangaPostId": 643,
+                "createdAt": "2026-08-21T20:58:37.357Z",
+                "updatedAt": "2026-09-03T12:28:50.499Z",
+                "featuredImage": null,
+                "mangaPost": {
+                    "postTitle": "Rebirth: Monarch of the Dead",
+                    "slug": "rebirth-monarch-of-the-dead",
+                    "featuredImage": "https://storage.vortexscans.org/upload/series/featured/4/106b293a-7be1-4c35-8ce9-ba2f28843881.jpg",
+                    "saleActive": false,
+                    "salePercentage": 0,
+                    "saleEndDate": null
+                },
+                "likesCount": 16,
+                "_count": {
+                    "comments": 2
+                },
+                "chapterPurchased": false,
+                "isLocked": false,
+                "isAccessible": true
+            },
+            {
+                "id": 32108,
+                "slug": "chapter-27",
+                "number": 27,
+                "title": "",
+                "unlockAt": null,
+                "becameFreeAt": null,
+                "isPermanentlyLocked": false,
+                "isShortLinkLocked": false,
+                "price": 0,
+                "mangaPostId": 643,
+                "createdAt": "2026-08-21T20:57:38.363Z",
+                "updatedAt": "2026-08-28T16:11:13.198Z",
+                "featuredImage": null,
+                "mangaPost": {
+                    "postTitle": "Rebirth: Monarch of the Dead",
+                    "slug": "rebirth-monarch-of-the-dead",
+                    "featuredImage": "https://storage.vortexscans.org/upload/series/featured/4/106b293a-7be1-4c35-8ce9-ba2f28843881.jpg",
+                    "saleActive": false,
+                    "salePercentage": 0,
+                    "saleEndDate": null
+                },
+                "likesCount": 21,
+                "_count": {
+                    "comments": 2
+                },
+                "chapterPurchased": false,
+                "isLocked": false,
+                "isAccessible": true
+            },
+            {
+                "id": 32107,
+                "slug": "chapter-26",
+                "number": 26,
+                "title": "",
+                "unlockAt": null,
+                "becameFreeAt": null,
+                "isPermanentlyLocked": false,
+                "isShortLinkLocked": false,
+                "price": 0,
+                "mangaPostId": 643,
+                "createdAt": "2026-08-21T20:56:28.804Z",
+                "updatedAt": "2026-08-28T16:10:24.065Z",
+                "featuredImage": null,
+                "mangaPost": {
+                    "postTitle": "Rebirth: Monarch of the Dead",
+                    "slug": "rebirth-monarch-of-the-dead",
+                    "featuredImage": "https://storage.vortexscans.org/upload/series/featured/4/106b293a-7be1-4c35-8ce9-ba2f28843881.jpg",
+                    "saleActive": false,
+                    "salePercentage": 0,
+                    "saleEndDate": null
+                },
+                "likesCount": 20,
+                "_count": {
+                    "comments": 1
+                },
+                "chapterPurchased": false,
+                "isLocked": false,
+                "isAccessible": true
+            },
+            {
+                "id": 31851,
+                "slug": "chapter-25",
+                "number": 25,
+                "title": "",
+                "unlockAt": null,
+                "becameFreeAt": null,
+                "isPermanentlyLocked": false,
+                "isShortLinkLocked": false,
+                "price": 0,
+                "mangaPostId": 643,
+                "createdAt": "2026-08-12T22:29:45.911Z",
+                "updatedAt": "2026-08-21T20:54:47.422Z",
+                "featuredImage": null,
+                "mangaPost": {
+                    "postTitle": "Rebirth: Monarch of the Dead",
+                    "slug": "rebirth-monarch-of-the-dead",
+                    "featuredImage": "https://storage.vortexscans.org/upload/series/featured/4/106b293a-7be1-4c35-8ce9-ba2f28843881.jpg",
+                    "saleActive": false,
+                    "salePercentage": 0,
+                    "saleEndDate": null
+                },
+                "likesCount": 32,
+                "_count": {
+                    "comments": 2
+                },
+                "chapterPurchased": false,
+                "isLocked": false,
+                "isAccessible": true
+            },
+            {
+                "id": 31850,
+                "slug": "chapter-24",
+                "number": 24,
+                "title": "",
+                "unlockAt": null,
+                "becameFreeAt": null,
+                "isPermanentlyLocked": false,
+                "isShortLinkLocked": false,
+                "price": 0,
+                "mangaPostId": 643,
+                "createdAt": "2026-08-12T22:28:16.462Z",
+                "updatedAt": "2026-08-21T20:52:44.605Z",
+                "featuredImage": null,
+                "mangaPost": {
+                    "postTitle": "Rebirth: Monarch of the Dead",
+                    "slug": "rebirth-monarch-of-the-dead",
+                    "featuredImage": "https://storage.vortexscans.org/upload/series/featured/4/106b293a-7be1-4c35-8ce9-ba2f28843881.jpg",
+                    "saleActive": false,
+                    "salePercentage": 0,
+                    "saleEndDate": null
+                },
+                "likesCount": 25,
+                "_count": {
+                    "comments": 1
+                },
+                "chapterPurchased": false,
+                "isLocked": false,
+                "isAccessible": true
+            },
+            {
+                "id": 31849,
+                "slug": "chapter-23",
+                "number": 23,
+                "title": "",
+                "unlockAt": null,
+                "becameFreeAt": null,
+                "isPermanentlyLocked": false,
+                "isShortLinkLocked": false,
+                "price": 0,
+                "mangaPostId": 643,
+                "createdAt": "2026-08-12T22:27:23.232Z",
+                "updatedAt": "2026-08-21T20:51:15.617Z",
+                "featuredImage": null,
+                "mangaPost": {
+                    "postTitle": "Rebirth: Monarch of the Dead",
+                    "slug": "rebirth-monarch-of-the-dead",
+                    "featuredImage": "https://storage.vortexscans.org/upload/series/featured/4/106b293a-7be1-4c35-8ce9-ba2f28843881.jpg",
+                    "saleActive": false,
+                    "salePercentage": 0,
+                    "saleEndDate": null
+                },
+                "likesCount": 17,
+                "_count": {
+                    "comments": 3
+                },
+                "chapterPurchased": false,
+                "isLocked": false,
+                "isAccessible": true
+            },
+            {
+                "id": 31848,
+                "slug": "chapter-22",
+                "number": 22,
+                "title": "",
+                "unlockAt": null,
+                "becameFreeAt": null,
+                "isPermanentlyLocked": false,
+                "isShortLinkLocked": false,
+                "price": 0,
+                "mangaPostId": 643,
+                "createdAt": "2026-08-12T21:52:36.679Z",
+                "updatedAt": "2026-08-21T20:50:50.910Z",
+                "featuredImage": null,
+                "mangaPost": {
+                    "postTitle": "Rebirth: Monarch of the Dead",
+                    "slug": "rebirth-monarch-of-the-dead",
+                    "featuredImage": "https://storage.vortexscans.org/upload/series/featured/4/106b293a-7be1-4c35-8ce9-ba2f28843881.jpg",
+                    "saleActive": false,
+                    "salePercentage": 0,
+                    "saleEndDate": null
+                },
+                "likesCount": 19,
+                "_count": {
+                    "comments": 1
+                },
+                "chapterPurchased": false,
+                "isLocked": false,
+                "isAccessible": true
+            },
+            {
+                "id": 31847,
+                "slug": "chapter-21",
+                "number": 21,
+                "title": "",
+                "unlockAt": null,
+                "becameFreeAt": null,
+                "isPermanentlyLocked": false,
+                "isShortLinkLocked": false,
+                "price": 0,
+                "mangaPostId": 643,
+                "createdAt": "2026-08-12T21:51:23.889Z",
+                "updatedAt": "2026-08-21T20:50:22.840Z",
+                "featuredImage": null,
+                "mangaPost": {
+                    "postTitle": "Rebirth: Monarch of the Dead",
+                    "slug": "rebirth-monarch-of-the-dead",
+                    "featuredImage": "https://storage.vortexscans.org/upload/series/featured/4/106b293a-7be1-4c35-8ce9-ba2f28843881.jpg",
+                    "saleActive": false,
+                    "salePercentage": 0,
+                    "saleEndDate": null
+                },
+                "likesCount": 19,
+                "_count": {
+                    "comments": 2
+                },
+                "chapterPurchased": false,
+                "isLocked": false,
+                "isAccessible": true
+            },
+            {
+                "id": 31846,
+                "slug": "chapter-20",
+                "number": 20,
+                "title": "",
+                "unlockAt": null,
+                "becameFreeAt": null,
+                "isPermanentlyLocked": false,
+                "isShortLinkLocked": false,
+                "price": 0,
+                "mangaPostId": 643,
+                "createdAt": "2026-08-12T21:41:26.526Z",
+                "updatedAt": "2026-08-21T20:49:36.803Z",
+                "featuredImage": null,
+                "mangaPost": {
+                    "postTitle": "Rebirth: Monarch of the Dead",
+                    "slug": "rebirth-monarch-of-the-dead",
+                    "featuredImage": "https://storage.vortexscans.org/upload/series/featured/4/106b293a-7be1-4c35-8ce9-ba2f28843881.jpg",
+                    "saleActive": false,
+                    "salePercentage": 0,
+                    "saleEndDate": null
+                },
+                "likesCount": 21,
+                "_count": {
+                    "comments": 0
+                },
+                "chapterPurchased": false,
+                "isLocked": false,
+                "isAccessible": true
+            },
+            {
+                "id": 31845,
+                "slug": "chapter-19",
+                "number": 19,
+                "title": "",
+                "unlockAt": null,
+                "becameFreeAt": null,
+                "isPermanentlyLocked": false,
+                "isShortLinkLocked": false,
+                "price": 0,
+                "mangaPostId": 643,
+                "createdAt": "2026-08-12T21:41:26.238Z",
+                "updatedAt": "2026-08-21T20:47:39.409Z",
+                "featuredImage": null,
+                "mangaPost": {
+                    "postTitle": "Rebirth: Monarch of the Dead",
+                    "slug": "rebirth-monarch-of-the-dead",
+                    "featuredImage": "https://storage.vortexscans.org/upload/series/featured/4/106b293a-7be1-4c35-8ce9-ba2f28843881.jpg",
+                    "saleActive": false,
+                    "salePercentage": 0,
+                    "saleEndDate": null
+                },
+                "likesCount": 18,
+                "_count": {
+                    "comments": 2
+                },
+                "chapterPurchased": false,
+                "isLocked": false,
+                "isAccessible": true
+            },
+            {
+                "id": 31844,
+                "slug": "chapter-18",
+                "number": 18,
+                "title": "",
+                "unlockAt": null,
+                "becameFreeAt": null,
+                "isPermanentlyLocked": false,
+                "isShortLinkLocked": false,
+                "price": 0,
+                "mangaPostId": 643,
+                "createdAt": "2026-08-12T21:41:02.954Z",
+                "updatedAt": "2026-08-21T20:45:51.358Z",
+                "featuredImage": null,
+                "mangaPost": {
+                    "postTitle": "Rebirth: Monarch of the Dead",
+                    "slug": "rebirth-monarch-of-the-dead",
+                    "featuredImage": "https://storage.vortexscans.org/upload/series/featured/4/106b293a-7be1-4c35-8ce9-ba2f28843881.jpg",
+                    "saleActive": false,
+                    "salePercentage": 0,
+                    "saleEndDate": null
+                },
+                "likesCount": 20,
+                "_count": {
+                    "comments": 1
+                },
+                "chapterPurchased": false,
+                "isLocked": false,
+                "isAccessible": true
+            },
+            {
+                "id": 31843,
+                "slug": "chapter-17",
+                "number": 17,
+                "title": "",
+                "unlockAt": null,
+                "becameFreeAt": null,
+                "isPermanentlyLocked": false,
+                "isShortLinkLocked": false,
+                "price": 0,
+                "mangaPostId": 643,
+                "createdAt": "2026-08-12T21:39:29.926Z",
+                "updatedAt": "2026-08-12T21:39:29.926Z",
+                "featuredImage": "",
+                "mangaPost": {
+                    "postTitle": "Rebirth: Monarch of the Dead",
+                    "slug": "rebirth-monarch-of-the-dead",
+                    "featuredImage": "https://storage.vortexscans.org/upload/series/featured/4/106b293a-7be1-4c35-8ce9-ba2f28843881.jpg",
+                    "saleActive": false,
+                    "salePercentage": 0,
+                    "saleEndDate": null
+                },
+                "likesCount": 36,
+                "_count": {
+                    "comments": 5
+                },
+                "chapterPurchased": false,
+                "isLocked": false,
+                "isAccessible": true
+            },
+            {
+                "id": 31842,
+                "slug": "chapter-16",
+                "number": 16,
+                "title": "",
+                "unlockAt": null,
+                "becameFreeAt": null,
+                "isPermanentlyLocked": false,
+                "isShortLinkLocked": false,
+                "price": 0,
+                "mangaPostId": 643,
+                "createdAt": "2026-08-12T21:38:19.335Z",
+                "updatedAt": "2026-08-12T21:38:19.335Z",
+                "featuredImage": "",
+                "mangaPost": {
+                    "postTitle": "Rebirth: Monarch of the Dead",
+                    "slug": "rebirth-monarch-of-the-dead",
+                    "featuredImage": "https://storage.vortexscans.org/upload/series/featured/4/106b293a-7be1-4c35-8ce9-ba2f28843881.jpg",
+                    "saleActive": false,
+                    "salePercentage": 0,
+                    "saleEndDate": null
+                },
+                "likesCount": 27,
+                "_count": {
+                    "comments": 2
+                },
+                "chapterPurchased": false,
+                "isLocked": false,
+                "isAccessible": true
+            },
+            {
+                "id": 31841,
+                "slug": "chapter-15",
+                "number": 15,
+                "title": null,
+                "unlockAt": null,
+                "becameFreeAt": null,
+                "isPermanentlyLocked": false,
+                "isShortLinkLocked": false,
+                "price": 0,
+                "mangaPostId": 643,
+                "createdAt": "2026-08-12T21:36:52.995Z",
+                "updatedAt": "2026-08-12T21:36:52.995Z",
+                "featuredImage": "",
+                "mangaPost": {
+                    "postTitle": "Rebirth: Monarch of the Dead",
+                    "slug": "rebirth-monarch-of-the-dead",
+                    "featuredImage": "https://storage.vortexscans.org/upload/series/featured/4/106b293a-7be1-4c35-8ce9-ba2f28843881.jpg",
+                    "saleActive": false,
+                    "salePercentage": 0,
+                    "saleEndDate": null
+                },
+                "likesCount": 25,
+                "_count": {
+                    "comments": 2
+                },
+                "chapterPurchased": false,
+                "isLocked": false,
+                "isAccessible": true
+            },
+            {
+                "id": 31840,
+                "slug": "chapter-14",
+                "number": 14,
+                "title": null,
+                "unlockAt": null,
+                "becameFreeAt": null,
+                "isPermanentlyLocked": false,
+                "isShortLinkLocked": false,
+                "price": 0,
+                "mangaPostId": 643,
+                "createdAt": "2026-08-12T21:36:52.667Z",
+                "updatedAt": "2026-08-12T21:36:52.667Z",
+                "featuredImage": "",
+                "mangaPost": {
+                    "postTitle": "Rebirth: Monarch of the Dead",
+                    "slug": "rebirth-monarch-of-the-dead",
+                    "featuredImage": "https://storage.vortexscans.org/upload/series/featured/4/106b293a-7be1-4c35-8ce9-ba2f28843881.jpg",
+                    "saleActive": false,
+                    "salePercentage": 0,
+                    "saleEndDate": null
+                },
+                "likesCount": 28,
+                "_count": {
+                    "comments": 1
+                },
+                "chapterPurchased": false,
+                "isLocked": false,
+                "isAccessible": true
+            },
+            {
+                "id": 31839,
+                "slug": "chapter-13",
+                "number": 13,
+                "title": null,
+                "unlockAt": null,
+                "becameFreeAt": null,
+                "isPermanentlyLocked": false,
+                "isShortLinkLocked": false,
+                "price": 0,
+                "mangaPostId": 643,
+                "createdAt": "2026-08-12T21:36:52.121Z",
+                "updatedAt": "2026-08-12T21:36:52.121Z",
+                "featuredImage": "",
+                "mangaPost": {
+                    "postTitle": "Rebirth: Monarch of the Dead",
+                    "slug": "rebirth-monarch-of-the-dead",
+                    "featuredImage": "https://storage.vortexscans.org/upload/series/featured/4/106b293a-7be1-4c35-8ce9-ba2f28843881.jpg",
+                    "saleActive": false,
+                    "salePercentage": 0,
+                    "saleEndDate": null
+                },
+                "likesCount": 28,
+                "_count": {
+                    "comments": 3
+                },
+                "chapterPurchased": false,
+                "isLocked": false,
+                "isAccessible": true
+            },
+            {
+                "id": 31838,
+                "slug": "chapter-12",
+                "number": 12,
+                "title": null,
+                "unlockAt": null,
+                "becameFreeAt": null,
+                "isPermanentlyLocked": false,
+                "isShortLinkLocked": false,
+                "price": 0,
+                "mangaPostId": 643,
+                "createdAt": "2026-08-12T21:36:51.822Z",
+                "updatedAt": "2026-08-12T21:36:51.822Z",
+                "featuredImage": "",
+                "mangaPost": {
+                    "postTitle": "Rebirth: Monarch of the Dead",
+                    "slug": "rebirth-monarch-of-the-dead",
+                    "featuredImage": "https://storage.vortexscans.org/upload/series/featured/4/106b293a-7be1-4c35-8ce9-ba2f28843881.jpg",
+                    "saleActive": false,
+                    "salePercentage": 0,
+                    "saleEndDate": null
+                },
+                "likesCount": 30,
+                "_count": {
+                    "comments": 2
+                },
+                "chapterPurchased": false,
+                "isLocked": false,
+                "isAccessible": true
+            },
+            {
+                "id": 31837,
+                "slug": "chapter-11",
+                "number": 11,
+                "title": null,
+                "unlockAt": null,
+                "becameFreeAt": null,
+                "isPermanentlyLocked": false,
+                "isShortLinkLocked": false,
+                "price": 0,
+                "mangaPostId": 643,
+                "createdAt": "2026-08-12T21:36:51.464Z",
+                "updatedAt": "2026-08-12T21:36:51.464Z",
+                "featuredImage": "",
+                "mangaPost": {
+                    "postTitle": "Rebirth: Monarch of the Dead",
+                    "slug": "rebirth-monarch-of-the-dead",
+                    "featuredImage": "https://storage.vortexscans.org/upload/series/featured/4/106b293a-7be1-4c35-8ce9-ba2f28843881.jpg",
+                    "saleActive": false,
+                    "salePercentage": 0,
+                    "saleEndDate": null
+                },
+                "likesCount": 31,
+                "_count": {
+                    "comments": 6
+                },
+                "chapterPurchased": false,
+                "isLocked": false,
+                "isAccessible": true
+            },
+            {
+                "id": 31835,
+                "slug": "chapter-10",
+                "number": 10,
+                "title": null,
+                "unlockAt": null,
+                "becameFreeAt": null,
+                "isPermanentlyLocked": false,
+                "isShortLinkLocked": false,
+                "price": 0,
+                "mangaPostId": 643,
+                "createdAt": "2026-08-12T21:33:17.405Z",
+                "updatedAt": "2026-08-12T21:33:17.405Z",
+                "featuredImage": "",
+                "mangaPost": {
+                    "postTitle": "Rebirth: Monarch of the Dead",
+                    "slug": "rebirth-monarch-of-the-dead",
+                    "featuredImage": "https://storage.vortexscans.org/upload/series/featured/4/106b293a-7be1-4c35-8ce9-ba2f28843881.jpg",
+                    "saleActive": false,
+                    "salePercentage": 0,
+                    "saleEndDate": null
+                },
+                "likesCount": 36,
+                "_count": {
+                    "comments": 6
+                },
+                "chapterPurchased": false,
+                "isLocked": false,
+                "isAccessible": true
+            },
+            {
+                "id": 31834,
+                "slug": "chapter-9",
+                "number": 9,
+                "title": null,
+                "unlockAt": null,
+                "becameFreeAt": null,
+                "isPermanentlyLocked": false,
+                "isShortLinkLocked": false,
+                "price": 0,
+                "mangaPostId": 643,
+                "createdAt": "2026-08-12T21:33:16.589Z",
+                "updatedAt": "2026-08-12T21:33:16.589Z",
+                "featuredImage": "",
+                "mangaPost": {
+                    "postTitle": "Rebirth: Monarch of the Dead",
+                    "slug": "rebirth-monarch-of-the-dead",
+                    "featuredImage": "https://storage.vortexscans.org/upload/series/featured/4/106b293a-7be1-4c35-8ce9-ba2f28843881.jpg",
+                    "saleActive": false,
+                    "salePercentage": 0,
+                    "saleEndDate": null
+                },
+                "likesCount": 29,
+                "_count": {
+                    "comments": 1
+                },
+                "chapterPurchased": false,
+                "isLocked": false,
+                "isAccessible": true
+            },
+            {
+                "id": 31833,
+                "slug": "chapter-8",
+                "number": 8,
+                "title": null,
+                "unlockAt": null,
+                "becameFreeAt": null,
+                "isPermanentlyLocked": false,
+                "isShortLinkLocked": false,
+                "price": 0,
+                "mangaPostId": 643,
+                "createdAt": "2026-08-12T21:33:16.267Z",
+                "updatedAt": "2026-08-12T21:33:16.267Z",
+                "featuredImage": "",
+                "mangaPost": {
+                    "postTitle": "Rebirth: Monarch of the Dead",
+                    "slug": "rebirth-monarch-of-the-dead",
+                    "featuredImage": "https://storage.vortexscans.org/upload/series/featured/4/106b293a-7be1-4c35-8ce9-ba2f28843881.jpg",
+                    "saleActive": false,
+                    "salePercentage": 0,
+                    "saleEndDate": null
+                },
+                "likesCount": 25,
+                "_count": {
+                    "comments": 0
+                },
+                "chapterPurchased": false,
+                "isLocked": false,
+                "isAccessible": true
+            },
+            {
+                "id": 31832,
+                "slug": "chapter-7",
+                "number": 7,
+                "title": null,
+                "unlockAt": null,
+                "becameFreeAt": null,
+                "isPermanentlyLocked": false,
+                "isShortLinkLocked": false,
+                "price": 0,
+                "mangaPostId": 643,
+                "createdAt": "2026-08-12T21:33:15.620Z",
+                "updatedAt": "2026-08-12T21:33:15.620Z",
+                "featuredImage": "",
+                "mangaPost": {
+                    "postTitle": "Rebirth: Monarch of the Dead",
+                    "slug": "rebirth-monarch-of-the-dead",
+                    "featuredImage": "https://storage.vortexscans.org/upload/series/featured/4/106b293a-7be1-4c35-8ce9-ba2f28843881.jpg",
+                    "saleActive": false,
+                    "salePercentage": 0,
+                    "saleEndDate": null
+                },
+                "likesCount": 24,
+                "_count": {
+                    "comments": 6
+                },
+                "chapterPurchased": false,
+                "isLocked": false,
+                "isAccessible": true
+            },
+            {
+                "id": 31828,
+                "slug": "chapter-6",
+                "number": 6,
+                "title": "",
+                "unlockAt": null,
+                "becameFreeAt": null,
+                "isPermanentlyLocked": false,
+                "isShortLinkLocked": false,
+                "price": 0,
+                "mangaPostId": 643,
+                "createdAt": "2026-08-12T18:28:56.078Z",
+                "updatedAt": "2026-08-12T18:28:56.078Z",
+                "featuredImage": "",
+                "mangaPost": {
+                    "postTitle": "Rebirth: Monarch of the Dead",
+                    "slug": "rebirth-monarch-of-the-dead",
+                    "featuredImage": "https://storage.vortexscans.org/upload/series/featured/4/106b293a-7be1-4c35-8ce9-ba2f28843881.jpg",
+                    "saleActive": false,
+                    "salePercentage": 0,
+                    "saleEndDate": null
+                },
+                "likesCount": 27,
+                "_count": {
+                    "comments": 3
+                },
+                "chapterPurchased": false,
+                "isLocked": false,
+                "isAccessible": true
+            },
+            {
+                "id": 31829,
+                "slug": "chapter-5",
+                "number": 5,
+                "title": "",
+                "unlockAt": null,
+                "becameFreeAt": null,
+                "isPermanentlyLocked": false,
+                "isShortLinkLocked": false,
+                "price": 0,
+                "mangaPostId": 643,
+                "createdAt": "2026-08-12T18:30:29.159Z",
+                "updatedAt": "2026-08-12T18:30:29.159Z",
+                "featuredImage": "",
+                "mangaPost": {
+                    "postTitle": "Rebirth: Monarch of the Dead",
+                    "slug": "rebirth-monarch-of-the-dead",
+                    "featuredImage": "https://storage.vortexscans.org/upload/series/featured/4/106b293a-7be1-4c35-8ce9-ba2f28843881.jpg",
+                    "saleActive": false,
+                    "salePercentage": 0,
+                    "saleEndDate": null
+                },
+                "likesCount": 24,
+                "_count": {
+                    "comments": 1
+                },
+                "chapterPurchased": false,
+                "isLocked": false,
+                "isAccessible": true
+            },
+            {
+                "id": 31827,
+                "slug": "chapter-4",
+                "number": 4,
+                "title": "",
+                "unlockAt": null,
+                "becameFreeAt": null,
+                "isPermanentlyLocked": false,
+                "isShortLinkLocked": false,
+                "price": 0,
+                "mangaPostId": 643,
+                "createdAt": "2026-08-12T18:26:33.336Z",
+                "updatedAt": "2026-08-12T18:26:33.336Z",
+                "featuredImage": null,
+                "mangaPost": {
+                    "postTitle": "Rebirth: Monarch of the Dead",
+                    "slug": "rebirth-monarch-of-the-dead",
+                    "featuredImage": "https://storage.vortexscans.org/upload/series/featured/4/106b293a-7be1-4c35-8ce9-ba2f28843881.jpg",
+                    "saleActive": false,
+                    "salePercentage": 0,
+                    "saleEndDate": null
+                },
+                "likesCount": 26,
+                "_count": {
+                    "comments": 3
+                },
+                "chapterPurchased": false,
+                "isLocked": false,
+                "isAccessible": true
+            },
+            {
+                "id": 31826,
+                "slug": "chapter-3",
+                "number": 3,
+                "title": "",
+                "unlockAt": null,
+                "becameFreeAt": null,
+                "isPermanentlyLocked": false,
+                "isShortLinkLocked": false,
+                "price": 0,
+                "mangaPostId": 643,
+                "createdAt": "2026-08-12T18:18:21.351Z",
+                "updatedAt": "2026-08-12T18:18:21.351Z",
+                "featuredImage": "https://storage.vortexscans.org/upload/2026/08/12/rebirth-monarch-of-the-deadepisode3episode-3_670fe40f.webp",
+                "mangaPost": {
+                    "postTitle": "Rebirth: Monarch of the Dead",
+                    "slug": "rebirth-monarch-of-the-dead",
+                    "featuredImage": "https://storage.vortexscans.org/upload/series/featured/4/106b293a-7be1-4c35-8ce9-ba2f28843881.jpg",
+                    "saleActive": false,
+                    "salePercentage": 0,
+                    "saleEndDate": null
+                },
+                "likesCount": 27,
+                "_count": {
+                    "comments": 1
+                },
+                "chapterPurchased": false,
+                "isLocked": false,
+                "isAccessible": true
+            },
+            {
+                "id": 31825,
+                "slug": "chapter-2",
+                "number": 2,
+                "title": "",
+                "unlockAt": null,
+                "becameFreeAt": null,
+                "isPermanentlyLocked": false,
+                "isShortLinkLocked": false,
+                "price": 0,
+                "mangaPostId": 643,
+                "createdAt": "2026-08-12T18:17:58.594Z",
+                "updatedAt": "2026-08-12T18:17:58.594Z",
+                "featuredImage": "https://storage.vortexscans.org/upload/2026/08/12/rebirth-monarch-of-the-deadepisode2episode-2_f2292b2b.webp",
+                "mangaPost": {
+                    "postTitle": "Rebirth: Monarch of the Dead",
+                    "slug": "rebirth-monarch-of-the-dead",
+                    "featuredImage": "https://storage.vortexscans.org/upload/series/featured/4/106b293a-7be1-4c35-8ce9-ba2f28843881.jpg",
+                    "saleActive": false,
+                    "salePercentage": 0,
+                    "saleEndDate": null
+                },
+                "likesCount": 27,
+                "_count": {
+                    "comments": 5
+                },
+                "chapterPurchased": false,
+                "isLocked": false,
+                "isAccessible": true
+            },
+            {
+                "id": 31824,
+                "slug": "chapter-1",
+                "number": 1,
+                "title": "",
+                "unlockAt": null,
+                "becameFreeAt": null,
+                "isPermanentlyLocked": false,
+                "isShortLinkLocked": false,
+                "price": 0,
+                "mangaPostId": 643,
+                "createdAt": "2026-08-12T18:17:35.437Z",
+                "updatedAt": "2026-08-12T18:17:35.437Z",
+                "featuredImage": "https://storage.vortexscans.org/upload/2026/08/12/rebirth-monarch-of-the-deadepisode1episode-1_939637ef.webp",
+                "mangaPost": {
+                    "postTitle": "Rebirth: Monarch of the Dead",
+                    "slug": "rebirth-monarch-of-the-dead",
+                    "featuredImage": "https://storage.vortexscans.org/upload/series/featured/4/106b293a-7be1-4c35-8ce9-ba2f28843881.jpg",
+                    "saleActive": false,
+                    "salePercentage": 0,
+                    "saleEndDate": null
+                },
+                "likesCount": 38,
+                "_count": {
+                    "comments": 9
+                },
+                "chapterPurchased": false,
+                "isLocked": false,
+                "isAccessible": true
+            }
+        ]
+    },
+    "totalChapterCount": 33
+}

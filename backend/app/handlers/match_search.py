@@ -5,12 +5,16 @@ match downloads the wrong manga for every future chapter, and the cost of
 preventing that is one click per series.
 """
 
+import asyncio
+
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app import settings_store
 from app.enums import JobType
 from app.handlers.base import JobContext, PermanentError, register
 from app.sources import Candidate, all_sources
+from app.sources.base import Source
 
 
 async def titles_for_series(session: AsyncSession, series_id: int) -> list[str]:
@@ -96,16 +100,60 @@ async def handle(ctx: JobContext) -> None:
 
     await ctx.log(f"searching sources for '{titles[0]}'")
 
-    candidates: list[Candidate] = []
-    for source in all_sources():
-        try:
-            found = await source.search(titles)
-        except Exception as exc:  # noqa: BLE001 - one dead source must not kill the search
-            await ctx.log(f"{source.site} search failed: {exc}", level="warning")
-            continue
-        candidates.extend(found)
-        await ctx.log(f"{source.site}: {len(found)} candidates")
+    concurrency = await settings_store.get_int(
+        ctx.session, settings_store.SOURCE_SEARCH_CONCURRENCY
+    )
+    timeout = await settings_store.get_int(ctx.session, settings_store.SOURCE_SEARCH_TIMEOUT)
+    priorities = await source_priorities(ctx.session)
 
-    candidates.sort(key=lambda c: c.score, reverse=True)
+    gate = asyncio.Semaphore(max(1, concurrency))
+    results = await asyncio.gather(
+        *(_search_one(source, titles, timeout, gate, ctx) for source in all_sources())
+    )
+    candidates = [candidate for found in results for candidate in found]
+
+    # Score first, source priority as the tiebreak. Two sites carrying the same
+    # title score identically far more often than they differ, so without the
+    # tiebreak the order is whichever coroutine happened to finish first.
+    candidates.sort(key=lambda c: (-c.score, priorities.get(c.source_site, 100)))
     await store_candidates(ctx.session, series_id, candidates[:20])
     await ctx.log(f"{len(candidates)} candidates awaiting review", pct=100)
+
+
+async def source_priorities(session: AsyncSession) -> dict[str, int]:
+    """source_pref.priority, read here rather than carried on the registry.
+
+    A handler may touch the database and sources/ may not, so the ranking
+    tiebreak is read where it is used instead of being threaded through the
+    registry for the sake of one caller.
+    """
+    rows = (await session.execute(text("select key, priority from source_pref"))).all()
+    return {key: priority for key, priority in rows}
+
+
+async def _search_one(
+    source: Source,
+    titles: list[str],
+    timeout: float,
+    gate: asyncio.Semaphore,
+    ctx: JobContext,
+) -> list[Candidate]:
+    """One source's search, bounded and timed out, never raising.
+
+    Returning an empty list on failure rather than propagating is what makes the
+    result partial instead of all-or-nothing: one dead site must not cost the
+    other four their candidates. Before this, the loop ran sources in series and
+    stored nothing until it finished, so a site that hung held the lease and
+    took every other site's candidates down with it.
+    """
+    async with gate:
+        try:
+            found = await asyncio.wait_for(source.search(titles), timeout)
+        except TimeoutError:
+            await ctx.log(f"{source.site}: no answer in {timeout:.0f}s", level="warning")
+            return []
+        except Exception as exc:  # noqa: BLE001 - one dead source must not kill the search
+            await ctx.log(f"{source.site} search failed: {exc}", level="warning")
+            return []
+    await ctx.log(f"{source.site}: {len(found)} candidates")
+    return found
