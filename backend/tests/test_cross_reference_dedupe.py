@@ -224,7 +224,7 @@ async def test_two_comic_vocabularies_for_the_same_work_still_merge():
     assert created is False
 
 
-async def test_an_unrecognised_kind_merges_as_it_did_before_the_guard():
+async def test_an_absent_kind_merges_as_it_did_before_the_guard():
     """Silence is not evidence of prose - every row synced before this lands has none."""
     async with get_sessionmaker()() as session:
         manga = dto(Provider.MAL, "1", title="Reborn", kind="MANGA")
@@ -233,6 +233,24 @@ async def test_an_unrecognised_kind_merges_as_it_did_before_the_guard():
 
         unknown = dto(Provider.ANILIST, "2", title="Reborn", kind=None)
         second, created = await resolve_series(session, unknown)
+        await session.commit()
+
+    assert second == first
+    assert created is False
+
+
+async def test_a_kind_outside_both_vocabularies_merges_as_it_did_before_the_guard():
+    """one_shot and doujinshi are genuinely unrecognised here: MyAnimeList's own
+    vocabulary maps them (MEDIA_TYPE_MAP), but neither lands in MANGA_FORMATS nor
+    PROSE_FORMATS. Unlike oel, which classifies as a comic and correctly refuses
+    a joining prose entry, these carry no evidence either way."""
+    async with get_sessionmaker()() as session:
+        one_shot = dto(Provider.MAL, "1", title="Reborn", kind="ONE_SHOT")
+        first, _ = await resolve_series(session, one_shot)
+        await upsert_entry(session, one_shot, first)
+
+        novel = dto(Provider.ANILIST, "2", title="Reborn", kind="NOVEL")
+        second, created = await resolve_series(session, novel)
         await session.commit()
 
     assert second == first
