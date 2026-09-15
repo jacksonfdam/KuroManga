@@ -27,6 +27,19 @@ Nothing downloads until you ask.
 Everything is configured in `.env`. Only the database and library settings are required to start;
 the rest unlock features as you fill them in.
 
+### Database
+
+| Variable | What it does |
+|---|---|
+| `POSTGRES_USER` / `POSTGRES_PASSWORD` | The account Compose creates and the application connects with |
+| `POSTGRES_DB` | The database name. Default `manga` |
+| `POSTGRES_HOST` / `POSTGRES_PORT` | Where to reach it. Leave as `postgres` and `5432` inside Compose |
+
+Compose creates the database from these on first start, and the application reads the same four to
+build its connection string, so changing one after the volume exists changes only the second half
+and the application can no longer connect. Change them before the first `docker compose up`, or
+remove the `postgres` volume and start again.
+
 ### Library and ownership
 
 | Variable | What it does |
@@ -109,6 +122,16 @@ MANGADEX_PASSWORD=
 Searching and listing chapters works without any of this, and MangaDex caches anonymous requests
 but not authenticated ones — so signing in makes searches *slower*. Leave these empty unless your
 account needs to see titles that are otherwise restricted.
+
+### Comick (optional)
+
+```
+COMICK_API_URL=
+```
+
+A second chapter source, self-hosted beside the rest of the stack and enabled in Settings. The
+default points at the bundled `comick` service and is what Compose uses when the variable is empty,
+so set it only to reach an instance running elsewhere.
 
 ## Reading on your phone
 
