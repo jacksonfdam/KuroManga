@@ -30,7 +30,9 @@ function useIsSheet(): boolean {
  * The detail beside a list, on two screens.
  *
  * Above lg it is a sticky column that scrolls with the page and stops below
- * the header. Below lg there is no room for a column, so the same panel is a
+ * the header - `top-24` clears the fixed `h-20` header with a little air, and
+ * is the offset the panel's own `max-h-[calc(100vh-8rem)]` was already written
+ * against. Below lg there is no room for a column, so the same panel is a
  * sheet over the list - one component rather than two, because two is how the
  * unmatched panel and the discovery panel would quietly stop behaving alike.
  *
@@ -77,7 +79,7 @@ export function DetailPanel({
       />
       <aside
         aria-labelledby={headingId}
-        className="fixed inset-x-0 bottom-0 z-20 max-h-[75vh] overflow-y-auto overscroll-contain rounded-t-xl bg-surface-container p-space-lg pb-nav-clearance shadow-overlay lg:static lg:z-0 lg:max-h-[calc(100vh-8rem)] lg:overscroll-auto lg:rounded-xl lg:pb-space-lg lg:shadow-card"
+        className="fixed inset-x-0 bottom-0 z-20 max-h-[75vh] overflow-y-auto overscroll-contain rounded-t-xl bg-surface-container p-space-lg pb-nav-clearance shadow-overlay lg:sticky lg:top-24 lg:z-0 lg:max-h-[calc(100vh-8rem)] lg:overscroll-auto lg:rounded-xl lg:pb-space-lg lg:shadow-card"
       >
         <div className="mb-space-md flex items-start justify-between gap-space-sm">
           <h2 id={headingId} className="min-w-0 text-headline-sm text-on-surface">
