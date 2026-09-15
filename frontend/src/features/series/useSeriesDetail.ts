@@ -6,12 +6,19 @@ import { useAsyncData } from '../../lib/useAsyncData'
 import { useJobEvents } from '../../lib/useEvents'
 import { useQueuedProgress } from '../../lib/queuedProgress'
 
+// How long the manga is, from the two partial answers we hold.
+//
 // total_chapters is the provider's static count and is frequently null; known
-// is what chapter_discover has actually seen on the source. Duplicated from
-// useLibrary's identical helper rather than imported — feature folders never
-// import from each other.
+// is what chapter_discover has actually seen on the source. Either can be the
+// larger, and neither may shrink the other: a provider count goes stale the
+// moment a chapter is published, and discovery has only found what it has
+// looked for so far. Preferring total_chapters outright meant a series with 33
+// chapters on the source read "0 / 26" beside a Chapters tab counting 33.
+//
+// Duplicated from useLibrary's identical helper rather than imported — feature
+// folders never import from each other.
 export function totalChapters(detail: SeriesDetail): number | null {
-  return detail.series.total_chapters || detail.series.known || null
+  return Math.max(detail.series.total_chapters ?? 0, detail.series.known ?? 0) || null
 }
 
 export function useSeriesDetail(id: number) {
