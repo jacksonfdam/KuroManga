@@ -5,7 +5,7 @@ from typing import Annotated, Any
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, field_validator, model_validator
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -28,7 +28,13 @@ from app.handlers.list_sync import (
 )
 from app.handlers.suggest_build import upsert_suggestion
 from app.providers import get_source
-from app.providers.base import ListEntryDTO, MangaMeta, QueryUnsupported
+from app.providers.base import (
+    MANGA_FORMATS,
+    PROSE_FORMATS,
+    ListEntryDTO,
+    MangaMeta,
+    QueryUnsupported,
+)
 from app.providers.tokens import NotConnected, access_token_for
 from app.queue import repo
 from app.sources import source_for_url
@@ -442,6 +448,25 @@ class SearchAddIn(AddIn):
     total_chapters: int | None = None
     year: int | None = None
     publishing_status: str | None = None
+    # Bound to the same vocabulary the merge guard reads (MANGA_FORMATS /
+    # PROSE_FORMATS), but unlike alt_ids this never 422s on a value outside
+    # it: MyAnimeList's own search already keeps a candidate whose media_type
+    # it cannot map, with format left unset for the user to judge, and
+    # absent-is-no-evidence has to hold here the same way it holds inside the
+    # guard. Rejecting the request would refuse an add the guard itself would
+    # still allow.
+    format: str | None = None
+
+    @field_validator("format", mode="before")
+    @classmethod
+    def unrecognised_format_reads_as_absent(cls, value: object) -> str | None:
+        # isinstance first: a set membership test on an unhashable value (a
+        # stray list or object in the JSON body) would raise instead of just
+        # reading as unrecognised, which is the one thing this field must
+        # never do.
+        if isinstance(value, str) and (value in MANGA_FORMATS or value in PROSE_FORMATS):
+            return value
+        return None
 
     @model_validator(mode="after")
     def alt_ids_are_other_providers(self) -> "SearchAddIn":
@@ -731,6 +756,7 @@ async def add_unmatched(anime_id: int, body: SearchAddIn, session: Session) -> d
         total_chapters=body.total_chapters,
         year=body.year,
         publishing_status=body.publishing_status,
+        format=body.format,
     )
     score = rank_score(
         anime_status=anime.status,

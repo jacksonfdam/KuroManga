@@ -901,6 +901,78 @@ async def test_adding_a_searched_candidate_creates_the_series_and_the_list_entri
     ]
 
 
+async def test_adding_a_prose_candidate_does_not_merge_onto_a_comic_series(client):
+    """parse_manga_search already drops a candidate whose recognised format is
+    prose, so reaching here with format=NOVEL takes a hand-built request
+    rather than the ordinary search flow. That is what makes this the API
+    boundary's own guard rather than the search screen's: nothing stops a
+    request from naming a format the displayed search results never would,
+    and a status write onto a light novel is not undoable (issue #88)."""
+    anime_id = await insert_anime("anilist", "21")
+    async with get_sessionmaker()() as session:
+        existing = (
+            await session.execute(
+                text(
+                    """
+                    insert into series (canonical_title, slug, needs_review, meta, created_at)
+                    values ('Vinland Saga', 'vinland-saga', true,
+                            '{"aliases": ["vinland saga"]}'::jsonb, now())
+                    returning id
+                    """
+                )
+            )
+        ).scalar_one()
+        await session.execute(
+            text(
+                """
+                insert into list_entry (provider, provider_media_id, series_id, status,
+                                        user_progress_chapter, synonyms, raw, updated_at)
+                values ('mal', '999', :series_id, 'reading', 0, '[]'::jsonb,
+                        '{"node": {"media_type": "manga"}}'::jsonb, now())
+                """
+            ),
+            {"series_id": existing},
+        )
+        await session.commit()
+
+    body = (
+        await client.post(
+            f"/api/discovery/unmatched/{anime_id}/add",
+            json=candidate_body(format="NOVEL"),
+        )
+    ).json()
+
+    async with get_sessionmaker()() as session:
+        series_ids = {row[0] for row in (await session.execute(text("select id from series"))).all()}
+
+    assert body["series_id"] != existing
+    assert series_ids == {existing, body["series_id"]}
+
+
+async def test_an_unrecognised_format_on_a_candidate_does_not_422(client):
+    """MyAnimeList's own search keeps a candidate whose media_type it cannot
+    map, with format left unset - a value this vocabulary has never seen must
+    read the same way here: absent, not a request the route refuses."""
+    anime_id = await insert_anime("anilist", "21")
+    response = await client.post(
+        f"/api/discovery/unmatched/{anime_id}/add",
+        json=candidate_body(format="DOUJINSHI_COMPILATION"),
+    )
+    assert response.status_code == 200
+
+
+async def test_a_malformed_format_does_not_422_either(client):
+    """A set membership test on an unhashable value must not turn a stray
+    shape in the request body into a 500 - it reads as unrecognised, the
+    same as any other value this vocabulary does not know."""
+    anime_id = await insert_anime("anilist", "21")
+    response = await client.post(
+        f"/api/discovery/unmatched/{anime_id}/add",
+        json=candidate_body(format=["MANGA"]),
+    )
+    assert response.status_code == 200
+
+
 async def test_adding_a_searched_candidate_queues_the_status_write(client):
     anime_id = await insert_anime("anilist", "21")
     await client.post(f"/api/discovery/unmatched/{anime_id}/add", json=candidate_body())
