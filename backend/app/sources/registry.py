@@ -20,6 +20,7 @@ from app.sources.comick import SITES, ComickSource
 from app.sources.mangadex import MangaDexSource
 from app.sources.net import CatalogueRow
 from app.sources.templates import TemplateSource
+from app.sources.templates.mangathemesia import MangaThemesiaSource
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +38,9 @@ NATIVE_SOURCES: dict[str, Source] = {
 # here is a row the catalogue knows about and this deployment cannot yet run -
 # reload says so and skips it, the same answer it already gives an unknown
 # template.
-TEMPLATE_CLASSES: dict[str, type[TemplateSource]] = {}
+TEMPLATE_CLASSES: dict[str, type[TemplateSource]] = {
+    "mangathemesia": MangaThemesiaSource,
+}
 
 
 async def reload(session: AsyncSession) -> None:
