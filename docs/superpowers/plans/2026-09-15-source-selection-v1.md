@@ -16,7 +16,7 @@
 - No commit may mention or credit an assistant. No `Co-Authored-By` naming one, no generated-with footer, no trailer of any kind. Enable the hook once: `git config core.hooksPath .githooks`.
 - Micro commits: one focused change each, self-contained and buildable. Imperative scoped subject (`feat(sources):`, `fix(api):`). The body says *why*.
 - `sources/`, `downloader/` and `komga/` are pure at their edges: they take arguments and return values and **never touch the database**. Only `handlers/` writes.
-- Tests run against a real throwaway Postgres. This worktree uses **port 5435**: `docker run -d --name manga-pg-source-v1 -e POSTGRES_USER=manga -e POSTGRES_PASSWORD=manga -e POSTGRES_DB=manga -p 5435:5432 postgres:17-alpine`, then `POSTGRES_HOST=localhost POSTGRES_PORT=5435 .venv/bin/python -m pytest tests -q`. Never reuse 5433 or 5434 — a schema migrated by another branch makes the suite lie about this one.
+- Tests run against a real throwaway Postgres. This worktree uses **port 5438**: `docker run -d --name manga-pg-source-v1 -e POSTGRES_USER=manga -e POSTGRES_PASSWORD=manga -e POSTGRES_DB=manga -p 5438:5432 postgres:17-alpine`, then `POSTGRES_HOST=localhost POSTGRES_PORT=5438 .venv/bin/python -m pytest tests -q`. Never reuse 5433, 5434 or 5435 — a schema migrated by another branch makes the suite lie about this one.
 - `alembic` is not on PATH. Invoke it as `python -m alembic`, including from subprocesses in tests.
 - `.venv/bin/python -m ruff check app/ tests/` must be clean.
 - asyncpg cannot infer the type of a null parameter: `:x is null` must be `cast(:x as text) is null`.
@@ -177,7 +177,7 @@ async def test_an_unknown_override_skips_the_site_instead_of_failing_the_boot(
 
 ```bash
 cd backend
-POSTGRES_HOST=localhost POSTGRES_PORT=5435 .venv/bin/python -m pytest tests/test_source_registry.py -q
+POSTGRES_HOST=localhost POSTGRES_PORT=5438 .venv/bin/python -m pytest tests/test_source_registry.py -q
 ```
 
 Expected: FAIL, `ModuleNotFoundError: No module named 'app.sources.templates'`.
@@ -331,7 +331,7 @@ skip — with construction:
 
 ```bash
 cd backend
-POSTGRES_HOST=localhost POSTGRES_PORT=5435 .venv/bin/python -m pytest tests/test_source_registry.py -q
+POSTGRES_HOST=localhost POSTGRES_PORT=5438 .venv/bin/python -m pytest tests/test_source_registry.py -q
 .venv/bin/python -m ruff check app/ tests/
 ```
 
@@ -471,7 +471,7 @@ def test_pages_parse_in_reading_order_and_carry_a_referer():
 
 ```bash
 cd backend
-POSTGRES_HOST=localhost POSTGRES_PORT=5435 .venv/bin/python -m pytest tests/test_template_mangathemesia.py -q
+POSTGRES_HOST=localhost POSTGRES_PORT=5438 .venv/bin/python -m pytest tests/test_template_mangathemesia.py -q
 ```
 
 Expected: FAIL, `ModuleNotFoundError: No module named 'app.sources.templates.mangathemesia'`.
@@ -631,9 +631,9 @@ def downgrade() -> None:
 
 ```bash
 cd backend
-POSTGRES_HOST=localhost POSTGRES_PORT=5435 .venv/bin/python -m pytest tests -q
+POSTGRES_HOST=localhost POSTGRES_PORT=5438 .venv/bin/python -m pytest tests -q
 .venv/bin/python -m ruff check app/ tests/
-POSTGRES_HOST=localhost POSTGRES_PORT=5435 .venv/bin/python -m alembic heads
+POSTGRES_HOST=localhost POSTGRES_PORT=5438 .venv/bin/python -m alembic heads
 ```
 
 Expected: PASS, clean, and exactly **one** head. Two revisions sharing a parent take the API down on
@@ -772,7 +772,7 @@ def test_the_same_class_serves_a_second_site_from_its_own_row():
 
 ```bash
 cd backend
-POSTGRES_HOST=localhost POSTGRES_PORT=5435 .venv/bin/python -m pytest tests/test_template_iken.py -q
+POSTGRES_HOST=localhost POSTGRES_PORT=5438 .venv/bin/python -m pytest tests/test_template_iken.py -q
 ```
 
 Expected: FAIL, `ModuleNotFoundError: No module named 'app.sources.templates.iken'`.
@@ -847,7 +847,7 @@ TEMPLATE_CLASSES: dict[str, type[TemplateSource]] = {
 
 ```bash
 cd backend
-POSTGRES_HOST=localhost POSTGRES_PORT=5435 .venv/bin/python -m pytest tests -q
+POSTGRES_HOST=localhost POSTGRES_PORT=5438 .venv/bin/python -m pytest tests -q
 .venv/bin/python -m ruff check app/ tests/
 ```
 
@@ -913,7 +913,7 @@ def test_a_chapter_with_no_usable_number_is_skipped_rather_than_numbered_zero():
 
 ```bash
 cd backend
-POSTGRES_HOST=localhost POSTGRES_PORT=5435 .venv/bin/python -m pytest tests/test_source_mangageko.py -q
+POSTGRES_HOST=localhost POSTGRES_PORT=5438 .venv/bin/python -m pytest tests/test_source_mangageko.py -q
 ```
 
 Expected: FAIL, `ModuleNotFoundError: No module named 'app.sources.mangageko'`.
@@ -995,7 +995,7 @@ NATIVE_SOURCES: dict[str, Source] = {
 
 ```bash
 cd backend
-POSTGRES_HOST=localhost POSTGRES_PORT=5435 .venv/bin/python -m pytest tests -q
+POSTGRES_HOST=localhost POSTGRES_PORT=5438 .venv/bin/python -m pytest tests -q
 .venv/bin/python -m ruff check app/ tests/
 
 git add backend/app/sources/mangageko.py backend/tests/test_source_mangageko.py backend/tests/fixtures/sources backend/app/sources/registry.py
@@ -1072,7 +1072,7 @@ NATIVE_SOURCES: dict[str, Source] = {
 
 ```bash
 cd backend
-POSTGRES_HOST=localhost POSTGRES_PORT=5435 .venv/bin/python -m pytest tests -q
+POSTGRES_HOST=localhost POSTGRES_PORT=5438 .venv/bin/python -m pytest tests -q
 .venv/bin/python -m ruff check app/ tests/
 
 git add backend/app/sources/asurascans.py backend/tests/test_source_asurascans.py backend/tests/fixtures/sources backend/app/sources/registry.py
@@ -1269,7 +1269,7 @@ async def test_priority_breaks_a_tie_between_equal_scores(session, monkeypatch, 
 
 ```bash
 cd backend
-POSTGRES_HOST=localhost POSTGRES_PORT=5435 .venv/bin/python -m pytest tests/test_match_search_fanout.py -q
+POSTGRES_HOST=localhost POSTGRES_PORT=5438 .venv/bin/python -m pytest tests/test_match_search_fanout.py -q
 ```
 
 Expected: FAIL — the sequential loop stores nothing when a source hangs, and ignores priority.
@@ -1341,7 +1341,7 @@ wholesale — which is what you want when one source was silent this time and an
 
 ```bash
 cd backend
-POSTGRES_HOST=localhost POSTGRES_PORT=5435 .venv/bin/python -m pytest tests -q
+POSTGRES_HOST=localhost POSTGRES_PORT=5438 .venv/bin/python -m pytest tests -q
 .venv/bin/python -m ruff check app/ tests/
 
 git add backend/app/handlers/match_search.py backend/app/settings_store.py backend/app/api/routes_settings.py backend/tests/test_match_search_fanout.py backend/tests/conftest.py
@@ -1461,7 +1461,7 @@ async def test_toggling_a_site_the_catalogue_does_not_carry_is_a_404(client):
 
 ```bash
 cd backend
-POSTGRES_HOST=localhost POSTGRES_PORT=5435 .venv/bin/python -m pytest tests/test_routes_sources.py -q
+POSTGRES_HOST=localhost POSTGRES_PORT=5438 .venv/bin/python -m pytest tests/test_routes_sources.py -q
 ```
 
 Expected: FAIL, 404 on every request — the router does not exist.
@@ -1629,7 +1629,7 @@ In `backend/app/api/main.py`, add `routes_sources` to the `from app.api import (
 
 ```bash
 cd backend
-POSTGRES_HOST=localhost POSTGRES_PORT=5435 .venv/bin/python -m pytest tests -q
+POSTGRES_HOST=localhost POSTGRES_PORT=5438 .venv/bin/python -m pytest tests -q
 .venv/bin/python -m ruff check app/ tests/
 
 git add backend/app/api/routes_sources.py backend/app/api/main.py backend/tests/test_routes_sources.py

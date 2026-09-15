@@ -1,0 +1,59 @@
+"""A ported template, and the rule that a site on it is configuration.
+
+Upstream, a site is a class that subclasses its template and overrides a handful
+of members - and across the leaves that matter here, almost every override is a
+constant. Mirroring that as one Python subclass per site would put a hundred
+near-empty modules in this repository and make enabling a site a code change
+again, which is the thing registry.reload exists to undo. So a template is a
+class and a site is an *instance* of it, configured from its
+site_catalogue.overrides row.
+"""
+
+from typing import Any, ClassVar
+
+from app.sources.base import Source
+from app.sources.net import CatalogueRow, SiteClient, get_client
+
+
+class TemplateSource(Source):
+    #: Matches site_catalogue.template; registry.TEMPLATE_CLASSES keys on it.
+    template: ClassVar[str] = ""
+
+    #: Attribute names a catalogue row may set through `overrides`. An allow-list
+    #: rather than free assignment: a generated row naming an attribute this
+    #: template does not have is a generator bug, and silently absorbing it would
+    #: leave the site half-configured, parsing against defaults nobody chose.
+    overridable: ClassVar[frozenset[str]] = frozenset()
+
+    def __init__(
+        self,
+        row: CatalogueRow,
+        *,
+        name: str,
+        lang: str = "en",
+        overrides: dict[str, Any] | None = None,
+        client: SiteClient | None = None,
+    ) -> None:
+        self.site = row.key
+        # The catalogue row's base_url is the site's host; `domains` stays the
+        # extra aliases a hand-written class carries, and a template leaf has
+        # none - it is one row, one host.
+        self.domains: tuple[str, ...] = ()
+        self.name = name
+        self.lang = lang
+        self.base_url = row.base_url.rstrip("/")
+        # Injectable so a test drives the template against a recorded fixture
+        # without a live site, and without a live rate limit to wait on.
+        self.client = client or get_client(row)
+        for attribute, value in (overrides or {}).items():
+            if attribute not in self.overridable:
+                raise ValueError(f"{self.template}: {attribute!r} is not an overridable attribute")
+            setattr(self, attribute, value)
+
+    def absolute(self, url: str) -> str:
+        """Site-relative hrefs are the norm in this markup, and a candidate URL
+        that is not absolute cannot be pasted back into Review later.
+        """
+        if url.startswith(("http://", "https://")):
+            return url
+        return f"{self.base_url}/{url.lstrip('/')}"
