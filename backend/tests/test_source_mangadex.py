@@ -116,3 +116,20 @@ async def test_a_chapter_downloads_end_to_end_through_the_python_path(fixture, t
         names = [n for n in archive.namelist() if n != "ComicInfo.xml"]
         assert len(names) == 15
         assert names == sorted(names)
+
+
+async def test_a_chapter_hosted_elsewhere_is_unavailable():
+    """MangaDex answers 200 with no pages when the chapter lives somewhere else.
+
+    Black Clover chapter 1 is one: `externalUrl` points at MangaPlus and
+    `attributes.pages` is 0. Read as a successful listing, it wrote an archive
+    containing nothing but ComicInfo.xml and marked the chapter downloaded.
+    """
+    payload = {"result": "ok", "baseUrl": "https://example.test", "chapter": {"hash": "", "data": []}}
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=payload)
+
+    source = MangaDexSource(client=httpx.AsyncClient(transport=httpx.MockTransport(handler)))
+    with pytest.raises(ChapterUnavailable, match="hosted elsewhere"):
+        await source.list_pages("https://mangadex.org/chapter/65698b34-e7e1-4e42-8b79-a5bf6c8827b8")

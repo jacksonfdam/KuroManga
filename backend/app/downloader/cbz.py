@@ -49,6 +49,14 @@ async def write_cbz(pages: Sequence[bytes], destination: Path, info: ComicInfo) 
     itself: `place_file` is what makes the result atomic, and only works when
     the file it receives is already complete.
     """
+    if not pages:
+        # There is no such thing as a correct chapter with no pages. Writing
+        # one produced an archive holding only ComicInfo.xml, which Komga
+        # indexes and a reader opens to nothing - the exact shape of failure
+        # the page verification in fetcher.py exists to prevent, arriving one
+        # step earlier.
+        raise ValueError(f"refusing to write an archive with no pages: {destination.name}")
+
     destination.parent.mkdir(parents=True, exist_ok=True)
     handle, scratch_name = tempfile.mkstemp(dir=destination.parent, suffix=".cbz.part")
     os.close(handle)

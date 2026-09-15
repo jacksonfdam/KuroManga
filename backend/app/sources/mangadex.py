@@ -224,7 +224,19 @@ class MangaDexSource(Source):
             if exc.response.status_code == 404:
                 raise ChapterUnavailable(f"mangadex has no chapter {chapter_id}") from exc
             raise
-        return parse_at_home(payload)
+        pages = parse_at_home(payload)
+        if not pages:
+            # A 200 with no pages is not an error at MangaDex - it is how a
+            # chapter hosted somewhere else answers. `externalUrl` names the
+            # reader it actually lives in (MangaPlus, most often), and
+            # `attributes.pages` is 0. Black Clover chapter 1 is one: treating
+            # the empty list as a successful listing wrote an archive
+            # containing nothing but ComicInfo.xml, and marked the chapter
+            # downloaded.
+            raise ChapterUnavailable(
+                f"mangadex has no pages for chapter {chapter_id}; it is hosted elsewhere"
+            )
+        return pages
 
     async def set_reading_status(self, manga_id: str, status: ListStatus) -> None:
         """Follow-list status. This is one of the few endpoints that needs the login."""

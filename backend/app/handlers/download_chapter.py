@@ -210,6 +210,12 @@ async def handle(ctx: JobContext) -> None:
     async with semaphore:
         try:
             pages = await source.list_pages(row["chapter_url"])
+            if not pages:
+                # Checked here as well as in each source: a source that answers
+                # 200 with nothing in it is a shape every one of them can grow,
+                # and the cost of missing it is an archive holding only
+                # ComicInfo.xml, marked downloaded.
+                raise ChapterUnavailable(f"{row['source_site']} listed no pages for {number}")
         except ChapterUnavailable as exc:
             await ctx.session.execute(
                 text("update chapter set state = 'skipped' where id = :id"), {"id": chapter_id}
