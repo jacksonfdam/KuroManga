@@ -111,13 +111,3 @@ def test_source_for_url_names_the_enabled_sites_when_nothing_matches():
         base.source_for_url("https://unrelated.example/x")
 
 
-async def test_comick_list_pages_raises_not_implemented():
-    """Not ported yet - its own issue (#97) carries that. MangaDex's own page
-    step is covered by tests/test_source_mangadex.py now that it is ported
-    (#96)."""
-    from app.sources.comick import ComickSource
-
-    with pytest.raises(NotImplementedError):
-        await ComickSource("weebcentral", ("weebcentral.com",)).list_pages(
-            "https://weebcentral.com/chapters/1"
-        )
