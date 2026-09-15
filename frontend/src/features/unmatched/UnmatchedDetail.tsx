@@ -5,6 +5,11 @@ import { api, type UnmatchedAnime } from '../../lib/api'
 import { STATUS_LABEL, type ListStatus } from '../../lib/format'
 import { useAsyncData } from '../../lib/useAsyncData'
 import {
+  UnmatchedButtons,
+  UnmatchedFindings,
+  type UnmatchedActionProps,
+} from './UnmatchedActions'
+import {
   discardedFormatPhrase,
   discardedRelationTitle,
   episodesCounted,
@@ -22,13 +27,29 @@ function Row({ label, value }: { label: string; value: string }) {
   )
 }
 
+/**
+ * One anime, and everything that can be done about it.
+ *
+ * The panel used to describe and nothing more, because the row beside it held
+ * every control. That made the row the only way to use the screen, and a
+ * poster tile has no room for a list of search results — so the actions live
+ * here now, and the grid became possible. The row renders the same two pieces,
+ * so neither layout is the privileged one.
+ */
 export function UnmatchedDetail({
   anime,
   onClose,
-}: {
-  anime: UnmatchedAnime
-  onClose: () => void
-}) {
+  found,
+  searching,
+  busy,
+  showHidden,
+  settingFor,
+  onSearch,
+  onHide,
+  onStatus,
+  onDownload,
+  onAdd,
+}: UnmatchedActionProps & { onClose: () => void }) {
   const load = useCallback(() => api.unmatchedDetail(anime.id), [anime.id])
   const { data, error, reload } = useAsyncData(load)
 
@@ -73,6 +94,28 @@ export function UnmatchedDetail({
           )
         )}
       </div>
+
+      <div className="flex flex-wrap gap-space-sm">
+        <UnmatchedButtons
+          found={found}
+          searching={searching}
+          busy={busy}
+          showHidden={showHidden}
+          onSearch={onSearch}
+          onHide={onHide}
+        />
+      </div>
+
+      <UnmatchedFindings
+        anime={anime}
+        found={found}
+        searching={searching}
+        busy={busy}
+        settingFor={settingFor}
+        onStatus={onStatus}
+        onDownload={onDownload}
+        onAdd={onAdd}
+      />
 
       {!data && error ? (
         <ErrorState title="Couldn't load the details" detail={error} onRetry={reload} />

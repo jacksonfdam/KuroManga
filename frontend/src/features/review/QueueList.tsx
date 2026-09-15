@@ -10,23 +10,23 @@ import type { ReviewQueueItem } from '../../lib/api'
  * near-identical lists are how two screens that should teach each other start
  * disagreeing about what a series looks like. What differs is passed in.
  */
-export function QueueList({
-  items,
-  position,
-  skipped,
-  busy,
-  onPick,
-  onUnignore,
-}: {
+/**
+ * What both layouts of the queue take. The grid and the list are the same data
+ * answering the same question in two shapes, so they share one contract rather
+ * than drifting into two that almost agree.
+ */
+export interface QueueProps {
   items: ReviewQueueItem[]
-  /** Where the one-at-a-time view is standing, so the list can mark it. Null on
-      the ignored tab, which has no position at all. */
+  /** Where the one-at-a-time view is standing, so the layout can mark it. Null
+      on the ignored tab, which has no position at all. */
   position: number | null
   skipped: Set<number>
   busy: boolean
   onPick: ((index: number) => void) | null
   onUnignore: ((item: ReviewQueueItem) => void) | null
-}) {
+}
+
+export function QueueList({ items, position, skipped, busy, onPick, onUnignore }: QueueProps) {
   return (
     <ul className="flex flex-col gap-space-sm">
       {items.map((item, index) => {
