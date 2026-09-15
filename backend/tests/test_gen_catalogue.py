@@ -10,6 +10,8 @@ the original upstream path this tool preserved and see the same source.
 
 import importlib.util
 import json
+import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -150,3 +152,81 @@ def test_cli_writes_to_the_given_path(tmp_path):
         "it.ddtteam",
         "it.walpurgisscan",
     }
+
+
+# The pin: which upstream revision the committed catalogue was generated from.
+#
+# Without it the CI guard cannot exist. Upstream merges every few hours, so a
+# check that regenerates against a moving `main` and diffs the result would fail
+# pull requests that touched neither the generator nor the catalogue - it would
+# be reporting that upstream moved, which is the scheduled job's business, not
+# the guard's.
+
+
+def _git(repo: Path, *args: str) -> None:
+    subprocess.run(
+        ["git", "-C", str(repo), *args],
+        check=True,
+        capture_output=True,
+        env={
+            **os.environ,
+            "GIT_AUTHOR_NAME": "t",
+            "GIT_AUTHOR_EMAIL": "t@t",
+            "GIT_COMMITTER_NAME": "t",
+            "GIT_COMMITTER_EMAIL": "t@t",
+        },
+    )
+
+
+def _checkout(tmp_path: Path) -> Path:
+    repo = tmp_path / "upstream"
+    (repo / "src" / "en" / "x").mkdir(parents=True)
+    (repo / "src" / "en" / "x" / "build.gradle.kts").write_text("// placeholder\n")
+    _git(repo.parent, "init", "-q", repo.name)
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-qm", "seed")
+    return repo
+
+
+def test_the_pin_records_the_revision_of_the_checkout_it_read(tmp_path):
+    gen = _load_gen_catalogue()
+    repo = _checkout(tmp_path)
+    expected = subprocess.run(
+        ["git", "-C", str(repo), "rev-parse", "HEAD"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+    written = gen.write_pin(repo, tmp_path / "upstream.txt")
+
+    assert written == expected
+    # Trailing newline, like the catalogue itself: a file without one is a diff
+    # against every editor that adds it.
+    assert (tmp_path / "upstream.txt").read_text() == f"{expected}\n"
+
+
+def test_a_directory_that_is_not_a_checkout_pins_nothing(tmp_path):
+    gen = _load_gen_catalogue()
+    plain = tmp_path / "slice"
+    plain.mkdir()
+
+    written = gen.write_pin(plain, tmp_path / "upstream.txt")
+
+    # The checked-in test slice is not a git repository, and a generator that
+    # refused to run against it would make this suite impossible. Skipping the
+    # pin is the honest answer: there is no revision to record.
+    assert written is None
+    assert not (tmp_path / "upstream.txt").exists()
+
+
+def test_the_cli_writes_the_pin_beside_the_catalogue(tmp_path):
+    gen = _load_gen_catalogue()
+    repo = _checkout(tmp_path)
+    out = tmp_path / "catalogue.json"
+    pin = tmp_path / "upstream.txt"
+
+    gen.main(["--repo", str(repo), "--out", str(out), "--pin", str(pin)])
+
+    assert pin.read_text().strip()
+    assert out.exists()
