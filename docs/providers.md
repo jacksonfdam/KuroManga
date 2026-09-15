@@ -138,6 +138,30 @@ A second source, enabled in Settings with an instance URL. The upstream ships no
 build recipe lives in `docker-compose.yml` as `dockerfile_inline`, pinned to a commit — without a
 pin every build runs whatever that third party last pushed, as a service on this host.
 
+## FlareSolverr
+
+`backend/app/sources/net.py` · optional, opt-in via Compose profile
+
+Many Madara and Keyoapp sites sit behind a Cloudflare challenge. `SiteClient._inspect` detects one
+by status (403 or 503) plus a marker — `cf-mitigated: challenge`, Cloudflare's own documented
+signal, or the challenge page's `Just a moment...` title alongside `Server: cloudflare` — never by
+status code alone, since a wrong referer also answers 403.
+
+| | |
+|---|---|
+| Solve | `POST /v1` `{"cmd": "request.get", "url": ..., "maxTimeout": 60000}` |
+
+A challenge is solved once per host — concurrent callers hitting it together wait for that one
+solve rather than each starting their own — and the cookies and user agent FlareSolverr returns are
+kept for every later request to that host, page images included, sent back through plain httpx.
+FlareSolverr opens the lock; it is not a proxy, and page images never route through it — that would
+be slow and would not produce byte-exact archives. The clearance cookie is tied to the user agent
+that obtained it, so that travels with it too, not the client's own default.
+
+A failed solve, or no `FLARESOLVERR_URL` configured at all, raises rather than retries: a challenge
+a browser round trip cannot get past is an honest absence, the same call the `asurascan` comment
+above already makes for a source no automation can reach.
+
 ## Komga
 
 `backend/app/komga/client.py` · `X-API-Key` or basic auth
