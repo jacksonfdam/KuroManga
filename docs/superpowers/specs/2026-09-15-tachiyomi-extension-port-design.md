@@ -100,9 +100,21 @@ gives name, language, base URL, content warning, theme and version. The leaf cla
 
 Anything else is refused. An `override fun`, or an `override val` whose right-hand side is not a
 literal, marks the site `hand_ported = false`; it ships in the catalogue but disabled, with the
-reason visible on the settings row. Of the 478 sites on the six templates, 154 are fully derivable
-under this rule today. The number grows as templates absorb the common behavioural overrides, but
-v1 promises 154, not 478.
+reason visible on the settings row. Of the 478 sites on the six templates, **146** are fully
+derivable under this rule today. The number grows as templates absorb the common behavioural
+overrides, but v1 promises 146, not 478.
+
+That figure replaces the 154 this document first claimed. The generator, built in #100, measured
+146 against a fresh clone and the difference was not argued away: a qualified reference such as
+`chapterMode = ChapterMode.AdminAjax` is refused as non-literal, and `chapterMode` is the single
+most frequent override in the corpus. Refusing it is the conservative reading and the safe one —
+the same shape can name a constant defined elsewhere, whose value the generator cannot see, and
+storing the token as if it were the value would be wrong data rather than an honest refusal.
+
+The loosening is available and belongs with the template that defines the enum: once madara
+declares which of its fields are enumerations (#103), a qualified reference to one of *those*
+fields can be accepted by name. Doing it before then would mean guessing which references are
+enum members and which are constants.
 
 ## Download path
 
