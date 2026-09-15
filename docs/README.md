@@ -22,11 +22,9 @@ whether to use it, and is not written for this audience.
 worth remembering. It is loaded automatically and should stay short. These documents are where the
 detail belongs.
 
-The design of record for the original pipeline is
-[`superpowers/specs/2026-09-13-manga-komga-pipeline-design.md`](superpowers/specs/2026-09-13-manga-komga-pipeline-design.md).
-It explains why the deliberate stops exist. It predates the discovery feature and the redesign, so
-**read it for reasoning, not for an inventory** — where it disagrees with the code, the code is
-right.
+The design and implementation documents this project was built from have been removed. They
+described work that has shipped, and the set above covers the same ground from the running system
+instead. [`superpowers/specs/`](superpowers/) keeps only designs for work still ahead.
 
 ## How to keep these accurate
 
