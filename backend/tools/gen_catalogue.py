@@ -20,6 +20,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import subprocess
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -582,6 +583,50 @@ def write_catalogue(entries: list[CatalogueEntry], out_path: Path) -> None:
         fh.write("\n")
 
 
+def upstream_revision(repo_root: Path) -> str | None:
+    """The commit the given checkout is at, or None if it is not a checkout.
+
+    The checked-in test slice is a plain directory, and a generator that
+    insisted on a revision could not be run against it at all. There is simply
+    no revision to record there, and saying so beats inventing one.
+    """
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(repo_root), "rev-parse", "HEAD"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (subprocess.CalledProcessError, FileNotFoundError, OSError):
+        return None
+    return result.stdout.strip() or None
+
+
+def write_pin(repo_root: Path, pin_path: Path) -> str | None:
+    """Record which upstream revision the catalogue beside it was built from.
+
+    The CI guard cannot exist without this. Upstream merges every few hours, so
+    a check that regenerated against a moving `main` and diffed the result would
+    fail pull requests that touched neither the generator nor the catalogue - it
+    would be reporting that upstream had moved, which is the scheduled job's
+    business rather than the guard's. Pinned, the guard answers one question
+    only: does the committed catalogue match what this generator produces from
+    that revision?
+    """
+    revision = upstream_revision(repo_root)
+    if revision is None:
+        return None
+    pin_path.parent.mkdir(parents=True, exist_ok=True)
+    # Trailing newline, like the catalogue: a file without one is a diff against
+    # every editor that adds one.
+    pin_path.write_text(f"{revision}\n", encoding="utf-8")
+    return revision
+
+
+def _default_pin_path() -> Path:
+    return _default_out_path().parent / "upstream.txt"
+
+
 def _default_out_path() -> Path:
     return Path(__file__).resolve().parent.parent / "app" / "catalogue" / "data" / "site_catalogue.json"
 
@@ -601,6 +646,12 @@ def main(argv: list[str] | None = None) -> int:
         help="path to write the catalogue JSON to",
     )
     parser.add_argument(
+        "--pin",
+        type=Path,
+        default=None,
+        help="path to write the upstream revision to (default: upstream.txt beside --out)",
+    )
+    parser.add_argument(
         "--templates",
         type=str,
         default=None,
@@ -616,8 +667,14 @@ def main(argv: list[str] | None = None) -> int:
     templates = frozenset(args.templates.split(",")) if args.templates else None
     entries, stats = build_entries(args.repo, templates)
     write_catalogue(entries, args.out)
+    # Beside the catalogue by default rather than at a fixed path: a run that
+    # redirects --out to a scratch file is checking its own output, and must not
+    # overwrite the pin the committed catalogue is paired with.
+    pin_path = args.pin if args.pin is not None else args.out.parent / "upstream.txt"
+    revision = write_pin(args.repo, pin_path)
 
     if args.report:
+        print(f"upstream revision: {revision or 'not a checkout'}", file=sys.stderr)
         print(f"extensions seen: {stats['extensions_seen']}", file=sys.stderr)
         print(f"gradle unparseable: {stats['gradle_unparseable']}", file=sys.stderr)
         for template, bucket in sorted(stats["by_template"].items()):

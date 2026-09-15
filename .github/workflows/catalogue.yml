@@ -1,0 +1,142 @@
+name: Catalogue
+
+# Two halves of one promise: the committed catalogue is what the generator
+# produces, and upstream moving is something a human sees rather than something
+# KuroManga finds out by silently failing to download.
+
+on:
+  pull_request:
+    # Only when the generated pair or the thing that generates it changes.
+    # Every other pull request is none of this workflow's business, and making
+    # them all clone a 167 MB external repository to prove it would be a tax on
+    # work that cannot affect the answer.
+    paths:
+      - backend/tools/gen_catalogue.py
+      - backend/tools/regenerate_catalogue.sh
+      - backend/app/catalogue/data/**
+      - .github/workflows/catalogue.yml
+  schedule:
+    # Upstream merges from Keiyoushi every six hours. Daily is enough to catch a
+    # domain change while it is still news, and leaves one pull request to read
+    # rather than four.
+    - cron: "17 5 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  UPSTREAM: https://github.com/yuzono/tachiyomi-extensions
+
+jobs:
+  guard:
+    name: committed catalogue matches the generator
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch upstream at the pinned revision
+        run: |
+          set -euo pipefail
+          pin="$(cat backend/app/catalogue/data/upstream.txt)"
+          echo "pinned upstream revision: $pin"
+          # Pinned, not HEAD. Regenerating against a moving upstream would fail
+          # pull requests that touched neither the generator nor the catalogue -
+          # it would be reporting that upstream had moved, which is the
+          # scheduled job's business rather than this one's.
+          git init -q upstream
+          git -C upstream remote add origin "$UPSTREAM"
+          git -C upstream sparse-checkout set --no-cone src
+          git -C upstream fetch -q --depth 1 --filter=blob:none origin "$pin"
+          git -C upstream checkout -q FETCH_HEAD
+
+      - name: Regenerate
+        # The generator is stdlib only, so this needs no dependency install. It
+        # runs through the same script a human runs, which is the point: a guard
+        # invoking the generator differently from the commit it checks would
+        # report a difference that says nothing about the change under review.
+        run: ./backend/tools/regenerate_catalogue.sh "$PWD/upstream"
+
+      - name: The catalogue must match what the generator produced
+        run: |
+          set -euo pipefail
+          if ! git diff --quiet -- backend/app/catalogue/data/; then
+            echo "::error::The committed catalogue does not match the generator's output at the pinned upstream revision."
+            echo "These files are generated. Do not hand-edit them - run:"
+            echo "    ./backend/tools/regenerate_catalogue.sh <a tachiyomi-extensions checkout>"
+            git diff --stat -- backend/app/catalogue/data/
+            git diff -- backend/app/catalogue/data/ | head -200
+            exit 1
+          fi
+          echo "Catalogue matches the generator at the pinned revision."
+
+  refresh:
+    name: regenerate against upstream and open a pull request
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Clone upstream at main
+        run: |
+          set -euo pipefail
+          git clone -q --filter=blob:none --no-checkout --depth 1 "$UPSTREAM" upstream
+          git -C upstream sparse-checkout set --no-cone src
+          git -C upstream checkout -q
+          echo "upstream is at $(git -C upstream rev-parse HEAD)"
+
+      - name: Regenerate
+        run: ./backend/tools/regenerate_catalogue.sh "$PWD/upstream"
+
+      - name: Open a pull request if anything moved
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- backend/app/catalogue/data/; then
+            echo "Upstream has not changed anything this catalogue covers."
+            exit 0
+          fi
+
+          branch="chore/catalogue-refresh"
+          pin="$(cat backend/app/catalogue/data/upstream.txt)"
+
+          git config user.name "Jackson Mafra"
+          git config user.email "jacksonfdam@gmail.com"
+          git checkout -q -B "$branch"
+          git add backend/app/catalogue/data/
+          # Two -m flags rather than a heredoc: a heredoc inside this block
+          # would carry the block's own indentation into the message, and its
+          # terminator would have to sit at column 0 to close at all.
+          git commit -q \
+            -m "chore(catalogue): regenerate against upstream ${pin:0:12}" \
+            -m "The diff is the point: a site that changed domain changed it upstream and nowhere else, and this is how that becomes visible rather than arriving as a download that silently stops working."
+          # Force, because this branch is regenerated output and whatever it
+          # held before is a strictly older answer to the same question.
+          git push -qf origin "$branch"
+
+          if gh pr view "$branch" --json state -q .state 2>/dev/null | grep -q OPEN; then
+            echo "Existing pull request updated."
+            exit 0
+          fi
+
+          printf '%s\n' \
+            "Upstream moved. This is the generated catalogue at \`$pin\`." \
+            "" \
+            "Read the diff rather than the file: a changed \`base_url\` is a site that moved domain, and a removed row is a site that went away upstream. Both reach KuroManga as downloads that stop working, with nothing to say why." \
+            "" \
+            "Generated by \`backend/tools/regenerate_catalogue.sh\`. Do not hand-edit these files - CI regenerates them at the pinned revision and fails if they differ." \
+            > /tmp/catalogue-pr-body.md
+
+          gh pr create \
+            --base main \
+            --head "$branch" \
+            --title "chore(catalogue): regenerate against upstream" \
+            --label infra \
+            --assignee jacksonfdam \
+            --body-file /tmp/catalogue-pr-body.md
