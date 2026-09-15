@@ -2,7 +2,7 @@
 
 ## Processes
 
-Six services in `docker-compose.yml`.
+Seven services in `docker-compose.yml`.
 
 | Service | What it is |
 |---|---|
@@ -12,6 +12,7 @@ Six services in `docker-compose.yml`.
 | `web` | Caddy, serving the built interface and proxying `/api` |
 | `komga` | The library server and reader |
 | `bootstrap` | One-shot: claims Komga if needed, creates the library, exits |
+| `comick` | A second chapter source. Described as optional, but no Compose profile gates it, so it builds and runs with everything else |
 | `comick` | Optional self-hosted source |
 
 **`api`, `worker` and `bootstrap` are the same program with different entrypoints**, and declare the
