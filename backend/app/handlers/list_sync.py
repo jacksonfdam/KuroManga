@@ -6,6 +6,7 @@ same manga on MyAnimeList and AniList share one mapping and one folder.
 """
 
 import json
+from itertools import groupby
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,6 +16,8 @@ from app.enums import JobType, Provider
 from app.handlers.base import JobContext, PermanentError, register
 from app.providers import ListEntryDTO, get_source
 from app.providers.base import MANGA_FORMATS, PROSE_FORMATS
+from app.providers.mal import MEDIA_TYPE_MAP as MAL_KIND_MAP
+from app.providers.mangabaka import KIND_MAP as MANGABAKA_KIND_MAP
 from app.providers.tokens import NotConnected, access_token_for
 from app.text_utils import normalize, slugify
 
@@ -36,6 +39,42 @@ def crosses_prose_boundary(a: str | None, b: str | None) -> bool:
     )
 
 
+def entry_kind_from_raw(provider: str, raw: dict | None) -> str | None:
+    """Recover a stored entry's kind from its own raw payload.
+
+    Every series synced before this guard existed has no `meta.kind` at all -
+    the field is new, so 0 of today's live series carry it - but every entry's
+    `raw` already holds the same field the provider's own parser reads `kind`
+    from. Deriving from `raw` is what lets the guard judge a series that
+    already exists, not only one created after this ships.
+    """
+    raw = raw or {}
+    if provider == str(Provider.MAL):
+        return MAL_KIND_MAP.get((raw.get("node") or {}).get("media_type") or "")
+    if provider == str(Provider.ANILIST):
+        return (raw.get("media") or {}).get("format") or None
+    if provider == str(Provider.MANGABAKA):
+        return MANGABAKA_KIND_MAP.get(((raw.get("Series") or {}).get("type") or "").lower())
+    return None
+
+
+def series_kind_from_entries(kinds: set[str | None]) -> str | None:
+    """Resolve a series' kind from every entry it already holds.
+
+    A series holding any comic entry is a comic series even when it also
+    holds a prose one - the shape of the twelve series issue #88 found
+    already merged this way. Resolving mixed to comic is the safe direction:
+    it refuses further prose from joining rather than letting the corruption
+    compound. A series whose entries state no kind anywhere is unknown, not
+    prose, so it still takes a merge the way it did before this guard.
+    """
+    if kinds & MANGA_FORMATS:
+        return "MANGA"
+    if kinds & PROSE_FORMATS:
+        return "NOVEL"
+    return None
+
+
 async def load_access_token(session: AsyncSession, provider: Provider) -> str:
     try:
         return await access_token_for(session, provider)
@@ -53,12 +92,14 @@ async def find_series_by_alias(
     fallback quietly overrides the identifier evidence, and two works with the
     same name merge exactly as they did before any of this existed.
 
-    A series whose recorded kind is on the opposite side of the prose/comic
+    A series whose entries put it on the opposite side of the prose/comic
     boundary from this entry is the same failure by a different route: the
     identifier guard above only catches a second entry from the *same*
     provider, and a light novel's title overlaps the manga it adapts almost
     completely, so the cross-provider case is the common one, not the edge
-    (see issue #88).
+    (see issue #88). The kind is derived from each candidate's *entries*
+    rather than read off the series itself, because every series that exists
+    today predates the field that would have made that a simple read.
     """
     if not aliases:
         return None
@@ -70,21 +111,24 @@ async def find_series_by_alias(
     result = await session.execute(
         text(
             """
-            select id, meta ->> 'kind' from series
-             where jsonb_exists_any(meta -> 'aliases', cast(:aliases as text[]))
+            select s.id, e.provider, e.raw
+              from series s
+              left join list_entry e on e.series_id = s.id
+             where jsonb_exists_any(s.meta -> 'aliases', cast(:aliases as text[]))
                and (
                    cast(:provider as text) is null
-                   or ((meta -> 'cross_refs') -> cast(:provider as text)) ->> 'id' is null
-                   or ((meta -> 'cross_refs') -> cast(:provider as text)) ->> 'id'
+                   or ((s.meta -> 'cross_refs') -> cast(:provider as text)) ->> 'id' is null
+                   or ((s.meta -> 'cross_refs') -> cast(:provider as text)) ->> 'id'
                       = cast(:media_id as text)
                )
-             order by id
+             order by s.id
             """
         ),
         {"aliases": aliases, "provider": provider, "media_id": media_id},
     )
-    for series_id, series_kind in result.all():
-        if not crosses_prose_boundary(entry_kind, series_kind):
+    for series_id, rows in groupby(result.all(), key=lambda row: row[0]):
+        kinds = {entry_kind_from_raw(row_provider, row_raw) for _, row_provider, row_raw in rows}
+        if not crosses_prose_boundary(entry_kind, series_kind_from_entries(kinds)):
             return series_id
     return None
 
@@ -269,11 +313,12 @@ async def create_series(session: AsyncSession, dto: ListEntryDTO, aliases: list[
                     "aliases": aliases,
                     "cover_url": dto.cover_url,
                     "titles": dto.titles,
-                    # Recorded once, at creation, so find_series_by_alias has
-                    # something to compare a later entry's kind against - see
-                    # crosses_prose_boundary. Left unset when the entry that
-                    # created the series said nothing about its kind, which is
-                    # silence rather than a claim the series is a comic.
+                    # Not read by the merge guard - find_series_by_alias derives
+                    # a candidate's kind from its entries' raw instead, since
+                    # every series that exists today predates this field.
+                    # Recorded anyway as a cheap, direct answer for anything
+                    # that wants "what kind is this series" without joining
+                    # list_entry and re-deriving it, the detail screen included.
                     "kind": dto.kind,
                 }
             ),

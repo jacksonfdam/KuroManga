@@ -20,7 +20,7 @@ from app.providers.base import ListEntryDTO
 from app.providers.mangabaka import cross_references
 
 
-def dto(provider, media_id, *, title, cross_refs=None, kind=None):
+def dto(provider, media_id, *, title, cross_refs=None, kind=None, raw=None):
     return ListEntryDTO(
         provider=provider,
         media_id=media_id,
@@ -29,7 +29,28 @@ def dto(provider, media_id, *, title, cross_refs=None, kind=None):
         title_english=title,
         cross_refs=cross_refs or {},
         kind=kind,
+        raw=raw if raw is not None else _raw_for(provider, kind),
     )
+
+
+# The merge guard derives an already-stored entry's kind from its raw payload,
+# not from `kind` (see find_series_by_alias) - every series that exists today
+# predates that field entirely. These mirror each provider's own shape closely
+# enough that entry_kind_from_raw recovers exactly the `kind` asked for, so a
+# test can say what an entry *is* without hand-building a provider payload.
+_MAL_RAW_TOKEN = {"MANGA": "manga", "MANHWA": "manhwa", "MANHUA": "manhua", "OEL": "oel"}
+
+
+def _raw_for(provider, kind):
+    if kind is None:
+        return {}
+    if provider == Provider.MAL:
+        return {"node": {"media_type": _MAL_RAW_TOKEN.get(kind, kind.lower())}}
+    if provider == Provider.ANILIST:
+        return {"media": {"format": kind}}
+    if provider == Provider.MANGABAKA:
+        return {"Series": {"type": kind.lower()}}
+    return {}
 
 
 @pytest.fixture(autouse=True)
@@ -212,6 +233,69 @@ async def test_an_unrecognised_kind_merges_as_it_did_before_the_guard():
 
         unknown = dto(Provider.ANILIST, "2", title="Reborn", kind=None)
         second, created = await resolve_series(session, unknown)
+        await session.commit()
+
+    assert second == first
+    assert created is False
+
+
+# 0 of 295 series in the live library carry meta.kind - the field is new, and
+# nothing has ever written it before this branch. The guard has to work from
+# what already exists: each entry's own raw payload.
+
+
+async def test_a_legacy_series_still_refuses_a_joining_prose_entry():
+    """The actual shape of every series today: no meta.kind, but a stored
+    entry whose raw already states its kind, the way real synced rows do."""
+    async with get_sessionmaker()() as session:
+        manga = dto(Provider.MAL, "1", title="Reborn", kind=None,
+                    raw={"node": {"media_type": "manga"}})
+        first, _ = await resolve_series(session, manga)
+        await upsert_entry(session, manga, first)
+
+        novel = dto(Provider.ANILIST, "2", title="Reborn", kind="NOVEL")
+        second, created = await resolve_series(session, novel)
+        await session.commit()
+
+    assert second != first
+    assert created is True
+
+
+async def test_a_series_holding_both_kinds_refuses_further_prose():
+    """The shape of the twelve series issue #88 found already corrupted: one
+    manga entry and one novel entry sharing a series. Mixed resolves to comic,
+    which is the direction that stops the corruption from compounding rather
+    than growing it while the repair migration is still pending."""
+    async with get_sessionmaker()() as session:
+        manga = dto(Provider.MAL, "1", title="Reborn", kind="MANGA")
+        first, _ = await resolve_series(session, manga)
+        await upsert_entry(session, manga, first)
+
+        # Modelled directly rather than through resolve_series: this is the
+        # already-corrupted state the fix stops from happening again, not a
+        # merge this branch would ever perform itself.
+        already_merged_novel = dto(Provider.ANILIST, "2", title="Reborn", kind="NOVEL")
+        await upsert_entry(session, already_merged_novel, first)
+
+        third = dto(Provider.MANGABAKA, "3", title="Reborn", kind="NOVEL")
+        second, created = await resolve_series(session, third)
+        await session.commit()
+
+    assert second != first
+    assert created is True
+
+
+async def test_a_series_with_no_recoverable_kind_still_takes_a_classified_entry():
+    """None of this series' stored entries state a kind anywhere in their raw -
+    unknown, not evidence of comic - so a newly classified entry still merges
+    by title exactly as it did before this guard existed."""
+    async with get_sessionmaker()() as session:
+        unclassified = dto(Provider.MAL, "1", title="Reborn", kind=None)
+        first, _ = await resolve_series(session, unclassified)
+        await upsert_entry(session, unclassified, first)
+
+        novel = dto(Provider.ANILIST, "2", title="Reborn", kind="NOVEL")
+        second, created = await resolve_series(session, novel)
         await session.commit()
 
     assert second == first
