@@ -14,8 +14,26 @@ from app import settings_store
 from app.enums import JobType, Provider
 from app.handlers.base import JobContext, PermanentError, register
 from app.providers import ListEntryDTO, get_source
+from app.providers.base import MANGA_FORMATS, PROSE_FORMATS
 from app.providers.tokens import NotConnected, access_token_for
 from app.text_utils import normalize, slugify
+
+
+def crosses_prose_boundary(a: str | None, b: str | None) -> bool:
+    """True when one side is prose and the other a comic - a boundary no title
+    resemblance may cross, however alike the words in each title are.
+
+    None is silence, not a claim: a provider that said nothing, or said
+    something this vocabulary does not cover, has not stated that the work is
+    prose. Every entry synced before this guard existed carries no kind at all,
+    and treating that silence as evidence would refuse merges the title
+    fallback exists to make, not just the fake ones it lets through today.
+    """
+    if a is None or b is None:
+        return False
+    return (a in PROSE_FORMATS and b in MANGA_FORMATS) or (
+        a in MANGA_FORMATS and b in PROSE_FORMATS
+    )
 
 
 async def load_access_token(session: AsyncSession, provider: Provider) -> str:
@@ -28,23 +46,31 @@ async def load_access_token(session: AsyncSession, provider: Provider) -> str:
 async def find_series_by_alias(
     session: AsyncSession, aliases: list[str], dto: ListEntryDTO | None = None
 ) -> int | None:
-    """Match on title, but never over the top of a contradicting identifier.
+    """Match on title, but never over the top of a contradicting identifier or kind.
 
     A series that already records a different id for this entry's own provider is
     a different work, however alike the titles read. Without this the title
     fallback quietly overrides the identifier evidence, and two works with the
     same name merge exactly as they did before any of this existed.
+
+    A series whose recorded kind is on the opposite side of the prose/comic
+    boundary from this entry is the same failure by a different route: the
+    identifier guard above only catches a second entry from the *same*
+    provider, and a light novel's title overlaps the manga it adapts almost
+    completely, so the cross-provider case is the common one, not the edge
+    (see issue #88).
     """
     if not aliases:
         return None
 
     provider = str(dto.provider) if dto else None
     media_id = dto.media_id if dto else None
+    entry_kind = dto.kind if dto else None
 
     result = await session.execute(
         text(
             """
-            select id from series
+            select id, meta ->> 'kind' from series
              where jsonb_exists_any(meta -> 'aliases', cast(:aliases as text[]))
                and (
                    cast(:provider as text) is null
@@ -53,13 +79,14 @@ async def find_series_by_alias(
                       = cast(:media_id as text)
                )
              order by id
-             limit 1
             """
         ),
         {"aliases": aliases, "provider": provider, "media_id": media_id},
     )
-    row = result.first()
-    return row[0] if row else None
+    for series_id, series_kind in result.all():
+        if not crosses_prose_boundary(entry_kind, series_kind):
+            return series_id
+    return None
 
 
 def assertions(dto: ListEntryDTO) -> dict[str, dict[str, str]]:
@@ -238,7 +265,17 @@ async def create_series(session: AsyncSession, dto: ListEntryDTO, aliases: list[
             "title": dto.display_title,
             "slug": slug,
             "meta": json.dumps(
-                {"aliases": aliases, "cover_url": dto.cover_url, "titles": dto.titles}
+                {
+                    "aliases": aliases,
+                    "cover_url": dto.cover_url,
+                    "titles": dto.titles,
+                    # Recorded once, at creation, so find_series_by_alias has
+                    # something to compare a later entry's kind against - see
+                    # crosses_prose_boundary. Left unset when the entry that
+                    # created the series said nothing about its kind, which is
+                    # silence rather than a claim the series is a comic.
+                    "kind": dto.kind,
+                }
             ),
         },
     )

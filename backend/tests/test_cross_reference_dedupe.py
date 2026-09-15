@@ -20,7 +20,7 @@ from app.providers.base import ListEntryDTO
 from app.providers.mangabaka import cross_references
 
 
-def dto(provider, media_id, *, title, cross_refs=None):
+def dto(provider, media_id, *, title, cross_refs=None, kind=None):
     return ListEntryDTO(
         provider=provider,
         media_id=media_id,
@@ -28,6 +28,7 @@ def dto(provider, media_id, *, title, cross_refs=None):
         title_romaji=title,
         title_english=title,
         cross_refs=cross_refs or {},
+        kind=kind,
     )
 
 
@@ -142,3 +143,76 @@ async def test_the_identifiers_are_kept_on_the_series():
     assert stored["mal"]["id"] == "7001"
     assert stored["anilist"]["id"] == "30013"
     assert stored["mangabaka"]["id"] == "1238"
+
+
+# A light novel and the manga that adapts it share a title almost word for word,
+# which is exactly what the fallback above is built to match on. See issue #88:
+# a status write landing on both is not undoable, so these four cover the
+# boundary the way test_different_identifiers_stay_separate_however_alike_the_titles
+# covers the identifier one.
+
+
+async def test_a_novel_and_its_manga_adaptation_stay_separate_on_title_alone():
+    """The gap issue #88 describes: no cross-reference exists yet to catch this,
+    so only the kind guard stands between the title match and a wrong merge."""
+    async with get_sessionmaker()() as session:
+        manga = dto(Provider.MAL, "70259", title="Mushoku Tensei", kind="MANGA")
+        first, _ = await resolve_series(session, manga)
+        await upsert_entry(session, manga, first)
+
+        novel = dto(Provider.ANILIST, "70261", title="Mushoku Tensei", kind="NOVEL")
+        second, created = await resolve_series(session, novel)
+        await session.commit()
+
+    assert second != first
+    assert created is True
+
+
+async def test_an_explicit_identifier_still_crosses_the_prose_boundary():
+    """A fact about identity outranks the kind guard, which only judges resemblance."""
+    async with get_sessionmaker()() as session:
+        bridge = dto(
+            Provider.MANGABAKA, "1238", title="Escape Machine",
+            cross_refs={"mal": "7001"}, kind="MANGA",
+        )
+        first, _ = await resolve_series(session, bridge)
+        await upsert_entry(session, bridge, first)
+
+        # Same MyAnimeList id the bridge already vouched for, but read as prose -
+        # the cross-reference resolves this before the title guard ever runs.
+        novel = dto(Provider.MAL, "7001", title="Tousou Kikou", kind="NOVEL")
+        second, created = await resolve_series(session, novel)
+        await session.commit()
+
+    assert second == first
+    assert created is False
+
+
+async def test_two_comic_vocabularies_for_the_same_work_still_merge():
+    """manga and manhwa name the same shelf in different databases; not a boundary."""
+    async with get_sessionmaker()() as session:
+        manga = dto(Provider.MAL, "1", title="Reborn", kind="MANGA")
+        first, _ = await resolve_series(session, manga)
+        await upsert_entry(session, manga, first)
+
+        manhwa = dto(Provider.MANGABAKA, "2", title="Reborn", kind="MANHWA")
+        second, created = await resolve_series(session, manhwa)
+        await session.commit()
+
+    assert second == first
+    assert created is False
+
+
+async def test_an_unrecognised_kind_merges_as_it_did_before_the_guard():
+    """Silence is not evidence of prose - every row synced before this lands has none."""
+    async with get_sessionmaker()() as session:
+        manga = dto(Provider.MAL, "1", title="Reborn", kind="MANGA")
+        first, _ = await resolve_series(session, manga)
+        await upsert_entry(session, manga, first)
+
+        unknown = dto(Provider.ANILIST, "2", title="Reborn", kind=None)
+        second, created = await resolve_series(session, unknown)
+        await session.commit()
+
+    assert second == first
+    assert created is False
