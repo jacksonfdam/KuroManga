@@ -80,7 +80,14 @@ async def replace_catalogue(session: AsyncSession, entries: list[CatalogueEntry]
             },
         )
 
+    # mangadex and comick are hand-written classes, not templates the generator
+    # produced from the extension repository - it never mentions either of
+    # them, so an unscoped delete here would drop both of them on the very
+    # first regeneration and take the only two working sources down with it.
     await session.execute(
-        text("delete from site_catalogue where key <> all(cast(:keys as text[]))"),
+        text(
+            "delete from site_catalogue"
+            " where key <> all(cast(:keys as text[])) and template <> 'native'"
+        ),
         {"keys": keys},
     )

@@ -76,6 +76,28 @@ async def test_replace_catalogue_drops_a_site_the_new_run_did_not_produce():
     assert keys == ["mangadex"]
 
 
+async def test_a_native_row_survives_a_regeneration_that_does_not_mention_it():
+    """mangadex and comick are hand-written, not generated.
+
+    The generator parses the Tachiyomi extension repository, which does not
+    contain either of them, so every regeneration leaves them out of its own
+    output. The delete this function issues must not read that as "gone".
+    """
+    async with get_sessionmaker()() as session:
+        await replace_catalogue(session, [_entry("mangadex", template="native")])
+        await session.commit()
+
+        await replace_catalogue(session, [_entry("comick")])
+        await session.commit()
+
+        keys = (
+            (await session.execute(text("select key from site_catalogue order by key")))
+            .scalars()
+            .all()
+        )
+    assert keys == ["comick", "mangadex"]
+
+
 async def test_a_preference_survives_its_site_leaving_the_catalogue():
     """The whole point of keeping the tables apart, proved end to end.
 
