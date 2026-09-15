@@ -133,6 +133,14 @@ A second chapter source, self-hosted beside the rest of the stack and enabled in
 default points at the bundled `comick` service and is what Compose uses when the variable is empty,
 so set it only to reach an instance running elsewhere.
 
+The bundled service sits behind a Compose profile and does not start on its own. The upstream ships
+no Dockerfile, so the recipe in `docker-compose.yml` builds it from source, and nobody sourcing
+chapters from MangaDex alone should pay for that compile:
+
+```bash
+docker compose --profile comick up -d
+```
+
 ### FlareSolverr (optional)
 
 ```

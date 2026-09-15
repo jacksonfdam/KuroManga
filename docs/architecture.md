@@ -2,7 +2,8 @@
 
 ## Processes
 
-Seven services in `docker-compose.yml`.
+Eight services in `docker-compose.yml`. Six start with `docker compose up -d`; the last two are
+gated behind Compose profiles and start only when asked for by name.
 
 | Service | What it is |
 |---|---|
@@ -12,8 +13,16 @@ Seven services in `docker-compose.yml`.
 | `web` | Caddy, serving the built interface and proxying `/api` |
 | `komga` | The library server and reader |
 | `bootstrap` | One-shot: claims Komga if needed, creates the library, exits |
-| `comick` | A second chapter source. Described as optional, but no Compose profile gates it, so it builds and runs with everything else |
-| `comick` | Optional self-hosted source |
+| `comick` | A second chapter source, built from source. Profile `comick` |
+| `flaresolverr` | Headless Chrome, for sites behind a Cloudflare challenge. Profile `flaresolverr` |
+
+Both optional services are expensive to start — one compiles a third-party program, the other is
+several hundred megabytes of browser — which is why neither is paid for by someone sourcing
+chapters from MangaDex alone:
+
+```bash
+docker compose --profile comick --profile flaresolverr up -d
+```
 
 **`api`, `worker` and `bootstrap` are the same program with different entrypoints**, and declare the
 same `image: kuromanga:local`. Build one and recreate the others, or they run stale code — the
