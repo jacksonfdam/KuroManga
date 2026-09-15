@@ -17,6 +17,12 @@ from app.enums import ListStatus, Provider
 # ever find, and the user would be writing a status to a real account for it.
 MANGA_FORMATS = {"MANGA", "MANHWA", "MANHUA", "OEL"}
 
+# The prose side of the same vocabulary. Every provider's own words for a novel
+# collapse onto this one value before an entry is built (see MAL's
+# MEDIA_TYPE_MAP and MangaBaka's KIND_MAP), so a merge guard comparing kinds
+# only has to know one prose token, not each provider's own spelling of it.
+PROSE_FORMATS = {"NOVEL"}
+
 
 @dataclass(frozen=True)
 class ListEntryDTO:
@@ -35,6 +41,14 @@ class ListEntryDTO:
     #: that aggregates other databases can state this outright, which turns merging
     #: two lists from a guess about titles into a lookup.
     cross_refs: dict[str, str] = field(default_factory=dict)
+
+    #: What kind of work this is, normalised onto AniList's vocabulary
+    #: (`MANGA_FORMATS` / `PROSE_FORMATS`) whichever provider actually reported
+    #: it. None means the provider said nothing, or said something outside both
+    #: sets - silence, not a claim that the work is prose. Every entry synced
+    #: before this field existed carries None, and `list_sync.find_series_by_alias`
+    #: relies on that distinction to keep from refusing merges it used to allow.
+    kind: str | None = None
 
     @property
     def titles(self) -> list[str]:
