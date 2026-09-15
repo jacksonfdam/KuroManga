@@ -33,6 +33,7 @@ from app.handlers import (  # noqa: F401
 )
 from app.queue import repo
 from app.sources import reload as reload_sources
+from app.sources.net import close_all as close_site_clients
 from app.worker.runner import reclaim_loop, work_loop
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
@@ -170,6 +171,9 @@ async def main() -> None:
     )
     await asyncio.gather(work_loop(concurrency, stop), reclaim_loop(stop))
     scheduler.shutdown(wait=False)
+    # Same reason the API closes these on shutdown: the connections and
+    # cookie jars each SiteClient holds have no other owner to release them.
+    await close_site_clients()
     log.info("worker down")
 
 
