@@ -89,6 +89,7 @@ services:
       KOMGA_PASS: ${KOMGA_PASS:-}
       KOMGA_LIBRARY_NAME: ${KOMGA_LIBRARY_NAME:-Manga}
       COMICK_API_URL: ${COMICK_API_URL:-http://comick:3000}
+      FLARESOLVERR_URL: ${FLARESOLVERR_URL:-}
     command: python -m app.worker.main
     # Same uid as komga, so the files this writes are the files komga can read.
     user: "${PUID:-1000}:${PGID:-1000}"
@@ -132,6 +133,22 @@ services:
     restart: unless-stopped
     expose:
       - "3000"
+    logging: *logging
+
+  flaresolverr:
+    # Headless Chrome, several hundred megabytes - behind its own profile so
+    # `docker compose up -d` never pulls it for someone sourcing only from
+    # MangaDex. #115 is an open issue about this exact pattern being got
+    # wrong for another service; start it explicitly with
+    # `docker compose --profile flaresolverr up -d`.
+    profiles: ["flaresolverr"]
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    restart: unless-stopped
+    environment:
+      LOG_LEVEL: ${FLARESOLVERR_LOG_LEVEL:-info}
+      TZ: ${TZ:-Europe/Lisbon}
+    expose:
+      - "8191"
     logging: *logging
 
   komga:
