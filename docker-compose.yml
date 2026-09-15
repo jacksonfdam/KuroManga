@@ -129,6 +129,13 @@ services:
     logging: *logging
 
   comick:
+    # Optional, and now actually optional. Every document called it that while
+    # the compose file started it for everyone: the upstream ships no
+    # Dockerfile, so the recipe here builds it from source, and a first
+    # `docker compose up` compiled a third-party service for anyone sourcing
+    # chapters from MangaDex alone. Start it with
+    # `docker compose --profile comick up -d`.
+    profiles: ["comick"]
     build: ./docker/comick
     restart: unless-stopped
     expose:
@@ -138,8 +145,7 @@ services:
   flaresolverr:
     # Headless Chrome, several hundred megabytes - behind its own profile so
     # `docker compose up -d` never pulls it for someone sourcing only from
-    # MangaDex. #115 is an open issue about this exact pattern being got
-    # wrong for another service; start it explicitly with
+    # MangaDex. Start it explicitly with
     # `docker compose --profile flaresolverr up -d`.
     profiles: ["flaresolverr"]
     image: ghcr.io/flaresolverr/flaresolverr:latest
