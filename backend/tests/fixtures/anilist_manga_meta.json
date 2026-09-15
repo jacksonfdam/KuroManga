@@ -3,6 +3,7 @@
     "media": [
       {
         "id": 3000,
+        "format": "MANGA",
         "title": {"romaji": "Vinland Saga", "english": "Vinland Saga"},
         "coverImage": {"large": "https://img/vs-manga.jpg"},
         "chapters": 210,
@@ -11,6 +12,7 @@
       },
       {
         "id": 4001,
+        "format": "NOVEL",
         "title": {"romaji": "Mushoku Tensei", "english": "Jobless Reincarnation"},
         "coverImage": {"large": "https://img/mt-manga.jpg"},
         "chapters": null,

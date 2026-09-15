@@ -41,6 +41,14 @@ def test_manga_metadata_is_keyed_by_id_and_keeps_a_missing_count_as_none(fixture
     assert meta["4001"].total_chapters is None
 
 
+def test_manga_metadata_carries_format_so_approval_can_tell_prose_from_comic(fixture):
+    """Without this, approving straight from Discovery is the one path a light
+    novel can still merge onto its manga adaptation by title alone (issue #88)."""
+    meta = parse_manga_meta(fixture("anilist_manga_meta.json"))
+    assert meta["3000"].format == "MANGA"
+    assert meta["4001"].format == "NOVEL"
+
+
 async def test_a_manga_already_on_the_reading_list_is_known(fixture):
     async with get_sessionmaker()() as session:
         await session.execute(
