@@ -1,4 +1,7 @@
+import { Link, useLocation } from 'react-router-dom'
+
 import { Icon, QuickIncrement } from '../../ui'
+import { originState } from '../../lib/backTo'
 import type { Series } from '../../lib/api'
 import { formatChapter, formatSeriesFormat, relativeTime } from '../../lib/format'
 import { totalChapters } from './useLibrary'
@@ -16,6 +19,10 @@ export function ContinueReading({
   pending: ReadonlySet<number>
   onIncrement: (id: number, next: number) => Promise<void>
 }) {
+  // The filters live in the address, so the way back has to carry the address
+  // and not just the route.
+  const location = useLocation()
+
   if (series.length === 0) return null
 
   return (
@@ -33,9 +40,11 @@ export function ContinueReading({
           const extra = total ? total - row.progress : 0
           const format = formatSeriesFormat(row.format)
           return (
-            <div
+            <Link
               key={row.id}
-              className="flex items-center gap-4 rounded-xl bg-surface-container-low p-4 shadow-card"
+              to={`/series/${row.id}`}
+              state={originState(location)}
+              className="group flex items-center gap-4 rounded-xl bg-surface-container-low p-4 shadow-card transition-transform duration-300 hover:-translate-y-0.5 hover:shadow-glow"
             >
               <div className="relative h-28 w-20 shrink-0 overflow-hidden rounded-lg bg-surface-container-highest shadow-sm">
                 {row.cover_url && <img src={row.cover_url} alt="" className="h-full w-full object-cover" />}
@@ -75,7 +84,7 @@ export function ContinueReading({
                   )}
                 </div>
               </div>
-            </div>
+            </Link>
           )
         })}
       </div>

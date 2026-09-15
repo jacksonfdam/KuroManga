@@ -1,6 +1,6 @@
 import { useState } from 'react'
 
-import { Button } from '../../ui'
+import { Button, Icon } from '../../ui'
 import type { SeriesChapter } from '../../lib/api'
 import { formatChapter } from '../../lib/format'
 
@@ -60,11 +60,17 @@ function ChapterStateBadge({ state }: { state: string }) {
 
 // Markup reference: the "Capítulos & Histórico" list in
 // .redesign/detalhes_do_mang_gest_o_de_pipeline_sincronia_multi_destino/code.html.
-// The reference's columns are a release date and a reader action ("Ler
-// Agora" / "Reler") — this pipeline has neither a release calendar nor a
-// reader, so the columns it can honestly show are the ones the API returns:
-// the chapter, its pipeline state, and the local file that state produced.
-export function ChapterTable({ chapters }: { chapters: SeriesChapter[] }) {
+// The reference's release-date column stays dropped — this pipeline has no
+// release calendar — but its reader action is now real: Komga is the reader,
+// and a chapter it has indexed can be opened straight into it.
+export function ChapterTable({
+  chapters,
+  komgaBaseUrl,
+}: {
+  chapters: SeriesChapter[]
+  /** Where Komga is served to a browser. Empty means no reader links at all. */
+  komgaBaseUrl: string
+}) {
   const [showAll, setShowAll] = useState(false)
 
   if (chapters.length === 0) {
@@ -84,34 +90,61 @@ export function ChapterTable({ chapters }: { chapters: SeriesChapter[] }) {
   return (
     <div className="flex flex-col gap-space-sm">
     <div className="overflow-x-auto rounded-xl bg-surface-container-low shadow-card">
-      <table className="w-full min-w-[480px] border-collapse">
+      <table className="w-full min-w-[520px] border-collapse">
         <thead>
           <tr className="border-b border-surface-container-highest/40 text-left font-mono text-label-sm text-outline">
             <th scope="col" className="px-space-md py-space-sm font-normal">Chapter</th>
             <th scope="col" className="px-space-md py-space-sm font-normal">State</th>
-            <th scope="col" className="px-space-md py-space-sm font-normal">Local file</th>
+            <th scope="col" className="w-0 px-space-md py-space-sm text-right font-normal">
+              Read
+            </th>
           </tr>
         </thead>
         <tbody>
           {visible.map((chapter) => (
-            <tr key={chapter.number} className="border-b border-surface-container-highest/20 last:border-0">
-              <td className="px-space-md py-space-sm">
+            <tr
+              key={chapter.number}
+              className="border-b border-surface-container-highest/20 last:border-0 hover:bg-surface-container-high/40"
+            >
+              {/* The file path moved into this cell's tooltip. It was a column
+                  of its own and every row of it was the same directory
+                  truncated at the same point, which told the reader nothing
+                  three columns could not. */}
+              <td
+                className="max-w-[1px] px-space-md py-space-sm"
+                title={chapter.file_path ?? undefined}
+              >
                 <div className="flex flex-col">
                   <span className="text-body-sm font-semibold text-on-surface">
                     Ch {formatChapter(chapter.number)}
                   </span>
                   {chapter.title && (
-                    <span className="truncate font-mono text-label-sm text-outline">{chapter.title}</span>
+                    <span className="truncate font-mono text-label-sm text-outline">
+                      {chapter.title}
+                    </span>
                   )}
                 </div>
               </td>
-              <td className="px-space-md py-space-sm">
+              <td className="w-0 whitespace-nowrap px-space-md py-space-sm">
                 <ChapterStateBadge state={chapter.state} />
               </td>
-              <td className="max-w-[1px] px-space-md py-space-sm">
-                <span className="block truncate font-mono text-label-sm text-outline">
-                  {chapter.file_path ?? '—'}
-                </span>
+              <td className="w-0 whitespace-nowrap px-space-md py-space-sm text-right">
+                {komgaBaseUrl && chapter.komga_book_id ? (
+                  <a
+                    href={`${komgaBaseUrl}/book/${chapter.komga_book_id}/read?page=1&incognito=false`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-lg px-space-sm py-1 font-mono text-label-sm text-primary transition-colors hover:bg-primary/[0.12]"
+                  >
+                    <Icon name="book" className="h-3.5 w-3.5" />
+                    Read
+                  </a>
+                ) : (
+                  // No book id means Komga has not indexed this chapter, and no
+                  // base URL means nobody has said where Komga is. Either way
+                  // the link would 404, which is worse than the dash.
+                  <span className="font-mono text-label-sm text-outline">—</span>
+                )}
               </td>
             </tr>
           ))}

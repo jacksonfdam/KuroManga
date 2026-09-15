@@ -23,6 +23,8 @@ export interface Series {
   genres: string[]
   format: string | null
   updated_at: string | null
+  /** Komga's own id for the series, once a scan has matched it. */
+  komga_series_id: string | null
 }
 
 export interface Candidate {
@@ -41,6 +43,8 @@ export interface SeriesChapter {
   title: string | null
   state: string
   file_path: string | null
+  /** Komga's own id for the book, once it has indexed the downloaded file. */
+  komga_book_id: string | null
 }
 
 export interface SeriesEntry {
@@ -69,6 +73,8 @@ export interface SimilarWork {
   score: number | null
   chapters: number | null
   genres: string[]
+  /** The series in this library that is the same work, if there is one. */
+  series_id: number | null
 }
 
 /**
@@ -144,6 +150,8 @@ export interface SeriesDetail {
   chapters: SeriesChapter[]
   entries: SeriesEntry[]
   reading_minutes_per_chapter: number
+  /** Where Komga is served to a browser. Empty until it is configured. */
+  komga_public_url: string
   reading_frequency: SeriesReadingFrequency
 }
 

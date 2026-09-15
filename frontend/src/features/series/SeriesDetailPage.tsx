@@ -39,6 +39,7 @@ export function SeriesDetailPage() {
     toggleAutoDownload,
     download,
     research,
+    remap,
     setProgress,
     setListStatus,
     saveNotes,
@@ -109,7 +110,11 @@ export function SeriesDetailPage() {
             />
           )}
         </div>
-        <SeriesHeader series={series} metadata={metadata} />
+        <SeriesHeader
+          series={series}
+          metadata={metadata}
+          komgaBaseUrl={detail.komga_public_url}
+        />
       </section>
 
       <ScoreStrip metadata={metadata} />
@@ -145,7 +150,7 @@ export function SeriesDetailPage() {
               onChange={setPanel}
             />
             <div hidden={panel !== 'chapters'}>
-              <ChapterTable chapters={chapters} />
+              <ChapterTable chapters={chapters} komgaBaseUrl={detail.komga_public_url} />
             </div>
             <div hidden={panel !== 'notes'}>
               {/* Mounted even while hidden: NotesPanel holds an unsaved draft in local
@@ -164,7 +169,7 @@ export function SeriesDetailPage() {
         </div>
 
         <aside className="flex flex-col gap-space-md">
-          <MappingPanel mapping={mapping} onResearch={research} />
+          <MappingPanel mapping={mapping} onResearch={research} onRemap={remap} />
           <SyncTargets entries={entries} />
           <DownloadControls
             autoDownload={series.auto_download}
