@@ -2,7 +2,7 @@ import { EmptyState, ErrorState, Icon, NoticeBar, SegmentedControl, Skeleton } f
 import { STATUS_LABEL } from '../../lib/format'
 import type { ListStatus } from '../../lib/format'
 import { api } from '../../lib/api'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ContinueReading } from './ContinueReading'
 import { BatchActionBar } from './BatchActionBar'
 import { SeriesGrid } from './SeriesGrid'
@@ -40,6 +40,15 @@ export function LibraryPage() {
   const selection = useSelection()
   const [applying, setApplying] = useState(false)
   const [batchNotice, setBatchNotice] = useState<string | null>(null)
+
+  // A selection restored from the session describes the library as it was when
+  // the tab was opened. Anything answered in Review, or dropped by a sync,
+  // since then is gone from `all` and has to leave the selection with it, or
+  // the action bar offers to act on more than it can reach.
+  const { retain } = selection
+  useEffect(() => {
+    if (loaded) retain(all.map((row) => row.id))
+  }, [all, loaded, retain])
 
   // The rows settle from the job stream the library already listens to, so the
   // reload here is for the status the API has recorded, not for the writes —
