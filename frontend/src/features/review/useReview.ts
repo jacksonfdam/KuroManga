@@ -12,6 +12,13 @@ export type ReviewView = 'reviewing' | 'queue' | 'ignored'
 
 const REVIEW_VIEWS: readonly ReviewView[] = ['reviewing', 'queue', 'ignored']
 
+/** How the two list tabs draw themselves. Separate from `ReviewView`, which is
+    which tab: the queue can be read as covers or as rows, and the one-at-a-time
+    view is neither. */
+export type QueueLayout = 'grid' | 'list'
+
+const LAYOUTS: readonly QueueLayout[] = ['grid', 'list']
+
 interface Lists {
   queue: ReviewQueueItem[]
   ignored: ReviewQueueItem[]
@@ -35,6 +42,7 @@ export function useReview(onResolved: () => void) {
   // Tab and cursor are addressed: leaving the queue to look something up used
   // to return the screen to the first entry of the first tab.
   const [view, setView] = useUrlState<ReviewView>('tab', 'reviewing', REVIEW_VIEWS)
+  const [layout, setLayout] = useUrlState<QueueLayout>('view', 'grid', LAYOUTS)
   const [skipped, setSkipped] = useState<number[]>(readSkipped)
   const [cursor, setCursor] = useUrlNumber('at', 0)
   const [manualUrl, setManualUrl] = useState('')
@@ -242,6 +250,8 @@ export function useReview(onResolved: () => void) {
   return {
     view,
     setView: changeView,
+    layout,
+    setLayout,
     order,
     ignored: lists.data?.ignored ?? [],
     skipped: useMemo(() => new Set(skipped), [skipped]),

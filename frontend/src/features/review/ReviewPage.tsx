@@ -1,7 +1,8 @@
 import { Button, EmptyState, ErrorState, NoticeBar, SegmentedControl, Skeleton } from '../../ui'
 import { CandidateCard } from './CandidateCard'
-import { QueueList } from './QueueList'
-import { useReview, type ReviewView } from './useReview'
+import { QueueGrid } from './QueueGrid'
+import { QueueList, type QueueProps } from './QueueList'
+import { useReview, type QueueLayout, type ReviewView } from './useReview'
 
 // No mockup depicts this screen. The two-column layout (a fixed series panel
 // beside a candidate list) is built from the library screen's own patterns —
@@ -11,10 +12,26 @@ import { useReview, type ReviewView } from './useReview'
 // The tabs, and the undo that rides on the notice bar, are Unmatched's: that
 // screen already answers "put this one aside, and let me take it back" and the
 // two should teach each other rather than each invent a shape.
+
+// The same two options, and the same two icons, the library offers — this is
+// one control the user learns once.
+const LAYOUTS: { value: QueueLayout; icon: 'grid' | 'list'; label: string }[] = [
+  { value: 'grid', icon: 'grid', label: 'Grid' },
+  { value: 'list', icon: 'list', label: 'List' },
+]
+
+/** One queue, drawn whichever way the user asked for. Both layouts take the
+    same props, so choosing between them is the only thing this decides. */
+function Queue({ layout, ...props }: QueueProps & { layout: QueueLayout }) {
+  return layout === 'grid' ? <QueueGrid {...props} /> : <QueueList {...props} />
+}
+
 export function ReviewPage({ onResolved }: { onResolved: () => void }) {
   const {
     view,
     setView,
+    layout,
+    setLayout,
     order,
     ignored,
     skipped,
@@ -95,7 +112,14 @@ export function ReviewPage({ onResolved }: { onResolved: () => void }) {
         )}
       </div>
 
-      <SegmentedControl options={options} value={view} onChange={setView} />
+      <div className="flex flex-wrap items-center justify-between gap-space-md">
+        <SegmentedControl options={options} value={view} onChange={setView} />
+        {/* Only where there is a list to lay out. The one-at-a-time view is a
+            single series, which is neither a grid nor rows. */}
+        {view !== 'reviewing' && (
+          <SegmentedControl options={LAYOUTS} value={layout} onChange={setLayout} />
+        )}
+      </div>
 
       {error && <NoticeBar tone="error" text={`Couldn't refresh the queue: ${error}`} onRetry={reload} />}
       {notice && (
@@ -115,7 +139,8 @@ export function ReviewPage({ onResolved }: { onResolved: () => void }) {
             detail="Every series has a confirmed source. New matches land here after the next sync."
           />
         ) : (
-          <QueueList
+          <Queue
+            layout={layout}
             items={order}
             position={position}
             skipped={skipped}
@@ -133,7 +158,8 @@ export function ReviewPage({ onResolved }: { onResolved: () => void }) {
             detail="Anything you mark Not interested waits here. Put one back and Review asks about it again."
           />
         ) : (
-          <QueueList
+          <Queue
+            layout={layout}
             items={ignored}
             position={null}
             skipped={skipped}
