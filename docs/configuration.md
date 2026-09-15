@@ -44,7 +44,7 @@ remove the `postgres` volume and start again.
 
 | Variable | What it does |
 |---|---|
-| `LIBRARY_PATH_HOST` | Where chapters are written on your machine. Defaults to `./data/manga` |
+| `LIBRARY_PATH_HOST` | Where chapters are written on your machine. Defaults to `./data/manga` — **set an absolute path**, see below |
 | `LIBRARY_PATH` | Where that folder appears inside the containers. Leave as `/manga` |
 | `PUID` / `PGID` | Your user and group, from `id -u` and `id -g` |
 | `TZ` | Your timezone, used for schedules |
@@ -185,6 +185,19 @@ use and update the redirect URLs you registered with each list service to match.
 
 | | |
 |---|---|
+
+### Set `LIBRARY_PATH_HOST` to an absolute path
+
+The default is relative, and `./` resolves against whichever directory `docker compose` was run
+from. Run it from a git worktree and the library mount points at that worktree's `data/manga` — a
+directory that has never existed. Docker creates a missing bind source silently, as an empty one,
+so nothing fails: the worker writes every archive into a directory Komga does not read, marks the
+chapters downloaded, and — since an existing file is how a chapter is recognised as already held —
+fetches them again on the next run.
+
+The worker refuses to start when the library it can see holds no archives and the database says
+chapters are downloaded, which catches this. An absolute path avoids it altogether.
+
 | Chapters | `LIBRARY_PATH_HOST`, `./data/manga` by default |
 | Komga's data | A Docker volume, `kuromanga_komga_config` |
 | KuroManga's database | A Docker volume, `kuromanga_pgdata` |

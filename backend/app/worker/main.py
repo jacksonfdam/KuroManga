@@ -4,12 +4,14 @@ import asyncio
 import contextlib
 import logging
 import signal
+from pathlib import Path
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from sqlalchemy import text
 
 from app import settings_store
+from app.config import get_settings
 from app.cron import CRON_JOBS
 from app.db import get_sessionmaker
 from app.enums import JobType, Provider
@@ -142,7 +144,53 @@ async def load_registry() -> None:
         await reload_sources(session)
 
 
+class LibraryUnreachable(RuntimeError):
+    """The library the database describes is not the one mounted here."""
+
+
+async def verify_library_mount() -> None:
+    """Refuse to start when the library is empty and the database says it is not.
+
+    A `docker compose up` run from a git worktree resolves the relative default
+    `./data/manga` against that worktree, which is a directory that has never
+    existed - and Docker creates a missing bind source silently, as an empty
+    one. Nothing complains. The worker then writes every archive into a phantom
+    directory, marks each chapter downloaded, shows none of it in Komga, and,
+    because `destination.exists()` is how a chapter is recognised as already
+    held, fetches the same chapters again on every run against sources that
+    rate-limit us. It presents as "downloads work but nothing reaches Komga",
+    which is a long way from the cause.
+
+    Both halves are required. A fresh install has an empty library and no
+    downloaded chapters, and has to start normally; only the contradiction is
+    worth stopping for.
+    """
+    library = Path(get_settings().library_path)
+    async with get_sessionmaker()() as session:
+        expected = (
+            await session.execute(
+                text("select count(*) from chapter where state = 'downloaded'")
+            )
+        ).scalar_one()
+
+    if not expected:
+        return
+
+    found = sum(1 for _ in library.glob("**/*.cbz")) if library.is_dir() else 0
+    if found:
+        return
+
+    raise LibraryUnreachable(
+        f"{library} holds no archives, but the database has {expected} chapters marked "
+        "downloaded. The library mount is almost certainly wrong - check that "
+        "LIBRARY_PATH_HOST is an absolute path, and that compose was not run from a "
+        "git worktree, where the relative default resolves to a directory that does "
+        "not exist."
+    )
+
+
 async def main() -> None:
+    await verify_library_mount()
     await load_registry()
     sessionmaker = get_sessionmaker()
     async with sessionmaker() as session:
