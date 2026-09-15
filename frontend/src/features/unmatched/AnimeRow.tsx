@@ -1,7 +1,6 @@
-import { Button } from '../../ui'
 import type { SearchCandidate, UnmatchedAnime, UnmatchedSearch } from '../../lib/api'
 import type { ListStatus } from '../../lib/format'
-import { SearchResults } from './SearchResults'
+import { UnmatchedButtons, UnmatchedFindings } from './UnmatchedActions'
 import { episodesCounted, providerName, titleOf } from './labels'
 import type { Choice } from './useUnmatched'
 
@@ -89,41 +88,27 @@ export function AnimeRow({
           </div>
         </div>
         <div className="flex shrink-0 flex-wrap gap-space-sm">
-          {!showHidden && (
-            <Button
-              variant="primary"
-              icon="search"
-              disabled={searching || busy !== null}
-              onClick={onSearch}
-              title="Asks AniList and MyAnimeList about this one title"
-            >
-              {searching ? 'Searching…' : found ? 'Search again' : 'Search by title'}
-            </Button>
-          )}
-          <Button variant="ghost" disabled={busy !== null} onClick={onHide}>
-            {showHidden ? 'Unhide' : 'Hide'}
-          </Button>
+          <UnmatchedButtons
+            found={found}
+            searching={searching}
+            busy={busy}
+            showHidden={showHidden}
+            onSearch={onSearch}
+            onHide={onHide}
+          />
         </div>
       </div>
 
-      {searching && (
-        <p className="text-body-sm text-tertiary">
-          Asking AniList and MyAnimeList for “{anime.title_romaji || name}” — two providers, so give
-          it a moment.
-        </p>
-      )}
-
-      {found && (
-        <SearchResults
-          anime={anime}
-          found={found}
-          busy={busy}
-          settingFor={settingFor}
-          onStatus={onStatus}
-          onDownload={onDownload}
-          onAdd={onAdd}
-        />
-      )}
+      <UnmatchedFindings
+        anime={anime}
+        found={found}
+        searching={searching}
+        busy={busy}
+        settingFor={settingFor}
+        onStatus={onStatus}
+        onDownload={onDownload}
+        onAdd={onAdd}
+      />
     </article>
   )
 }
