@@ -32,6 +32,7 @@ from app.handlers import (  # noqa: F401
     suggest_build,
 )
 from app.queue import repo
+from app.sources import reload as reload_sources
 from app.worker.runner import reclaim_loop, work_loop
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
@@ -131,7 +132,17 @@ ENQUEUERS = {
 }
 
 
+async def load_registry() -> None:
+    """The registry is loaded once here rather than queried per job - see
+    app/sources/registry.py - so a download or a search job never waits on
+    Postgres just to find out which sites are enabled.
+    """
+    async with get_sessionmaker()() as session:
+        await reload_sources(session)
+
+
 async def main() -> None:
+    await load_registry()
     sessionmaker = get_sessionmaker()
     async with sessionmaker() as session:
         concurrency = await settings_store.get_int(session, settings_store.DOWNLOAD_CONCURRENCY)
