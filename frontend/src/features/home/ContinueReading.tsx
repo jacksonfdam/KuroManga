@@ -1,7 +1,8 @@
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 
 import { Icon, ProgressBar, QuickIncrement } from '../../ui'
 import type { ContinueReadingEntry } from '../../lib/api'
+import { originState } from '../../lib/backTo'
 import { formatChapter } from '../../lib/format'
 
 /**
@@ -22,11 +23,15 @@ function Entry({
   onIncrement: (seriesId: number, next: number) => Promise<void>
 }) {
   const total = row.total_chapters
+  // Home links straight into a series, so "back" has to mean Home rather than
+  // the library the detail screen used to assume.
+  const location = useLocation()
 
   return (
     <article className="flex gap-space-md rounded-xl bg-surface-container-low p-space-md shadow-card">
       <Link
         to={`/series/${row.series_id}`}
+        state={originState(location)}
         className="h-28 w-20 shrink-0 overflow-hidden rounded-lg bg-surface-container-highest shadow-sm"
       >
         {row.cover_url && (
@@ -51,7 +56,11 @@ function Entry({
         </div>
 
         <h3 className="mt-1 truncate text-body-md font-bold text-on-surface" title={row.title}>
-          <Link to={`/series/${row.series_id}`} className="hover:underline">
+          <Link
+            to={`/series/${row.series_id}`}
+            state={originState(location)}
+            className="hover:underline"
+          >
             {row.title}
           </Link>
         </h3>

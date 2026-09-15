@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useLocation, useParams } from 'react-router-dom'
 
+import { backTo } from '../../lib/backTo'
 import { Button, EmptyState, ErrorState, Icon, NoticeBar, Skeleton, Tabs } from '../../ui'
 import { ChapterTable } from './ChapterTable'
 import { CharacterGrid } from './CharacterGrid'
@@ -43,17 +44,20 @@ export function SeriesDetailPage() {
     saveNotes,
   } = useSeriesDetail(seriesId)
   const [panel, setPanel] = useState<Panel>('chapters')
+  // The screen that linked here says where "back" goes; the library stands in
+  // when nothing did, which is what a pasted address or a reload amounts to.
+  const back = backTo(useLocation())
 
   if (notFound) {
     return (
       <EmptyState
         icon="warning"
         title="Series not found"
-        detail="It may have been removed. Head back to the library and pick another one."
+        detail={`It may have been removed. Head back to the ${back.label} and pick another one.`}
         action={
-          <Link to="/library">
+          <Link to={back.to}>
             <Button variant="surface" icon="book">
-              Back to library
+              Back to {back.label}
             </Button>
           </Link>
         }
@@ -81,11 +85,11 @@ export function SeriesDetailPage() {
   return (
     <div className="flex flex-col gap-space-xl">
       <Link
-        to="/library"
+        to={back.to}
         className="flex w-fit items-center gap-space-xs text-body-sm text-on-surface-variant hover:text-on-surface"
       >
         <Icon name="chevron" className="h-4 w-4 rotate-90" />
-        Back to library
+        Back to {back.label}
       </Link>
 
       {/* A page already showing real data stays showing it — a failed
