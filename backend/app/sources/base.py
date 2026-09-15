@@ -23,11 +23,10 @@ class ChapterUnavailable(RuntimeError):
     """The source itself says the chapter is gone - a 404 on the chapter URL,
     or an empty page list - not that one request to reach it failed.
 
-    Named after app.downloader.runner.ChapterUnavailable, the signal the old
-    binary path used for the same distinction, so a future handler can map
-    either one to PermanentError without a per-source special case (#95
-    territory - this module does not depend on app.downloader, so the name
-    is shared rather than imported).
+    The distinction is the whole point: a handler maps this to PermanentError
+    and everything else onto the retry ladder, because retrying a chapter the
+    source has removed cannot succeed and costs three more attempts to find
+    that out.
     """
 
 

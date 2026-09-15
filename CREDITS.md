@@ -18,8 +18,9 @@ decision not to build a reader is a decision to use this one.
 ### The downloader
 
 **[manga-downloader](https://github.com/elboletaire/manga-downloader)** — Òscar Casajuana Alonso. A
-Go command line tool that turns a manga URL and a chapter range into CBZ files. KuroManga invokes it
-as a subprocess and does not reimplement any part of it.
+Go command line tool that turns a manga URL and a chapter range into CBZ files. KuroManga ran on it
+for its whole first life and no longer invokes it: fetching and archiving are now Python, so that
+the pipeline can reach sites the tool did not cover. The credit stands for the work it did.
 
 **[comick-source-api](https://github.com/GooglyBlox/comick-source-api)** — GooglyBlox. A self-hosted
 source API, optionally run as an additional search and download source.

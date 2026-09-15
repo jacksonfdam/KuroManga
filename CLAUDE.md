@@ -134,19 +134,18 @@ one screen at a time, they did not.
 
 ### Batching
 
-`manga-downloader` reads a manga's entire chapter index on every invocation, so one job per chapter
-meant re-reading seven hundred entries per file and the source answered with errors under load. A
-batch passes the tool's own range syntax (`1-20,22,25-30`) and costs one index read. Batch size is a
-`setting`, default 20 — a single job for a whole backlog would hold one lease for hours and fail all
-or nothing. Partial results are kept and the remainder requeued.
+Batching outlived the reason it was introduced. The old download binary re-read a manga's entire
+chapter index on every invocation, so one job per chapter meant re-reading seven hundred entries per
+file and the source answered with errors under load. On the Python path a chapter costs one request,
+and a batch now exists to size the lease and amortise the series metadata read — a single job for a
+whole backlog would hold one lease for hours and fail all or nothing. Batch size is a `setting`,
+default 20. Partial results are kept and the remainder requeued.
 
 ## Gotchas learned the hard way
 
 - **Do not set `user:` on the `komga` service.** It cannot then write `/config`, and the failure is a
   `SQLITE_CANTOPEN` restart loop that never mentions permissions. `PUID`/`PGID` are for the worker,
   which is the only service that writes the library.
-- **The downloader binary must be built against the runtime's libc.** A musl build copied onto glibc
-  execs into a missing loader and reports itself as "not found" while sitting there, executable.
 - **asyncpg cannot infer the type of a null parameter.** `:x is null` must be
   `cast(:x as text) is null`, or the query fails at bind time rather than in review.
 - **Every provider contract in this repo was read from the provider's own documentation or OpenAPI
