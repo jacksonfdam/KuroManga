@@ -1,7 +1,8 @@
 """Contract for a source site, plus the registry that picks one for a URL.
 
-A source answers two questions and nothing else: which manga match this title,
-and which chapters exist at this URL. Downloading is the downloader's job.
+A source answers three questions: which manga match this title, which
+chapters exist at this URL, and which pages a chapter has. Fetching those
+pages is the downloader's job.
 """
 
 from abc import ABC, abstractmethod
@@ -38,6 +39,19 @@ class ChapterRef:
     language: str = "en"
 
 
+@dataclass(frozen=True)
+class PageRef:
+    """One page of a chapter.
+
+    Headers travel with the page rather than with the source: many sites
+    answer 403 without their own referer, and that referer is per-chapter,
+    not per-site.
+    """
+
+    url: str
+    headers: dict[str, str] = field(default_factory=dict)
+
+
 class Source(ABC):
     site: str
     domains: tuple[str, ...]
@@ -49,6 +63,10 @@ class Source(ABC):
     @abstractmethod
     async def list_chapters(self, url: str, *, language: str = "en") -> list[ChapterRef]:
         """Every chapter the source publishes for this manga."""
+
+    @abstractmethod
+    async def list_pages(self, chapter_url: str, *, language: str = "en") -> list[PageRef]:
+        """Every page image for one chapter, in reading order."""
 
 
 _REGISTRY: dict[str, Source] = {}

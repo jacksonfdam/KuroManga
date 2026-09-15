@@ -11,7 +11,7 @@ import httpx
 
 from app.discovery.status_sync import mangadex_status
 from app.enums import ListStatus
-from app.sources.base import Candidate, ChapterRef, NotConfigured, Source, register
+from app.sources.base import Candidate, ChapterRef, NotConfigured, PageRef, Source, register
 from app.sources.mangadex_auth import tokens
 from app.text_utils import best_similarity
 
@@ -175,6 +175,10 @@ class MangaDexSource(Source):
             if offset >= total or not payload.get("data"):
                 break
         return deduplicate(chapters)
+
+    async def list_pages(self, chapter_url: str, *, language: str = "en") -> list[PageRef]:
+        # Its own issue (#93 territory) lands the at-home /image endpoint dance.
+        raise NotImplementedError
 
     async def set_reading_status(self, manga_id: str, status: ListStatus) -> None:
         """Follow-list status. This is one of the few endpoints that needs the login."""
