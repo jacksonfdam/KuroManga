@@ -1,7 +1,10 @@
 from decimal import Decimal
+from pathlib import Path
 
 from app.sources import source_for_url
-from app.sources.comick_client import parse_chapters, parse_search
+from app.sources.comick_client import parse_chapters, parse_pages, parse_search
+
+FIXTURES = Path(__file__).parent / "fixtures"
 
 
 def test_search_scores_the_exact_title_above_a_near_miss(fixture):
@@ -74,3 +77,38 @@ def test_recorded_chapters_fixture_parses_in_order(fixture):
 
 def test_a_weebcentral_url_resolves_to_the_registered_source():
     assert source_for_url("https://weebcentral.com/series/abc").site == "weebcentral"
+
+
+def test_recorded_pages_fixture_parses_in_order():
+    """Recorded from the live service: GET /api/proxy/html, proxying weebcentral's
+    own htmx fragment for https://weebcentral.com/chapters/01J76XYYRPD6MW53E6Y89K3NY5
+    (Attack on Titan, Episode 1) — comick has no dedicated pages endpoint.
+    """
+    chapter_url = "https://weebcentral.com/chapters/01J76XYYRPD6MW53E6Y89K3NY5"
+    html = (FIXTURES / "comick_pages.html").read_text()
+
+    pages = parse_pages(html, chapter_url)
+
+    assert len(pages) == 53
+    assert all(p.url.startswith("https://hot.planeptune.us/") for p in pages)
+    assert pages[0].url.endswith("0001-001.png")
+    assert pages[-1].url.endswith("0001-053.png")
+
+
+def test_pages_carry_the_chapter_url_as_referer():
+    chapter_url = "https://weebcentral.com/chapters/01J76XYYRPD6MW53E6Y89K3NY5"
+    html = (FIXTURES / "comick_pages.html").read_text()
+
+    pages = parse_pages(html, chapter_url)
+
+    assert all(p.headers.get("Referer") == chapter_url for p in pages)
+
+
+def test_a_missing_chapter_renders_no_pages():
+    """weebcentral serves its own 404 page with a 200 status for a chapter that
+    does not exist, so the parser must read for actual page images rather than
+    trust the response status - exercised directly since the live 404 page is
+    large chrome not worth recording as its own fixture.
+    """
+    html = "<html><body><img src=\"/static/images/404.png\"></body></html>"
+    assert parse_pages(html, "https://weebcentral.com/chapters/does-not-exist") == []

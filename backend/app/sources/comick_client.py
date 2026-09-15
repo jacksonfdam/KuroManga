@@ -1,20 +1,29 @@
 """Client for comick-source-api, which scrapes many sites behind one JSON API.
 
-It answers where a manga lives and which chapters exist. It never returns page
-images — there is no endpoint for them — so downloading stays with the binary,
-which already supports the sites registered here.
+It answers where a manga lives, which chapters exist, and — for weebcentral —
+which pages a chapter has. There is no dedicated pages endpoint; weebcentral
+loads a chapter's images through its own htmx fragment, and the service's
+`/api/proxy/html` (built as a CORS workaround for its browser userscript) is
+willing to fetch any weebcentral URL server-side and hand back the raw HTML,
+so that fragment is what gets proxied and parsed here instead.
 """
 
+import re
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
 import httpx
 
 from app.config import get_settings
-from app.sources.base import Candidate, ChapterRef
+from app.sources.base import Candidate, ChapterRef, PageRef
 from app.text_utils import best_similarity
 
 HEALTH_TIMEOUT_SECONDS = 3
+
+# The images fragment is the only element on the page whose <img> src is an
+# absolute https:// URL - the site's own chrome (logos, icons) is all relative.
+# A missing chapter renders the site's 404 page instead, which matches nothing.
+PAGE_IMAGE = re.compile(r'<img\s+src="(https://[^"]+)"')
 
 
 def _to_int(value: Any) -> int | None:
@@ -72,6 +81,18 @@ def parse_chapters(payload: dict[str, Any]) -> list[ChapterRef]:
     return sorted(chapters, key=lambda c: c.number)
 
 
+def parse_pages(html: str, chapter_url: str) -> list[PageRef]:
+    """Pure parser for weebcentral's own images fragment, proxied verbatim.
+
+    The referer is the chapter page itself - what a browser would actually
+    send - not a guess, since the proxy hands back bytes with no headers of
+    its own for the page CDN.
+    """
+    return [
+        PageRef(url=url, headers={"Referer": chapter_url}) for url in PAGE_IMAGE.findall(html)
+    ]
+
+
 class ComickClient:
     def __init__(self, base_url: str | None = None, client: httpx.AsyncClient | None = None):
         self._base_url = (base_url or get_settings().comick_api_url).rstrip("/")
@@ -93,6 +114,25 @@ class ComickClient:
 
     async def chapters(self, url: str, source: str) -> dict[str, Any]:
         return await self._post("/api/chapters", {"url": url, "source": source})
+
+    async def pages_html(self, chapter_url: str) -> str:
+        # The trailing `/images` path is weebcentral's own htmx fragment
+        # endpoint - the same request a browser tab makes once a chapter
+        # finishes loading. `is_prev` only affects which reading direction
+        # the site's own "load more" control assumes; a fixed value here
+        # doesn't change which pages a full fragment returns.
+        images_url = f"{chapter_url}/images?is_prev=False"
+        if self._client is not None:
+            response = await self._client.get(
+                f"{self._base_url}/api/proxy/html", params={"url": images_url}
+            )
+        else:
+            async with httpx.AsyncClient(timeout=30) as owned:
+                response = await owned.get(
+                    f"{self._base_url}/api/proxy/html", params={"url": images_url}
+                )
+        response.raise_for_status()
+        return response.text
 
     async def health(self) -> bool:
         try:
