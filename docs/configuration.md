@@ -133,6 +133,30 @@ A second chapter source, self-hosted beside the rest of the stack and enabled in
 default points at the bundled `comick` service and is what Compose uses when the variable is empty,
 so set it only to reach an instance running elsewhere.
 
+### FlareSolverr (optional)
+
+```
+FLARESOLVERR_URL=
+```
+
+Some Madara and Keyoapp sites sit behind a Cloudflare challenge; the worker clears it once per host
+through FlareSolverr and reuses the cookies it returns for every later request, page images
+included. Leave this empty unless a source you use needs it — most catalogue sites do not, and a
+headless-Chrome image is several hundred megabytes nobody else should have to pull.
+
+It is not started by `docker compose up -d`. Bring it up first, then point the worker at it:
+
+```bash
+docker compose --profile flaresolverr up -d
+```
+
+```
+FLARESOLVERR_URL=http://flaresolverr:8191
+```
+
+With the variable empty, a site that needs a challenge solved fails clearly, saying so — it does
+not look like the site itself being unreachable.
+
 ## Reading on your phone
 
 Komga on port 25600 is what your reader connects to. Install any Komga-compatible reader, point

@@ -47,6 +47,13 @@ class Settings(BaseSettings):
     # for page images, so it never touches downloading itself.
     comick_api_url: str = "http://comick:3000"
 
+    # Headless-Chrome Cloudflare challenge solver. Empty by default, and its
+    # Compose service sits behind the `flaresolverr` profile (#92, decision
+    # 6) - it is a several-hundred-megabyte image nobody sourcing from
+    # MangaDex needs, and #115 is an open issue about exactly that pattern
+    # being got wrong for another service.
+    flaresolverr_url: str = ""
+
     @property
     def database_url(self) -> str:
         return (
