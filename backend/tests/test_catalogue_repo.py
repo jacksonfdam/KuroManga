@@ -130,3 +130,22 @@ async def test_a_preference_survives_a_regeneration_that_still_carries_its_site(
             await session.execute(text("select enabled from source_pref where key = 'mangadex'"))
         ).scalar_one()
     assert enabled is False
+
+
+async def test_replace_catalogue_refuses_an_empty_catalogue():
+    """A generator that parsed nothing must not disable every source at once.
+
+    The registry is built from this table, so an accepted empty list would
+    take searching and downloading down for the whole library, and the stored
+    catalogue it overwrote is the one thing that still worked.
+    """
+    async with get_sessionmaker()() as session:
+        await replace_catalogue(session, [_entry("mangadex")])
+        await session.commit()
+
+        with pytest.raises(ValueError):
+            await replace_catalogue(session, [])
+        await session.rollback()
+
+        keys = (await session.execute(text("select key from site_catalogue"))).scalars().all()
+    assert keys == ["mangadex"]

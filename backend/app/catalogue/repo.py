@@ -32,11 +32,16 @@ class CatalogueEntry:
 async def replace_catalogue(session: AsyncSession, entries: list[CatalogueEntry]) -> None:
     """Upsert every entry by key, then drop whatever key the new run left out.
 
-    An empty `entries` list is a legitimate regeneration result (the source
-    repository failed to parse, say) and wipes the catalogue rather than
-    silently doing nothing - a stale catalogue that no longer matches what
-    the generator can produce is worse than an empty one that says so.
+    An empty list is refused rather than obeyed. The source registry is built
+    from this table, so emptying it disables searching and downloading for the
+    whole library at once - and the way an empty list reaches here is a
+    generator that failed to parse its input, which is precisely when the
+    catalogue already stored is the better of the two. A caller that genuinely
+    means to empty the table can delete from it and say so.
     """
+    if not entries:
+        raise ValueError("replace_catalogue refuses an empty catalogue")
+
     keys: list[str] = []
     for entry in entries:
         keys.append(entry.key)
@@ -75,8 +80,6 @@ async def replace_catalogue(session: AsyncSession, entries: list[CatalogueEntry]
             },
         )
 
-    # `<> all(...)` over an empty array is true for every row, which is what
-    # makes the empty-entries case above wipe the table rather than no-op.
     await session.execute(
         text("delete from site_catalogue where key <> all(cast(:keys as text[]))"),
         {"keys": keys},
