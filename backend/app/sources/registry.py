@@ -30,13 +30,13 @@ from app.sources.templates.mangathemesia import MangaThemesiaSource
 logger = logging.getLogger(__name__)
 
 # template = 'native' rows are hand-written Python classes, not generated
-# template leaves - instantiating a template from overrides arrives with
-# issue #103. Keyed by site_catalogue.key, not by Source.site: the comick
-# module currently serves exactly one site, weebcentral, under the catalogue
-# key "comick".
+# template leaves. Keyed by site_catalogue.key, which is always the source's own
+# site: the comick module serves weebcentral, and keying its row after the
+# service that fetches it instead of the site it serves broke every lookup that
+# goes the other way (0014).
 NATIVE_SOURCES: dict[str, Source] = {
     "mangadex": MangaDexSource(),
-    "comick": ComickSource(*SITES[0]),
+    "weebcentral": ComickSource(*SITES[0]),
     "mangageko": MangaGekoSource(),
     "asurascans": AsuraScansSource(),
 }
