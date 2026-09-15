@@ -1,0 +1,127 @@
+"""Fetches a chapter's page images through the site client and refuses
+anything that is not really an image.
+
+This replaces the fetching half of the manga-downloader binary. The bytes it
+hands back go straight into downloader.cbz.write_cbz - nothing between here
+and the archive re-reads the network, so what this module accepts is what
+Komga ends up serving.
+"""
+
+import asyncio
+
+import httpx
+
+from app.downloader.cbz import page_extension
+from app.sources.base import PageRef
+from app.sources.net import SiteClient
+
+# Bounds concurrent GETs against one host within one chapter. These are small
+# sites and the rate limit from #91 already governs how fast requests may
+# leave - this number only exists to stop a sixty-page chapter opening sixty
+# sockets at once. Not a setting: #95 wires the handlers and can promote it
+# if a real site ever needs a different value.
+HOST_CONCURRENCY_LIMIT = 4
+
+# 5xx and timeouts retry; everything else (decision 5, #93) does not. Three
+# attempts with a short, linearly growing backoff is enough to ride out a
+# site's own momentary hiccup without turning one flaky page into a long
+# stall on every chapter.
+_MAX_ATTEMPTS = 3
+_RETRY_BACKOFF_SECONDS = 0.25
+
+
+class PageFetchError(RuntimeError):
+    """A response came back, but the bytes are not an image.
+
+    Decision 2 (#93): this fails the whole chapter rather than skipping the
+    page and carrying on - a chapter silently missing one page looks complete
+    and nobody notices until they read it, which is worse than a chapter that
+    visibly failed.
+    """
+
+
+async def fetch_pages(client: SiteClient, pages: list[PageRef]) -> list[bytes]:
+    """Fetch every page and return their bytes, index-aligned with `pages`.
+
+    Concurrency is this function's problem, not the caller's: the archive is
+    written straight from the returned list, so page order is the only
+    contract between the two, and the results are collected by index rather
+    than by completion order.
+
+    A task group rather than gather, so that the first page to fail cancels
+    the rest. gather leaves its siblings running: a chapter that failed on
+    page 2 would go on pulling the other fifty-eight from a site that is
+    most likely already refusing us, which is the behaviour that earns a ban.
+    """
+    semaphore = asyncio.Semaphore(HOST_CONCURRENCY_LIMIT)
+    results: list[bytes | None] = [None] * len(pages)
+
+    async def bound(index: int, page: PageRef) -> None:
+        async with semaphore:
+            results[index] = await _fetch_one(client, page)
+
+    try:
+        async with asyncio.TaskGroup() as group:
+            for index, page in enumerate(pages):
+                group.create_task(bound(index, page))
+    except ExceptionGroup as failures:
+        # A task group reports as an ExceptionGroup, but a caller of this
+        # module wants the failure it would have got from a single fetch -
+        # PageFetchError, or httpx's own - not a wrapper it has to unpack.
+        # Several pages failing together says nothing more than the first.
+        raise _first_leaf(failures) from None
+
+    return [data for data in results if data is not None]
+
+
+def _first_leaf(group: BaseException) -> BaseException:
+    while isinstance(group, BaseExceptionGroup):
+        group = group.exceptions[0]
+    return group
+
+
+async def _fetch_one(client: SiteClient, page: PageRef) -> bytes:
+    attempt = 1
+    while True:
+        try:
+            response = await client.get(page.url, headers=page.headers)
+        except httpx.TimeoutException:
+            if attempt >= _MAX_ATTEMPTS:
+                raise
+            await asyncio.sleep(_RETRY_BACKOFF_SECONDS * attempt)
+            attempt += 1
+            continue
+
+        if response.status_code >= 500 and attempt < _MAX_ATTEMPTS:
+            await asyncio.sleep(_RETRY_BACKOFF_SECONDS * attempt)
+            attempt += 1
+            continue
+
+        # A 4xx lands here on the first try and raises without retrying: a
+        # 404 is the source saying no, and a 403 means the referer or the
+        # rate limit is wrong, which retrying only makes worse (decision 5).
+        # A 5xx that reached here has already exhausted its retries above.
+        response.raise_for_status()
+
+        return _verify_image(page, response)
+
+
+def _verify_image(page: PageRef, response: httpx.Response) -> bytes:
+    # This is the point of the issue, not a detail: several of these sites
+    # answer a hotlinked or rate-limited request with `200 text/html`, and an
+    # archive full of error pages passes every check the binary path had,
+    # reaches Komga, and looks like a working download. Magic bytes decide
+    # (decision 1, #93); the content-type header only goes into the message
+    # below, since a site serving an image as octet-stream is common and
+    # harmless while a site serving HTML as image/jpeg is the attack this
+    # check stops.
+    data = response.content
+    try:
+        page_extension(data)
+    except ValueError as exc:
+        content_type = response.headers.get("content-type", "unknown")
+        raise PageFetchError(
+            f"{page.url} did not return an image: content-type={content_type!r}, "
+            f"got {data[:32]!r}"
+        ) from exc
+    return data
