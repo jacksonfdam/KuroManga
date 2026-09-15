@@ -101,3 +101,18 @@ def test_page_extension_reads_avif(tmp_path):
 def test_page_extension_refuses_bytes_that_are_not_an_image():
     with pytest.raises(ValueError):
         page_extension(b"<!DOCTYPE html><html><body>rate limited</body></html>")
+
+
+async def test_an_archive_with_no_pages_is_refused(tmp_path):
+    """A chapter with no pages is never correct, and one was written.
+
+    MangaDex answers 200 with an empty page list for a chapter hosted
+    elsewhere. Accepted as a successful listing, it produced an archive holding
+    only ComicInfo.xml, which Komga indexed and a reader would open to nothing.
+    """
+    destination = tmp_path / "series" / "series - Ch.0004.cbz"
+
+    with pytest.raises(ValueError, match="no pages"):
+        await write_cbz([], destination, ComicInfo(series="S", number=Decimal("4")))
+
+    assert not destination.exists()

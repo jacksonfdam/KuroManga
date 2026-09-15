@@ -141,6 +141,12 @@ async def handle(ctx: JobContext) -> None:
 
             try:
                 pages = await source.list_pages(row["chapter_url"])
+                if not pages:
+                    # See download_chapter: an empty list is the source saying
+                    # no, whether or not it thought to say so itself.
+                    raise ChapterUnavailable(
+                        f"{first['source_site']} listed no pages for {number}"
+                    )
                 page_bytes = await fetch_pages(client, pages, on_page=keep_lease)
             except ChapterUnavailable as exc:
                 # Decision (#95): one chapter the source refuses skips that
