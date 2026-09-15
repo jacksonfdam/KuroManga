@@ -2,9 +2,16 @@ import { useCallback, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 
 import { Button, EmptyState, ErrorState, NoticeBar, SegmentedControl, Skeleton } from '../../ui'
+import { AnimeGrid } from './AnimeGrid'
 import { AnimeRow } from './AnimeRow'
 import { UnmatchedDetail } from './UnmatchedDetail'
-import { PAGE_SIZE, useUnmatched } from './useUnmatched'
+import { PAGE_SIZE, useUnmatched, type AnimeLayout } from './useUnmatched'
+
+// The same control the library and Review offer, so it is learned once.
+const LAYOUTS: { value: AnimeLayout; icon: 'grid' | 'list'; label: string }[] = [
+  { value: 'grid', icon: 'grid', label: 'Grid' },
+  { value: 'list', icon: 'list', label: 'List' },
+]
 
 // No reference render exists for this screen: it postdates the product brief
 // entirely, so nothing was ever designed for it. The row-plus-disclosure shape
@@ -18,6 +25,8 @@ export function UnmatchedPage() {
     loaded,
     error,
     reload,
+    layout,
+    setLayout,
     notice,
     undo,
     offset,
@@ -66,14 +75,17 @@ export function UnmatchedPage() {
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-space-md">
-        <SegmentedControl
-          options={[
-            { value: 'open', label: 'Without a match' },
-            { value: 'hidden', label: 'Hidden' },
-          ]}
-          value={showHidden ? 'hidden' : 'open'}
-          onChange={(value) => swapView(value === 'hidden')}
-        />
+        <div className="flex flex-wrap items-center gap-space-sm">
+          <SegmentedControl
+            options={[
+              { value: 'open', label: 'Without a match' },
+              { value: 'hidden', label: 'Hidden' },
+            ]}
+            value={showHidden ? 'hidden' : 'open'}
+            onChange={(value) => swapView(value === 'hidden')}
+          />
+          <SegmentedControl options={LAYOUTS} value={layout} onChange={setLayout} />
+        </div>
         <div className="flex min-w-0 flex-1 justify-end">
           <input
             type="search"
@@ -117,26 +129,30 @@ export function UnmatchedPage() {
               }
             />
           ) : (
-            <div className="flex flex-col gap-space-md">
-              {items.map((anime) => (
-                <AnimeRow
-                  key={anime.id}
-                  anime={anime}
-                  found={results[anime.id]}
-                  searching={searching === anime.id}
-                  busy={busy}
-                  showHidden={showHidden}
-                  selected={selectedId === anime.id}
-                  settingFor={settingFor}
-                  onSearch={() => search(anime)}
-                  onHide={() => setHidden(anime, !showHidden)}
-                  onSelect={() => setSelectedId(anime.id)}
-                  onStatus={setStatus}
-                  onDownload={setDownload}
-                  onAdd={(candidate) => add(anime, candidate)}
-                />
-              ))}
-            </div>
+            layout === 'grid' ? (
+              <AnimeGrid items={items} selectedId={selectedId} onSelect={setSelectedId} />
+            ) : (
+              <div className="flex flex-col gap-space-md">
+                {items.map((anime) => (
+                  <AnimeRow
+                    key={anime.id}
+                    anime={anime}
+                    found={results[anime.id]}
+                    searching={searching === anime.id}
+                    busy={busy}
+                    showHidden={showHidden}
+                    selected={selectedId === anime.id}
+                    settingFor={settingFor}
+                    onSearch={() => search(anime)}
+                    onHide={() => setHidden(anime, !showHidden)}
+                    onSelect={() => setSelectedId(anime.id)}
+                    onStatus={setStatus}
+                    onDownload={setDownload}
+                    onAdd={(candidate) => add(anime, candidate)}
+                  />
+                ))}
+              </div>
+            )
           )}
 
           {items.length > 0 && (
@@ -162,7 +178,22 @@ export function UnmatchedPage() {
           )}
         </div>
 
-        {selected && <UnmatchedDetail anime={selected} onClose={closeDetail} />}
+        {selected && (
+          <UnmatchedDetail
+            anime={selected}
+            onClose={closeDetail}
+            found={results[selected.id]}
+            searching={searching === selected.id}
+            busy={busy}
+            showHidden={showHidden}
+            settingFor={settingFor}
+            onSearch={() => search(selected)}
+            onHide={() => setHidden(selected, !showHidden)}
+            onStatus={setStatus}
+            onDownload={setDownload}
+            onAdd={(candidate) => add(selected, candidate)}
+          />
+        )}
       </div>
     </div>
   )

@@ -16,6 +16,10 @@ export const PAGE_SIZE = 25
 type Tab = 'open' | 'hidden'
 const TABS: readonly Tab[] = ['open', 'hidden']
 
+/** How the list draws itself. Separate from which list is shown. */
+export type AnimeLayout = 'grid' | 'list'
+const LAYOUTS: readonly AnimeLayout[] = ['grid', 'list']
+
 export interface Choice {
   status: ListStatus
   download: boolean
@@ -27,6 +31,7 @@ export function useUnmatched(onChanged: () => void) {
   const [offset, setOffset] = useUrlNumber('offset', 0)
   const [filter, setFilter] = useUrlState<string>('q', '')
   const [tab, setTab] = useUrlState<Tab>('tab', 'open', TABS)
+  const [layout, setLayout] = useUrlState<AnimeLayout>('view', 'grid', LAYOUTS)
   const showHidden = tab === 'hidden'
   // The caret's own value stays local, and is seeded from the address so a
   // link carrying a filter arrives with that filter in the box.
@@ -193,6 +198,8 @@ export function useUnmatched(onChanged: () => void) {
     loaded: data !== null,
     error,
     reload,
+    layout,
+    setLayout,
     notice,
     undo,
     offset,
