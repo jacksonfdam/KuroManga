@@ -1,7 +1,7 @@
 # Porting Tachiyomi extensions to Python
 
 Date: 2026-09-15
-Status: approved, not implemented
+Status: approved. Foundation in progress; site selection amended 2026-09-15.
 
 ## What this changes
 
@@ -62,6 +62,44 @@ out of a script tag, heancms is a plain JSON API. The specification becomes a po
 
 What remains is the shape the repository already has: a Python class per template, and a generated
 configuration row per site.
+
+## Which sites v1 reaches
+
+The original sequence ported the six largest templates and let the catalogue decide what that
+reached. That is the right order for breadth and the wrong one for this library: of seven sites the
+maintainer actually downloads from, the six templates cover exactly one.
+
+Checked against upstream on 2026-09-15:
+
+| Site | Upstream extension | Shape |
+|---|---|---|
+| en-thunderscans.com | `src/en/thunderscans` | `mangathemesia` template |
+| vortexscans.org | `src/en/vortexscans` | `iken` template |
+| orion-scans.com | `src/en/orionscans` | `iken` template |
+| mgeko.cc | `src/en/mangarawclub` | standalone, ~15 KB |
+| asurascans.com | `src/en/asurascans` | standalone, JSON, ~26 KB |
+| comix.to | `src/en/comix` | standalone, ~84 KB, scrambled images |
+| mangaplaza.com | none | licensed subscription platform |
+
+So v1 ports two templates and two standalone sites:
+
+- `mangathemesia`, 34 KB of Kotlin across 117 leaves.
+- `iken`, 21 KB across `Iken.kt`, `Dto.kt` and `Filters.kt`. Two of the named sites ride it, and the
+  generator reports how many others do — that number is measured when it runs, not guessed here.
+- MangaGeko and Asura Scans by hand, one module each.
+
+**Comix is deferred to its own round.** It ships a cipher and a descrambler because the site
+scrambles its page images, and it declares its base URL as a block rather than a constant, so the
+catalogue row needs more than one host. At roughly four times the size of any other port here it
+would dominate the round, and its failure mode is the bad one: pages that decode to garbage rather
+than a request that errors. It gets its own issue and its own fixtures.
+
+**MangaPlaza is out.** No extension exists upstream, and it is a licensed subscription service
+rather than a scan site. Nothing in this design reaches it.
+
+The remaining large templates — madara, madaralegacy, zeistmanga, comiciviewer, keyoapp — keep their
+issues and stop being v1. Each is the same shape of work as `mangathemesia` and can follow one at a
+time.
 
 ## Source layer
 
@@ -203,9 +241,13 @@ The deliberate stop is unchanged: candidates are parked and a human confirms.
 choice. `PUT /api/sources/{key}` toggles one.
 
 The screen lives under `features/settings/`, not in a new feature folder importing it. Search box,
-language filter, NSFW hidden by default, template shown per row, and a plain reason on every
-disabled row: not hand-ported, Cloudflare unsolved, or removed upstream. Every figure on the screen
-comes from the API.
+language filter, template shown per row, and a plain reason on every disabled row: not hand-ported,
+Cloudflare unsolved, or removed upstream. Every figure on the screen comes from the API.
+
+A site's content warning renders as a badge on its row rather than hiding it. Hiding by default was
+the earlier rule, and it loses to a plain case: two of the sites this library depends on are
+declared mixed upstream, and a screen that hides the site the user came to find teaches them the
+port failed. The `nsfw` filter stays, as a filter.
 
 ## Stack and CI
 
@@ -237,11 +279,16 @@ The fetcher is tested against a local stub serving a valid image, an HTML error 
 ## Sequence
 
 Contract, then fetcher and archive writer, then the handlers, then the two existing sources, then
-delete the binary. Catalogue and generator can proceed in parallel with that. Templates follow, one
-at a time, madara first. The settings screen lands last, because it has nothing to show until the
-catalogue exists.
+delete the binary. Catalogue and generator can proceed in parallel with that.
+
+Templates follow one at a time, `mangathemesia` first and `iken` second, then MangaGeko and Asura
+Scans by hand. Then the fan-out across enabled sources, which is what puts candidates from several
+sites in front of the reviewer and is the point of the whole exercise. The settings screen lands
+last, because it has nothing to show until the catalogue exists.
 
 ## Out of scope
 
-The remaining 67 templates and the 673 standalone extensions. Each is the same shape of work as the six
-template ports above and can be added one at a time once madara proves the pattern.
+Comix, deferred to its own round for the reasons given above. The madara, madaralegacy, zeistmanga,
+comiciviewer and keyoapp templates, whose issues stay open. The remaining templates and standalone
+extensions beyond those. Each is the same shape of work as `mangathemesia` and can be added one at a
+time once it proves the pattern.
