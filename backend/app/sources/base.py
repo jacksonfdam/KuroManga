@@ -107,6 +107,18 @@ def all_sources() -> list[Source]:
     return [entry.source for entry in _REGISTRY.values()]
 
 
+def _host(url: str) -> str:
+    """The comparable host of a URL.
+
+    The `www.` prefix is dropped on both sides of the comparison. This used to
+    be a substring test, which matched a pasted `https://www.weebcentral.com/…`
+    by accident; an exact host match is right but would have started rejecting
+    the same link, and the review screen is where people paste links by hand.
+    """
+    host = urlsplit(url).netloc.lower()
+    return host.removeprefix("www.")
+
+
 def source_for_url(url: str) -> Source:
     """Pick the enabled source that owns a URL, so a hand-pasted link still resolves.
 
@@ -114,9 +126,9 @@ def source_for_url(url: str) -> Source:
     and against the source's own domains tuple - the extra aliases a
     hand-written class already carries alongside what the catalogue knows.
     """
-    host = urlsplit(url).netloc.lower()
+    host = _host(url)
     for entry in _REGISTRY.values():
-        aliases = {urlsplit(entry.base_url).netloc.lower(), *(d.lower() for d in entry.source.domains)}
+        aliases = {_host(entry.base_url), *(_host(f"//{d}") for d in entry.source.domains)}
         if host in aliases:
             return entry.source
     enabled = ", ".join(sorted(entry.source.site for entry in _REGISTRY.values())) or "none"

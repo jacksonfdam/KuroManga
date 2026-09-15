@@ -93,6 +93,15 @@ def test_source_for_url_also_matches_a_domain_alias():
     assert base.source_for_url("https://alias.example/x") is source
 
 
+def test_source_for_url_ignores_a_www_prefix():
+    """The old substring match resolved a pasted www. link; an exact host match must too."""
+    source = FakeSource()
+    base.install_registry(
+        {"fake": base.RegisteredSource(source=source, base_url="https://fake.example")}
+    )
+    assert base.source_for_url("https://www.fake.example/chapter/1") is source
+
+
 def test_source_for_url_names_the_enabled_sites_when_nothing_matches():
     source = FakeSource()
     base.install_registry(
