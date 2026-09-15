@@ -25,6 +25,61 @@ import { useSearchParams } from 'react-router-dom'
  * The push that matters is the navigation away, which the link performs and
  * which captures whatever the parameters said at that moment.
  */
+function write(
+  setParams: ReturnType<typeof useSearchParams>[1],
+  edit: (params: URLSearchParams) => void,
+): void {
+  setParams(
+    (current) => {
+      const updated = new URLSearchParams(current)
+      edit(updated)
+      return updated
+    },
+    { replace: true },
+  )
+}
+
+/**
+ * Several parameters, changed together, in one navigation.
+ *
+ * **Two of these setters called from one handler lose one of the writes.** Each
+ * navigation replaces the address rather than amending it, and React Router
+ * does not run one updater against what the other just wrote, so the second
+ * call decides the whole query string and the first is simply gone. It fails
+ * silently and only in the pairing: each setter is correct on its own, which is
+ * why `setCursor(13); setView('reviewing')` moved the review screen to the
+ * reviewing tab and showed the *first* series in the queue — the cursor never
+ * reached the address. The unmatched screen's search box and its Hidden tab
+ * broke the same way; both reset the page offset as they go, so both lost the
+ * change the user had actually asked for.
+ *
+ * So: a handler that changes more than one parameter calls this, once. The
+ * defaults are the same ones the individual hooks were given — a value equal to
+ * its default writes no parameter, so the address stays clean.
+ */
+export function useUrlPatch(
+  defaults: Record<string, string | number>,
+): (patch: Record<string, string | number>) => void {
+  const [, setParams] = useSearchParams()
+  const serialised = JSON.stringify(defaults)
+
+  return useCallback(
+    (patch: Record<string, string | number>) => {
+      const fallbacks = JSON.parse(serialised) as Record<string, string | number>
+      write(setParams, (updated) => {
+        for (const [key, next] of Object.entries(patch)) {
+          if (next === fallbacks[key]) updated.delete(key)
+          else updated.set(key, String(next))
+        }
+      })
+    },
+    // The defaults are a literal written at the call site, so a new object
+    // arrives on every render; comparing their contents keeps this callback
+    // stable, which matters because it lands in other hooks' dependencies.
+    [serialised, setParams],
+  )
+}
+
 export function useUrlState<T extends string>(
   key: string,
   fallback: T,
@@ -41,15 +96,10 @@ export function useUrlState<T extends string>(
 
   const set = useCallback(
     (next: T) => {
-      setParams(
-        (current) => {
-          const updated = new URLSearchParams(current)
-          if (next === fallback) updated.delete(key)
-          else updated.set(key, next)
-          return updated
-        },
-        { replace: true },
-      )
+      write(setParams, (updated) => {
+        if (next === fallback) updated.delete(key)
+        else updated.set(key, next)
+      })
     },
     [fallback, key, setParams],
   )
@@ -71,15 +121,10 @@ export function useUrlNumber(key: string, fallback: number): [number, (next: num
 
   const set = useCallback(
     (next: number) => {
-      setParams(
-        (current) => {
-          const updated = new URLSearchParams(current)
-          if (next === fallback) updated.delete(key)
-          else updated.set(key, String(next))
-          return updated
-        },
-        { replace: true },
-      )
+      write(setParams, (updated) => {
+        if (next === fallback) updated.delete(key)
+        else updated.set(key, String(next))
+      })
     },
     [fallback, key, setParams],
   )

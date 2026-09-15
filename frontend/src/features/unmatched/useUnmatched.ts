@@ -4,7 +4,7 @@ import { api, type SearchCandidate, type UnmatchedAnime, type UnmatchedSearch } 
 import { DEFAULT_STATUS, downloadsByDefault, type ListStatus } from '../../lib/format'
 import { useAsyncData } from '../../lib/useAsyncData'
 import { useNotice } from '../../lib/useNotice'
-import { useUrlNumber, useUrlState } from '../../lib/useUrlState'
+import { useUrlNumber, useUrlPatch, useUrlState } from '../../lib/useUrlState'
 import { candidateKey, titleOf } from './labels'
 
 // A row grows tall once its candidates are open, so a page is kept short enough
@@ -29,9 +29,12 @@ export function useUnmatched(onChanged: () => void) {
   // Page, applied filter and tab are the screen's own controls, so they live in
   // the address and survive opening something and coming back.
   const [offset, setOffset] = useUrlNumber('offset', 0)
-  const [filter, setFilter] = useUrlState<string>('q', '')
-  const [tab, setTab] = useUrlState<Tab>('tab', 'open', TABS)
+  const [filter] = useUrlState<string>('q', '')
+  const [tab] = useUrlState<Tab>('tab', 'open', TABS)
   const [layout, setLayout] = useUrlState<AnimeLayout>('view', 'grid', LAYOUTS)
+  // Both the filter and the tab send the reader back to the first page, and two
+  // separate writes would lose one of the two changes - see useUrlPatch.
+  const setPagedState = useUrlPatch({ q: '', tab: 'open', offset: 0 })
   const showHidden = tab === 'hidden'
   // The caret's own value stays local, and is seeded from the address so a
   // link carrying a filter arrives with that filter in the box.
@@ -70,20 +73,18 @@ export function useUnmatched(onChanged: () => void) {
     const settle = setTimeout(() => {
       const next = typed.trim()
       if (next === filter) return
-      setFilter(next)
-      setOffset(0)
+      setPagedState({ q: next, offset: 0 })
     }, 250)
     return () => clearTimeout(settle)
-  }, [filter, setFilter, setOffset, typed])
+  }, [filter, setPagedState, typed])
 
   const swapView = useCallback(
     (hidden: boolean) => {
-      setTab(hidden ? 'hidden' : 'open')
-      setOffset(0)
+      setPagedState({ tab: hidden ? 'hidden' : 'open', offset: 0 })
       clear()
       setUndo(null)
     },
-    [clear, setOffset, setTab],
+    [clear, setPagedState],
   )
 
   const search = useCallback(
