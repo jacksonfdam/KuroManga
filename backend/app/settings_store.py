@@ -17,6 +17,8 @@ CRON_PROGRESS_PUSH = "cron_progress_push"
 CRON_ANIME_LIST_SYNC = "cron_anime_list_sync"
 DOWNLOAD_CONCURRENCY = "download_concurrency"
 PER_SOURCE_CONCURRENCY = "per_source_concurrency"
+SOURCE_SEARCH_CONCURRENCY = "source_search_concurrency"
+SOURCE_SEARCH_TIMEOUT = "source_search_timeout"
 DOWNLOAD_BATCH_SIZE = "download_batch_size"
 AUTO_DOWNLOAD_NEW = "auto_download_new"
 COMICK_URL = "comick_url"
@@ -34,6 +36,14 @@ class Defaults:
     # it feeds is expensive.
     cron_anime_list_sync: str = "0 */12 * * *"
     per_source_concurrency: int = 2
+    # Four at once against five sites: enough that a match search is one round
+    # trip rather than five, low enough that a series never has more sockets
+    # open than a homelab's connection tracking enjoys.
+    source_search_concurrency: int = 4
+    # Well under the job lease, deliberately. A source that has not answered in
+    # twenty seconds is not about to, and the whole point of the timeout is that
+    # its silence costs the other sources nothing.
+    source_search_timeout: int = 20
     download_batch_size: int = 20
     auto_download_new: bool = True
     comick_url: str = ""
@@ -58,6 +68,10 @@ def _fallback(key: str) -> str:
             return str(get_settings().download_concurrency)
         case k if k == PER_SOURCE_CONCURRENCY:
             return str(DEFAULTS.per_source_concurrency)
+        case k if k == SOURCE_SEARCH_CONCURRENCY:
+            return str(DEFAULTS.source_search_concurrency)
+        case k if k == SOURCE_SEARCH_TIMEOUT:
+            return str(DEFAULTS.source_search_timeout)
         case k if k == DOWNLOAD_BATCH_SIZE:
             return str(DEFAULTS.download_batch_size)
         case k if k == AUTO_DOWNLOAD_NEW:
@@ -114,6 +128,8 @@ async def all_settings(session: AsyncSession) -> dict[str, str]:
         CRON_ANIME_LIST_SYNC,
         DOWNLOAD_CONCURRENCY,
         PER_SOURCE_CONCURRENCY,
+        SOURCE_SEARCH_CONCURRENCY,
+        SOURCE_SEARCH_TIMEOUT,
         DOWNLOAD_BATCH_SIZE,
         AUTO_DOWNLOAD_NEW,
         COMICK_URL,

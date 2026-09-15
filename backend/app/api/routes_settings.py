@@ -26,6 +26,8 @@ EDITABLE = {
     settings_store.CRON_ANIME_LIST_SYNC,
     settings_store.DOWNLOAD_CONCURRENCY,
     settings_store.PER_SOURCE_CONCURRENCY,
+    settings_store.SOURCE_SEARCH_CONCURRENCY,
+    settings_store.SOURCE_SEARCH_TIMEOUT,
     settings_store.DOWNLOAD_BATCH_SIZE,
     settings_store.AUTO_DOWNLOAD_NEW,
     settings_store.COMICK_URL,
