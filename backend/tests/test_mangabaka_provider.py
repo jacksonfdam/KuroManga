@@ -77,6 +77,17 @@ def test_the_raw_entry_is_kept_so_cross_references_survive(fixture):
     assert entry.raw["Series"]["source"]["my_anime_list"]["id"] == 7001
 
 
+def test_series_type_is_normalised_onto_the_shared_vocabulary(fixture):
+    entries = parse_library(fixture("mangabaka_library.json"))
+    assert entries[0].kind == "MANGA"
+    assert entries[1].kind == "NOVEL"
+
+
+def test_a_missing_series_type_is_not_a_claim_about_the_kind(fixture):
+    """Issue #88: absent or unrecognised is silence, not evidence of prose."""
+    assert parse_library(fixture("mangabaka_library.json"))[2].kind is None
+
+
 def test_pagination_is_followed_by_link_not_by_counting(fixture):
     assert next_page(fixture("mangabaka_library.json")).endswith("page=2")
 

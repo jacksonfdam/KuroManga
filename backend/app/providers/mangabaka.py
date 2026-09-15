@@ -23,6 +23,19 @@ from app.config import get_settings
 from app.enums import ListStatus, Provider
 from app.providers.base import ListEntryDTO, ListSource
 
+# MangaBaka's own vocabulary for `Series.type`, translated onto AniList's the
+# way MyAnimeList's `media_type` is - see MEDIA_TYPE_MAP in providers/mal.py.
+# Kept as an explicit map rather than a bare `.upper()` so a value this
+# pipeline has never seen falls back to None instead of manufacturing a kind
+# nobody asked for.
+KIND_MAP = {
+    "manga": "MANGA",
+    "manhwa": "MANHWA",
+    "manhua": "MANHUA",
+    "oel": "OEL",
+    "novel": "NOVEL",
+}
+
 API_BASE = "https://api.mangabaka.org/v1"
 LIBRARY_PATH = "/my/library"
 PAGE_LIMIT = 100
@@ -121,6 +134,7 @@ def parse_library(payload: dict[str, Any]) -> list[ListEntryDTO]:
                 total_chapters=_to_int(series.get("total_chapters")),
                 cover_url=_cover_url(series),
                 cross_refs=cross_references(series),
+                kind=KIND_MAP.get((series.get("type") or "").lower()),
                 raw=row,
             )
         )

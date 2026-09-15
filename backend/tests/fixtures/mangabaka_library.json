@@ -32,6 +32,7 @@
         "secondary_titles": {"en": [{"title": "Escape Mechanism"}]},
         "total_chapters": "40",
         "status": "completed",
+        "type": "manga",
         "cover": {"raw": {"url": "https://images.example.test/raw.jpg"}},
         "source": {"my_anime_list": {"id": 7001}, "anilist": {"id": 30013}}
       }
@@ -49,6 +50,7 @@
         "romanized_title": null,
         "secondary_titles": {},
         "total_chapters": "",
+        "type": "novel",
         "cover": {},
         "source": {}
       }

@@ -35,6 +35,7 @@ query ($ids: [Int]) {
   Page(perPage: 50) {
     media(id_in: $ids, type: MANGA) {
       id
+      format
       title { romaji english }
       coverImage { large }
       chapters
@@ -361,6 +362,7 @@ def parse_list(data: dict[str, Any]) -> list[ListEntryDTO]:
                     progress_chapter=int(entry.get("progress") or 0),
                     total_chapters=media.get("chapters"),
                     cover_url=(media.get("coverImage") or {}).get("large"),
+                    kind=media.get("format") or None,
                     raw=entry,
                 )
             )
@@ -419,7 +421,13 @@ def parse_media_detail(data: dict[str, Any]) -> dict[str, Any]:
 
 
 def parse_manga_meta(data: dict[str, Any]) -> dict[str, MangaMeta]:
-    """Pure parser: id to metadata, for the suggestion cards."""
+    """Pure parser: id to metadata, for the suggestion cards.
+
+    `format` rides along so a suggestion built from a manga relation carries the
+    same prose/comic evidence a list sync does - without it, approving straight
+    from Discovery is the one path where a light novel could still merge onto
+    its manga adaptation by title alone (issue #88).
+    """
     meta: dict[str, MangaMeta] = {}
     for media in (data.get("Page") or {}).get("media", []) or []:
         title = media.get("title") or {}
@@ -431,6 +439,7 @@ def parse_manga_meta(data: dict[str, Any]) -> dict[str, MangaMeta]:
             total_chapters=media.get("chapters"),
             year=(media.get("startDate") or {}).get("year"),
             publishing_status=media.get("status"),
+            format=media.get("format"),
         )
     return meta
 
