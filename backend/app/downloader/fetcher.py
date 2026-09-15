@@ -8,6 +8,7 @@ Komga ends up serving.
 """
 
 import asyncio
+from collections.abc import Awaitable, Callable
 
 import httpx
 
@@ -40,8 +41,19 @@ class PageFetchError(RuntimeError):
     """
 
 
-async def fetch_pages(client: SiteClient, pages: list[PageRef]) -> list[bytes]:
+async def fetch_pages(
+    client: SiteClient,
+    pages: list[PageRef],
+    *,
+    on_page: Callable[[int, int], Awaitable[None]] | None = None,
+) -> list[bytes]:
     """Fetch every page and return their bytes, index-aligned with `pages`.
+
+    `on_page(done, total)` is awaited as each page lands. A caller holding a
+    job lease needs it: a chapter of two hundred pages against a site that
+    declared one request every ten seconds takes longer than the fifteen
+    minute lease, and a lease that expires mid-chapter hands the same job to
+    a second worker, which downloads all of it again.
 
     Concurrency is this function's problem, not the caller's: the archive is
     written straight from the returned list, so page order is the only
@@ -56,9 +68,15 @@ async def fetch_pages(client: SiteClient, pages: list[PageRef]) -> list[bytes]:
     semaphore = asyncio.Semaphore(HOST_CONCURRENCY_LIMIT)
     results: list[bytes | None] = [None] * len(pages)
 
+    done = 0
+
     async def bound(index: int, page: PageRef) -> None:
+        nonlocal done
         async with semaphore:
             results[index] = await _fetch_one(client, page)
+        done += 1
+        if on_page is not None:
+            await on_page(done, len(pages))
 
     try:
         async with asyncio.TaskGroup() as group:

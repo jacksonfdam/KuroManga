@@ -30,6 +30,12 @@ from app.sources import source_for_url
 from app.sources.base import ChapterUnavailable
 from app.sources.net import get_client
 
+# How often a lease is renewed while one chapter's pages are still arriving.
+# The lease is fifteen minutes; twenty pages is short enough that no plausible
+# rate limit outruns it, and long enough that the renewal is not a write per
+# page.
+LEASE_RENEWAL_PAGES = 20
+
 
 async def load_batch(session: AsyncSession, chapter_ids: list[int]) -> list[dict[str, Any]]:
     result = await session.execute(
@@ -122,9 +128,20 @@ async def handle(ctx: JobContext) -> None:
                 await ctx.session.commit()
                 continue
 
+            async def keep_lease(done: int, total_pages: int, number=number) -> None:
+                # A chapter can outlast the lease on its own: two hundred pages
+                # against a site that declared one request every ten seconds is
+                # longer than the fifteen minutes this job was granted, and an
+                # expired lease hands the same batch to a second worker, which
+                # downloads every chapter again. Renewing per chapter is not
+                # enough for that case; this renews inside one.
+                if done % LEASE_RENEWAL_PAGES == 0:
+                    await repo.renew_lease(ctx.session, ctx.job.id)
+                    await ctx.session.commit()
+
             try:
                 pages = await source.list_pages(row["chapter_url"])
-                page_bytes = await fetch_pages(client, pages)
+                page_bytes = await fetch_pages(client, pages, on_page=keep_lease)
             except ChapterUnavailable as exc:
                 # Decision (#95): one chapter the source refuses skips that
                 # chapter, not the whole batch - per-chapter listing means a

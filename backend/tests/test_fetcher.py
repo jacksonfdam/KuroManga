@@ -262,3 +262,34 @@ async def test_a_failing_page_cancels_the_pages_still_in_flight():
         assert asyncio.all_tasks() - before == set()
     finally:
         stub.close()
+
+
+async def test_a_long_fetch_reports_each_page_as_it_lands():
+    """The caller holds a job lease that a slow chapter can outlast on its own.
+
+    Two hundred pages against a site that declared one request every ten
+    seconds runs past the fifteen minute lease, and an expired lease hands the
+    same chapter to a second worker, which downloads all of it again. The
+    callback is how the handler renews it from inside one chapter.
+    """
+    seen: list[tuple[int, int]] = []
+
+    def router(path, headers):
+        return 200, "image/jpeg", JPEG
+
+    async def on_page(done: int, total: int) -> None:
+        seen.append((done, total))
+
+    stub = Stub(router)
+    try:
+        client = _client(stub, key="reports-progress")
+        pages = [PageRef(url=f"/page-{i}.jpg") for i in range(5)]
+
+        result = await fetch_pages(client, pages, on_page=on_page)
+
+        assert len(result) == 5
+        # One call per page, counting up, and the total never moves.
+        assert sorted(done for done, _ in seen) == [1, 2, 3, 4, 5]
+        assert {total for _, total in seen} == {5}
+    finally:
+        stub.close()

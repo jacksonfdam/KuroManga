@@ -28,6 +28,12 @@ from app.sources import source_for_url
 from app.sources.base import ChapterUnavailable
 from app.sources.net import CatalogueRow, get_client
 
+# How often a lease is renewed while one chapter's pages are still arriving.
+# The lease is fifteen minutes; twenty pages is short enough that no plausible
+# rate limit outruns it, and long enough that the renewal is not a write per
+# page.
+LEASE_RENEWAL_PAGES = 20
+
 
 async def load_context(session: AsyncSession, chapter_id: int) -> dict[str, Any]:
     result = await session.execute(
@@ -212,7 +218,19 @@ async def handle(ctx: JobContext) -> None:
 
         total = len(pages)
         await ctx.log(f"chapter {number}: 0/{total} pages", pct=10)
-        page_bytes = await fetch_pages(client, pages)
+
+        async def report(done: int, of: int) -> None:
+            # Renewed from inside the fetch, not only after it: a chapter of
+            # two hundred pages against a site that declared one request every
+            # ten seconds outlasts the fifteen minute lease on its own, and an
+            # expired lease hands the same chapter to a second worker.
+            if done % LEASE_RENEWAL_PAGES:
+                return
+            await ctx.log(f"chapter {number}: {done}/{of} pages", pct=10 + 80.0 * done / max(of, 1))
+            await ctx.session.commit()
+            await repo.renew_lease(ctx.session, ctx.job.id)
+
+        page_bytes = await fetch_pages(client, pages, on_page=report)
         # A long batch depends on the lease being renewed as it goes; a single
         # chapter rarely runs long enough to need it, but the archive write and
         # place below are still ahead of us, so renew here rather than assume.
