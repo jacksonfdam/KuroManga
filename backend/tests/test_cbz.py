@@ -5,6 +5,7 @@ import pytest
 
 from app.downloader.cbz import _archive_pages, place_file, write_cbz
 from app.downloader.comicinfo import COMIC_INFO_NAME, ComicInfo
+from app.downloader.paths import chapter_path
 
 # Real page bytes, not placeholders: page_extension reads the archive from magic
 # bytes alone, the same thing Komga does, so a fake header would test nothing.
@@ -49,10 +50,12 @@ def test_pages_are_stored_uncompressed(tmp_path):
         assert archive.getinfo("001.jpg").compress_type == zipfile.ZIP_STORED
 
 
-async def test_the_file_lands_at_the_exact_destination_path(tmp_path):
-    destination = tmp_path / "series" / "series - Ch.0004.cbz"
+async def test_the_file_lands_at_exactly_the_path_chapter_path_returns(tmp_path):
+    """The naming contract is paths.chapter_filename's, unchanged by this move."""
+    destination = chapter_path(tmp_path, "escape-machine", Decimal("4"), "The Gate")
     await write_cbz([JPEG], destination, ComicInfo(series="S", number=Decimal("4")))
 
+    assert destination.name == "escape-machine - Ch.0004 - The Gate.cbz"
     assert destination.exists()
     assert list(destination.parent.glob("*.part")) == []
 
