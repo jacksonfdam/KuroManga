@@ -3,11 +3,14 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { api, type ReviewPayload, type ReviewQueueItem } from '../../lib/api'
 import { useAsyncData } from '../../lib/useAsyncData'
 import { useNotice } from '../../lib/useNotice'
+import { useUrlNumber, useUrlState } from '../../lib/useUrlState'
 import { arrange, readSkipped, writeSkipped } from './queue'
 
 /** Which of the three things this screen is: the one in front of you, the list
     of what is coming, or the list of what you told it to stop asking about. */
 export type ReviewView = 'reviewing' | 'queue' | 'ignored'
+
+const REVIEW_VIEWS: readonly ReviewView[] = ['reviewing', 'queue', 'ignored']
 
 interface Lists {
   queue: ReviewQueueItem[]
@@ -29,9 +32,11 @@ interface Lists {
  * on every press of Next, would blank the screen between two neighbours.
  */
 export function useReview(onResolved: () => void) {
-  const [view, setView] = useState<ReviewView>('reviewing')
+  // Tab and cursor are addressed: leaving the queue to look something up used
+  // to return the screen to the first entry of the first tab.
+  const [view, setView] = useUrlState<ReviewView>('tab', 'reviewing', REVIEW_VIEWS)
   const [skipped, setSkipped] = useState<number[]>(readSkipped)
-  const [cursor, setCursor] = useState(0)
+  const [cursor, setCursor] = useUrlNumber('at', 0)
   const [manualUrl, setManualUrl] = useState('')
   const [busy, setBusy] = useState(false)
   const [undo, setUndo] = useState<(() => void) | null>(null)
@@ -45,9 +50,11 @@ export function useReview(onResolved: () => void) {
   const lists = useAsyncData(loadLists)
   const order = useMemo(() => arrange(lists.data?.queue ?? [], skipped), [lists.data, skipped])
 
-  // Derived, never stored. The queue shrinks under the cursor every time a
-  // series is answered, and a stored index would end up past the end of it —
-  // or pointing at a different series than the one the screen last drew.
+  // Derived, never stored — the address carries the cursor, not this. The queue
+  // shrinks under the cursor every time a series is answered, so the number
+  // that survives a reload has to be clamped against the queue as it is now:
+  // otherwise a returning link points past the end of it, or at a different
+  // series than the one it was written for.
   const position = order.length === 0 ? 0 : Math.min(cursor, order.length - 1)
   const at = order[position] ?? null
   const seriesId = at?.id ?? null
@@ -70,18 +77,18 @@ export function useReview(onResolved: () => void) {
       setView('reviewing')
       settle()
     },
-    [settle],
+    [setCursor, settle, setView],
   )
 
   const next = useCallback(() => {
     setCursor(Math.min(position + 1, order.length - 1))
     settle()
-  }, [order.length, position, settle])
+  }, [order.length, position, setCursor, settle])
 
   const previous = useCallback(() => {
     setCursor(Math.max(position - 1, 0))
     settle()
-  }, [position, settle])
+  }, [position, setCursor, settle])
 
   const confirm = useCallback(
     async (sourceUrl: string) => {
@@ -123,7 +130,7 @@ export function useReview(onResolved: () => void) {
       setCursor(here)
       clear()
     })
-  }, [at, clear, order.length, position, report, skipped])
+  }, [at, clear, order.length, position, report, setCursor, skipped])
 
   const unignore = useCallback(
     async (series: ReviewQueueItem) => {
@@ -229,7 +236,7 @@ export function useReview(onResolved: () => void) {
       setView(to)
       settle()
     },
-    [settle],
+    [setView, settle],
   )
 
   return {

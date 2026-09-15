@@ -1,6 +1,7 @@
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 
 import { Icon, QuickIncrement } from '../../ui'
+import { originState } from '../../lib/backTo'
 import { formatChapter, formatProviders, formatSeriesFormat } from '../../lib/format'
 import type { Series } from '../../lib/api'
 import { totalChapters } from './useLibrary'
@@ -31,10 +32,14 @@ export function CoverCard({
   const needsReview = series.state === 'needs_review'
   const extra = total ? total - series.progress : 0
   const pipeline = pipelineNote(series)
+  // The library's filters live in the address, so the way back has to carry
+  // the address and not just the route.
+  const location = useLocation()
 
   return (
     <Link
       to={`/series/${series.id}`}
+      state={originState(location)}
       className={`group relative flex flex-col transition-transform duration-300 hover:-translate-y-1 hover:shadow-glow ${
         selected ? 'rounded-lg ring-2 ring-violet-500 shadow-xl shadow-violet-500/20' : ''
       }`}

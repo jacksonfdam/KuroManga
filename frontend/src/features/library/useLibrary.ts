@@ -1,13 +1,21 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo } from 'react'
 
 import { api, type Series } from '../../lib/api'
-import type { ListStatus } from '../../lib/format'
+import { STATUS_ORDER, type ListStatus } from '../../lib/format'
 import { useAsyncData } from '../../lib/useAsyncData'
+import { useUrlState } from '../../lib/useUrlState'
 import { useJobEvents } from '../../lib/useEvents'
 import { useNotice } from '../../lib/useNotice'
 import { useQueuedProgress } from '../../lib/queuedProgress'
 
 export type View = 'grid' | 'table'
+
+// What the two addressable controls accept. Both lists exist so a value typed
+// into the query string, or arriving from a link written against an older
+// build, falls back to the default instead of reaching a screen with no branch
+// for it.
+const VIEWS: readonly View[] = ['grid', 'table']
+const STATUS_TABS: readonly (ListStatus | 'all')[] = [...STATUS_ORDER, 'all']
 
 // total_chapters is the provider's static count and is frequently null;
 // known is what chapter_discover has actually seen on the source. Either can
@@ -20,9 +28,14 @@ export function totalChapters(series: Series): number | null {
 export function useLibrary() {
   const load = useCallback(() => api.series(), [])
   const { data, error, reload } = useAsyncData(load)
-  const [status, setStatus] = useState<ListStatus | 'all'>('reading')
-  const [view, setView] = useState<View>('grid')
-  const [query, setQuery] = useState('')
+  // The three controls this screen owns, held in the address rather than in
+  // component state: opening a series unmounts the library, and rebuilding
+  // these from their defaults on the way back is what lost the user's place.
+  const [status, setStatus] = useUrlState<ListStatus | 'all'>('status', 'reading', STATUS_TABS)
+  const [view, setView] = useUrlState<View>('view', 'grid', VIEWS)
+  // Widened deliberately: an empty default would otherwise infer the literal
+  // type `""`, and the filter accepts any string.
+  const [query, setQuery] = useUrlState<string>('q', '')
   const { notice, reportFailure, clear } = useNotice()
   const { awaiting, queue, drop } = useQueuedProgress()
 

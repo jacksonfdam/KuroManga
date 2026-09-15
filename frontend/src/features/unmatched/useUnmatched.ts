@@ -4,11 +4,17 @@ import { api, type SearchCandidate, type UnmatchedAnime, type UnmatchedSearch } 
 import { DEFAULT_STATUS, downloadsByDefault, type ListStatus } from '../../lib/format'
 import { useAsyncData } from '../../lib/useAsyncData'
 import { useNotice } from '../../lib/useNotice'
+import { useUrlNumber, useUrlState } from '../../lib/useUrlState'
 import { candidateKey, titleOf } from './labels'
 
 // A row grows tall once its candidates are open, so a page is kept short enough
 // that the pager under it stays reachable.
 export const PAGE_SIZE = 25
+
+/** Which list is being shown. Named in the address, so returning from a
+    detour comes back to the tab the user was reading. */
+type Tab = 'open' | 'hidden'
+const TABS: readonly Tab[] = ['open', 'hidden']
 
 export interface Choice {
   status: ListStatus
@@ -16,10 +22,15 @@ export interface Choice {
 }
 
 export function useUnmatched(onChanged: () => void) {
-  const [offset, setOffset] = useState(0)
-  const [typed, setTyped] = useState('')
-  const [filter, setFilter] = useState('')
-  const [showHidden, setShowHidden] = useState(false)
+  // Page, applied filter and tab are the screen's own controls, so they live in
+  // the address and survive opening something and coming back.
+  const [offset, setOffset] = useUrlNumber('offset', 0)
+  const [filter, setFilter] = useUrlState<string>('q', '')
+  const [tab, setTab] = useUrlState<Tab>('tab', 'open', TABS)
+  const showHidden = tab === 'hidden'
+  // The caret's own value stays local, and is seeded from the address so a
+  // link carrying a filter arrives with that filter in the box.
+  const [typed, setTyped] = useState(filter)
   const [results, setResults] = useState<Record<number, UnmatchedSearch>>({})
   const [searching, setSearching] = useState<number | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
@@ -45,22 +56,29 @@ export function useUnmatched(onChanged: () => void) {
   // The server holds the whole list, so the box asks it rather than sifting the
   // twenty-five rows on screen — and the keystrokes are collected first, or one
   // typed word is a request per letter.
+  //
+  // Nothing is written unless the settled value differs from what the address
+  // already says. On mount the box is seeded from that address, so without the
+  // guard the first timeout would clear a filter arriving in a link — and reset
+  // its page — a quarter second after the screen drew it.
   useEffect(() => {
     const settle = setTimeout(() => {
-      setFilter(typed.trim())
+      const next = typed.trim()
+      if (next === filter) return
+      setFilter(next)
       setOffset(0)
     }, 250)
     return () => clearTimeout(settle)
-  }, [typed])
+  }, [filter, setFilter, setOffset, typed])
 
   const swapView = useCallback(
     (hidden: boolean) => {
-      setShowHidden(hidden)
+      setTab(hidden ? 'hidden' : 'open')
       setOffset(0)
       clear()
       setUndo(null)
     },
-    [clear],
+    [clear, setOffset, setTab],
   )
 
   const search = useCallback(
