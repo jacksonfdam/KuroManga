@@ -456,3 +456,36 @@ async def test_the_recent_activity_window_does_not_reach_back_forever(client):
     body = (await client.get("/api/dashboard")).json()
 
     assert len(body["activity"]["recent"]) == 6
+
+
+async def test_home_counts_the_status_the_library_shows(client):
+    """Home and the library have to mean the same thing by "reading".
+
+    The library picks one status per series and prefers a provider the pipeline
+    can write to, precisely so a read-only provider's opinion cannot outrank
+    something the user did. Home used to count a series if *any* entry said
+    reading, so a MangaBaka row saying so made a series active on the front
+    page while the shelf showed it as plan_to_read — 29 against 14 on the
+    author's own library.
+    """
+    await _series("Actually reading", "actually-reading", status="reading")
+
+    # Hearsay: the writable provider says plan_to_read, and the read-only one
+    # disagrees *and* is the more recent row, which is the case that fooled the
+    # old ordering.
+    hearsay = await _series("Only hearsay", "only-hearsay", status="plan_to_read")
+    await _exec(
+        """
+        insert into list_entry (provider, provider_media_id, series_id, synonyms,
+                                status, user_progress_chapter, total_chapters, raw,
+                                updated_at)
+        values ('mangabaka', :media_id, :series_id, '[]'::jsonb, 'reading', 0, null,
+                '{}'::jsonb, now() + interval '1 minute')
+        """,
+        {"media_id": f"mb-{hearsay}", "series_id": hearsay},
+    )
+
+    body = (await client.get("/api/dashboard")).json()
+
+    assert body["active_reading"]["series"] == 1
+    assert [row["title"] for row in body["continue_reading"]] == ["Actually reading"]
