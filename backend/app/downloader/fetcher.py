@@ -43,18 +43,41 @@ class PageFetchError(RuntimeError):
 async def fetch_pages(client: SiteClient, pages: list[PageRef]) -> list[bytes]:
     """Fetch every page and return their bytes, index-aligned with `pages`.
 
-    Concurrency is this function's problem, not the caller's: #94 writes the
-    archive straight from the returned list, so page order is the only
-    contract between the two, and asyncio.gather already returns results in
-    argument order regardless of which request finishes first.
+    Concurrency is this function's problem, not the caller's: the archive is
+    written straight from the returned list, so page order is the only
+    contract between the two, and the results are collected by index rather
+    than by completion order.
+
+    A task group rather than gather, so that the first page to fail cancels
+    the rest. gather leaves its siblings running: a chapter that failed on
+    page 2 would go on pulling the other fifty-eight from a site that is
+    most likely already refusing us, which is the behaviour that earns a ban.
     """
     semaphore = asyncio.Semaphore(HOST_CONCURRENCY_LIMIT)
+    results: list[bytes | None] = [None] * len(pages)
 
-    async def bound(page: PageRef) -> bytes:
+    async def bound(index: int, page: PageRef) -> None:
         async with semaphore:
-            return await _fetch_one(client, page)
+            results[index] = await _fetch_one(client, page)
 
-    return list(await asyncio.gather(*(bound(page) for page in pages)))
+    try:
+        async with asyncio.TaskGroup() as group:
+            for index, page in enumerate(pages):
+                group.create_task(bound(index, page))
+    except ExceptionGroup as failures:
+        # A task group reports as an ExceptionGroup, but a caller of this
+        # module wants the failure it would have got from a single fetch -
+        # PageFetchError, or httpx's own - not a wrapper it has to unpack.
+        # Several pages failing together says nothing more than the first.
+        raise _first_leaf(failures) from None
+
+    return [data for data in results if data is not None]
+
+
+def _first_leaf(group: BaseException) -> BaseException:
+    while isinstance(group, BaseExceptionGroup):
+        group = group.exceptions[0]
+    return group
 
 
 async def _fetch_one(client: SiteClient, page: PageRef) -> bytes:

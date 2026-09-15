@@ -6,6 +6,7 @@ would not exercise the thing that fails in production (a site answering
 `200 text/html` for a hotlinked image).
 """
 
+import asyncio
 import http.server
 import threading
 import time
@@ -230,5 +231,34 @@ async def test_a_pages_own_headers_are_sent_with_its_request():
         await fetch_pages(client, pages)
 
         assert seen.get("Referer") == "https://example.com/chapter/1"
+    finally:
+        stub.close()
+
+
+async def test_a_failing_page_cancels_the_pages_still_in_flight():
+    """One bad page must not leave the rest pulling from a site already refusing us.
+
+    Checked by looking for leftover tasks rather than by timing: asyncio.gather
+    raises the first failure but leaves its siblings running, and the symptom
+    in production is requests still going out to a site that has already
+    refused one - invisible in any assertion about the return value.
+    """
+
+    def router(path, headers):
+        if path == "/bad.jpg":
+            return 200, "text/html", HTML_ERROR_PAGE
+        time.sleep(1.0)
+        return 200, "image/jpeg", JPEG
+
+    stub = Stub(router)
+    try:
+        client = _client(stub, key="cancels-siblings")
+        pages = [PageRef(url="/bad.jpg")] + [PageRef(url=f"/slow-{i}.jpg") for i in range(3)]
+        before = asyncio.all_tasks()
+
+        with pytest.raises(PageFetchError):
+            await fetch_pages(client, pages)
+
+        assert asyncio.all_tasks() - before == set()
     finally:
         stub.close()
