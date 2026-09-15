@@ -7,8 +7,9 @@ review screen.
 
 import httpx
 
+from app.downloader.runner import ChapterUnavailable
 from app.sources.base import Candidate, ChapterRef, PageRef, Source
-from app.sources.comick_client import ComickClient, parse_chapters, parse_search
+from app.sources.comick_client import ComickClient, parse_chapters, parse_pages, parse_search
 
 SITES = (
     # asurascan is not registered: the service flags it clientOnly and, checked
@@ -39,5 +40,12 @@ class ComickSource(Source):
         return parse_chapters(payload)
 
     async def list_pages(self, chapter_url: str, *, language: str = "en") -> list[PageRef]:
-        # Its own issue (#93 territory) ports the comick page endpoint.
-        raise NotImplementedError
+        html = await self._api.pages_html(chapter_url)
+        pages = parse_pages(html, chapter_url)
+        if not pages:
+            # weebcentral answers a missing chapter with its own 404 page at
+            # HTTP 200, so an empty result - not a raised status - is how
+            # "the source says no" shows up here. Same signal download_batch
+            # already reads from the binary path, so #95 needs no special case.
+            raise ChapterUnavailable(f"no pages found for {chapter_url}")
+        return pages
