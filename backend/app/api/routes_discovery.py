@@ -177,7 +177,15 @@ async def resolve_series_for(
             await merge_aliases(session, series_id, entry, aliases)
             return series_id
 
-    series_id = await find_series_by_alias(session, aliases)
+    # entries[0] carries this candidate's own identity and kind, same as the
+    # entry list_sync passes here - without it neither guard in
+    # find_series_by_alias runs, and approving a suggestion could merge a
+    # light novel onto the manga it adapts by title alone (issue #88). Every
+    # entry in the list names the same candidate under a different provider's
+    # id, so any one of them is as representative as another; `ids` above
+    # always has at least the suggestion's own provider, so the list is never
+    # empty here.
+    series_id = await find_series_by_alias(session, aliases, entries[0])
     if series_id:
         await merge_aliases(session, series_id, entries[0], aliases)
         return series_id
@@ -203,6 +211,13 @@ async def approve(
     # so the next ANIME_LIST_SYNC recognises it instead of suggesting it again.
     ids = {row.provider: row.provider_media_id, **(row.alt_ids or {})}
 
+    # Only a suggestion built from a manga relation carries this - AniList's
+    # `format` on the candidate, stashed in meta by suggest_build - since a
+    # manually searched-and-added one has nowhere to have recorded it. Absent
+    # here reads the same as absent anywhere else this guard looks: no
+    # evidence, not evidence of prose.
+    kind = (row.meta or {}).get("format")
+
     entries = [
         ListEntryDTO(
             provider=Provider(provider),
@@ -211,6 +226,7 @@ async def approve(
             title_english=row.title,
             total_chapters=row.total_chapters,
             cover_url=row.cover_url,
+            kind=kind,
         )
         for provider, media_id in ids.items()
     ]

@@ -137,6 +137,92 @@ async def test_approving_attaches_to_the_series_list_sync_already_created(client
     assert count == 1
 
 
+# Approving a suggestion is find_series_by_alias's other caller, and until now it
+# passed no dto at all - not the identifier guard the function already had, not
+# the kind guard this branch adds. Both regressed the exact way issue #88
+# describes, and approving from Discovery is the one place a user is actively
+# pairing a title by hand, so it is the likeliest place to meet the bug.
+
+
+async def test_approving_does_not_merge_over_a_different_id_for_the_same_provider(
+    client, suggestion_id
+):
+    """The identifier guard already existed in find_series_by_alias; it was
+    bypassed here only because no dto ever reached it. This is what restoring
+    that dto has to fix, independent of kind."""
+    async with get_sessionmaker()() as session:
+        existing = (
+            await session.execute(
+                text(
+                    """
+                    insert into series (canonical_title, slug, needs_review, meta, created_at)
+                    values ('Vinland Saga', 'vinland-saga', true,
+                            '{"aliases": ["vinland saga"],
+                              "cross_refs": {"anilist": {"id": "9999", "by": "anilist"}}}'::jsonb,
+                            now())
+                    returning id
+                    """
+                )
+            )
+        ).scalar_one()
+        await session.commit()
+
+    # The suggestion fixture is anilist:3000 (see META); the existing series
+    # above claims anilist:9999 firsthand. Same title, different work.
+    body = (
+        await client.post(
+            f"/api/suggestions/{suggestion_id}/add", json={"status": "reading", "download": False}
+        )
+    ).json()
+
+    assert body["series_id"] != existing
+
+
+async def test_approving_a_prose_suggestion_does_not_merge_onto_a_comic_series(client):
+    """The suggestion states its own kind through meta.format (see
+    parse_manga_meta / upsert_suggestion); the existing series states its
+    kind through a stored entry's raw, exactly as a real list-synced series
+    would (see test_a_legacy_series_still_refuses_a_joining_prose_entry)."""
+    async with get_sessionmaker()() as session:
+        existing = (
+            await session.execute(
+                text(
+                    """
+                    insert into series (canonical_title, slug, needs_review, meta, created_at)
+                    values ('Vinland Saga', 'vinland-saga', true,
+                            '{"aliases": ["vinland saga"]}'::jsonb, now())
+                    returning id
+                    """
+                )
+            )
+        ).scalar_one()
+        await session.execute(
+            text(
+                """
+                insert into list_entry (provider, provider_media_id, series_id, status,
+                                        user_progress_chapter, synonyms, raw, updated_at)
+                values ('mal', '999', :series_id, 'reading', 0, '[]'::jsonb,
+                        '{"node": {"media_type": "manga"}}'::jsonb, now())
+                """
+            ),
+            {"series_id": existing},
+        )
+        await session.commit()
+
+    suggestion_id = await insert_suggestion({**META, "format": "NOVEL"})
+    body = (
+        await client.post(
+            f"/api/suggestions/{suggestion_id}/add", json={"status": "reading", "download": False}
+        )
+    ).json()
+
+    async with get_sessionmaker()() as session:
+        series_ids = {row[0] for row in (await session.execute(text("select id from series"))).all()}
+
+    assert body["series_id"] != existing
+    assert series_ids == {existing, body["series_id"]}
+
+
 async def test_a_series_that_is_already_mapped_keeps_the_mapping_it_has(client, suggestion_id):
     """Two active mappings for one series is a state the rest of the app cannot read."""
     async with get_sessionmaker()() as session:
