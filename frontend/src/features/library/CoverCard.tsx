@@ -41,7 +41,12 @@ export function CoverCard({
       to={`/series/${series.id}`}
       state={originState(location)}
       className={`group relative flex flex-col transition-transform duration-300 hover:-translate-y-1 hover:shadow-glow ${
-        selected ? 'rounded-lg ring-2 ring-violet-500 shadow-xl shadow-violet-500/20' : ''
+        selected
+          ? // Offset, so the ring is drawn outside the card rather than over it.
+            // Hugging the box, its rounded corners cut across the chapter line
+            // on the bottom row and the card read as clipped.
+            'rounded-lg shadow-xl shadow-violet-500/20 ring-2 ring-violet-500 ring-offset-2 ring-offset-background'
+          : ''
       }`}
     >
       {onToggleSelect && (
@@ -119,7 +124,10 @@ export function CoverCard({
           <div className="h-full bg-secondary transition-all duration-300" style={{ width: `${pct ?? 0}%` }} />
         </div>
       </div>
-      <div className="flex flex-col gap-1 pt-2.5">
+      {/* Padded below, not only above: the chapter line used to sit flush on the
+          card's bottom edge. No side padding, so the text stays aligned with the
+          edge of the art above it. */}
+      <div className="flex flex-col gap-1 pb-2 pt-2.5">
         <div className="flex items-center justify-between font-mono text-body-sm text-outline">
           <span className="truncate">{[format, genre].filter(Boolean).join(' • ') || ' '}</span>
           {pct !== null && <span className={`shrink-0 ${pct >= 80 ? 'text-secondary' : 'text-primary'}`}>{pct}%</span>}

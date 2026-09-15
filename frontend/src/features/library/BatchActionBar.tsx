@@ -56,7 +56,12 @@ export function BatchActionBar({
   const named = destinations.map((key) => DESTINATION_LABEL[key] ?? key).join(' · ')
 
   return (
-    <div className="fixed bottom-8 left-1/2 z-50 w-[95%] max-w-5xl -translate-x-1/2">
+    // Sticky rather than fixed. Pinned above the fold it looks the same, but a
+    // fixed bar is outside the flow, so at the foot of the library it sat on
+    // top of the last row of covers and there was no way to scroll them clear.
+    // Sticky keeps its box in the layout: the page ends far enough down for the
+    // last row to clear the bar, at any width and however tall the bar wraps.
+    <div className="sticky bottom-8 z-50 mx-auto w-[95%] max-w-5xl">
       <div className="flex flex-col items-center justify-between gap-4 rounded-2xl border border-violet-500/40 bg-surface-container-lowest/95 p-3 shadow-batch-bar backdrop-blur-2xl transition-all sm:p-4 lg:flex-row">
         <div className="flex w-full flex-wrap items-center gap-3 lg:w-auto">
           <div className="flex items-center gap-2 rounded-xl border border-violet-500/30 bg-violet-500/20 px-3 py-1.5">
