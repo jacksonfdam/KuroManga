@@ -8,8 +8,9 @@ KuroManga is a self-hosted pipeline that reads manga reading lists from MyAnimeL
 resolves each entry to a source site URL through a mapping the user confirms by hand, downloads
 chapters as CBZ with `ComicInfo.xml` embedded, and hands the library to Komga for reading.
 
-The design of record is `docs/superpowers/specs/2026-09-13-manga-komga-pipeline-design.md`. Read it
-before changing the job pipeline or the data model — it explains why the deliberate stops exist.
+`docs/` is the reference, derived from the running system rather than from a design document.
+Read `docs/architecture.md` before changing the job pipeline — it explains why the deliberate stops
+exist — and `docs/data-model.md` before a migration or a query.
 
 User-facing documentation lives in `docs/features.md` and `docs/configuration.md`.
 

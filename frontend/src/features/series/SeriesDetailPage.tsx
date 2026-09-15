@@ -19,13 +19,12 @@ import { totalChapters, useSeriesDetail } from './useSeriesDetail'
 type Panel = 'chapters' | 'notes' | 'characters'
 
 // The mockup's own geometry: a twelve-column hero with the cover on three,
-// then a two-column body. What the mockup shows and this does not is listed in
-// docs/superpowers/plans/2026-09-14-series-detail-complete.md — a release
-// cadence, per-chapter release dates and page counts, and a ComicInfo
-// validation badge. None of them has a source, and an invented figure that
-// fills a gap in a mockup is worse than the gap. The weekday reading chart
-// was the one deferred item on that list rather than a dropped one, and it
-// is built now that `progress_event` has landed.
+// then a two-column body. Four things the mockup shows are deliberately absent
+// here — a release cadence, per-chapter release dates, page counts, and a
+// ComicInfo validation badge. No provider serves any of them, and an invented
+// figure that fills a gap in a mockup is worse than the gap. The weekday
+// reading chart was deferred rather than dropped, and it is built now that
+// `progress_event` has landed.
 export function SeriesDetailPage() {
   const { id } = useParams<{ id: string }>()
   const seriesId = Number(id)

@@ -70,6 +70,22 @@ the series you are part way through — each with a one-click way to record anot
 alongside the newest suggestions, what the queue has just finished, and how much room is left on
 the disk holding your library.
 
+### Statistics
+
+What the library looks like as a whole, over the last 7, 30, 90 or 365 days. Totals for series
+tracked, how many reached Komga, and chapters known against downloaded against read. Then the shape
+of it: how your titles split across the five list states, your ten commonest genres, and which
+decades they were published in.
+
+Two panels come with a caveat printed on them rather than buried in a caption. Reading velocity is
+drawn only from the day chapter events started being recorded, so a flat stretch before that is an
+absence of history rather than a month of reading nothing. Time spent is an estimate and says so —
+nothing in the pipeline observes how long you read, so it is chapters multiplied by a figure you set
+in Settings.
+
+A series on both MyAnimeList and AniList is counted once. It is one thing on the shelf, and counting
+it twice would inflate every distribution on the screen.
+
 ### Library
 
 Every series KuroManga knows about, with covers, which lists it came from, how many chapters you
@@ -80,6 +96,17 @@ Opening one gives you the full picture: progress with a chapter counter you can 
 rating against the global score, the source it is mapped to, every chapter and whether it is on
 disk, and a panel showing exactly what each connected list currently records — so you can see at
 a glance whether they agree.
+
+### A series
+
+Opening a series gives you its cover, native title, author credit and score, its synopsis and
+genres, the characters and related works its providers know about, and the chapters KuroManga has
+found against the ones you hold. From here you record progress, pick a range to download, follow the
+series, correct the source mapping, and keep private notes that go nowhere near your lists.
+
+Where a provider serves nothing, the screen shows nothing. A release schedule and per-chapter page
+counts are absent for that reason: no source states them, and an invented figure would be worse than
+the gap.
 
 ### Discovery
 

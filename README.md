@@ -34,8 +34,8 @@ KuroManga closes that gap and then stays out of the way.
 - **Reads on any device.** Komga serves the web, and any Komga-compatible reader on iOS and
   Android.
 - **Tells you what it is doing.** Live progress, a queue you can see, and failures that say why.
-- **Syncs your progress back.** Finish a chapter in your reader and every connected list follows,
-  in one step.
+- **Syncs your progress back.** Finish a chapter in your reader and your MyAnimeList and AniList
+  entries follow, in one step.
 
 ## Nothing downloads without you
 
