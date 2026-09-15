@@ -1,0 +1,255 @@
+{
+    "chapter": {
+        "id": 32288,
+        "slug": "chapter-30",
+        "number": 30,
+        "title": "",
+        "createdAt": "2026-08-28T16:02:12.945Z",
+        "updatedAt": "2026-09-14T09:13:40.331Z",
+        "chapterStatus": "PUBLIC",
+        "featuredImage": null,
+        "price": 0,
+        "becameFreeAt": "2026-09-14T09:13:40.331Z",
+        "unlockAt": null,
+        "isPermanentlyLocked": false,
+        "isLockedByCoins": false,
+        "isShortLinkLocked": false,
+        "shortLink": null,
+        "mangaPostId": 643,
+        "team": null,
+        "mangaPost": {
+            "id": 643,
+            "postTitle": "Rebirth: Monarch of the Dead",
+            "slug": "rebirth-monarch-of-the-dead",
+            "featuredImage": "https://storage.vortexscans.org/upload/series/featured/4/106b293a-7be1-4c35-8ce9-ba2f28843881.jpg",
+            "discordRoleID": "",
+            "author": "Tetrodotoxin",
+            "releaseDate": "",
+            "seriesType": "MANHWA",
+            "isNovel": false,
+            "showIntroOutroImage": false,
+            "introImage": "",
+            "outroImage": "",
+            "introImageUrl": null,
+            "outroImageUrl": null,
+            "hasNovelOrComic": true,
+            "novelTitle": "",
+            "novelUrl": "",
+            "saleActive": false,
+            "salePercentage": 0,
+            "saleEndDate": null,
+            "genres": [
+                {
+                    "id": 33,
+                    "name": "Webtoon",
+                    "color": ""
+                }
+            ]
+        },
+        "content": "",
+        "images": [
+            {
+                "id": 2031468,
+                "url": "https://storage.vortexscans.org/upload/series/rebirth-monarch-of-the-dead/880572f5-c72e-4512-8bea-1c2d5ddfcb71/page-0001_001_1787932907885-499434.webp",
+                "width": 800,
+                "height": 5000,
+                "order": 0
+            },
+            {
+                "id": 2031469,
+                "url": "https://storage.vortexscans.org/upload/series/rebirth-monarch-of-the-dead/880572f5-c72e-4512-8bea-1c2d5ddfcb71/page-0002_001_1787932907885-509263.webp",
+                "width": 800,
+                "height": 5000,
+                "order": 1
+            },
+            {
+                "id": 2031470,
+                "url": "https://storage.vortexscans.org/upload/series/rebirth-monarch-of-the-dead/880572f5-c72e-4512-8bea-1c2d5ddfcb71/page-0003_001_1787932907886-287987.webp",
+                "width": 800,
+                "height": 5000,
+                "order": 2
+            },
+            {
+                "id": 2031471,
+                "url": "https://storage.vortexscans.org/upload/series/rebirth-monarch-of-the-dead/880572f5-c72e-4512-8bea-1c2d5ddfcb71/page-0004_001_1787932907886-712302.webp",
+                "width": 800,
+                "height": 1515,
+                "order": 3
+            },
+            {
+                "id": 2031472,
+                "url": "https://storage.vortexscans.org/upload/series/rebirth-monarch-of-the-dead/880572f5-c72e-4512-8bea-1c2d5ddfcb71/page-0005_002_1787932907886-933675.webp",
+                "width": 800,
+                "height": 5000,
+                "order": 4
+            },
+            {
+                "id": 2031473,
+                "url": "https://storage.vortexscans.org/upload/series/rebirth-monarch-of-the-dead/880572f5-c72e-4512-8bea-1c2d5ddfcb71/page-0006_002_1787932907886-354820.webp",
+                "width": 800,
+                "height": 5000,
+                "order": 5
+            },
+            {
+                "id": 2031474,
+                "url": "https://storage.vortexscans.org/upload/series/rebirth-monarch-of-the-dead/880572f5-c72e-4512-8bea-1c2d5ddfcb71/page-0007_002_1787932907886-776640.webp",
+                "width": 800,
+                "height": 3644,
+                "order": 6
+            },
+            {
+                "id": 2031475,
+                "url": "https://storage.vortexscans.org/upload/series/rebirth-monarch-of-the-dead/880572f5-c72e-4512-8bea-1c2d5ddfcb71/page-0008_003_1787932907886-78246.webp",
+                "width": 800,
+                "height": 5000,
+                "order": 7
+            },
+            {
+                "id": 2031476,
+                "url": "https://storage.vortexscans.org/upload/series/rebirth-monarch-of-the-dead/880572f5-c72e-4512-8bea-1c2d5ddfcb71/page-0009_003_1787932909830-424916.webp",
+                "width": 800,
+                "height": 5000,
+                "order": 8
+            },
+            {
+                "id": 2031477,
+                "url": "https://storage.vortexscans.org/upload/series/rebirth-monarch-of-the-dead/880572f5-c72e-4512-8bea-1c2d5ddfcb71/page-0010_003_1787932913041-988806.webp",
+                "width": 800,
+                "height": 4467,
+                "order": 9
+            },
+            {
+                "id": 2031478,
+                "url": "https://storage.vortexscans.org/upload/series/rebirth-monarch-of-the-dead/880572f5-c72e-4512-8bea-1c2d5ddfcb71/page-0011_004_1787932914138-448075.webp",
+                "width": 800,
+                "height": 5000,
+                "order": 10
+            },
+            {
+                "id": 2031479,
+                "url": "https://storage.vortexscans.org/upload/series/rebirth-monarch-of-the-dead/880572f5-c72e-4512-8bea-1c2d5ddfcb71/page-0012_004_1787932914429-224213.webp",
+                "width": 800,
+                "height": 5000,
+                "order": 11
+            },
+            {
+                "id": 2031480,
+                "url": "https://storage.vortexscans.org/upload/series/rebirth-monarch-of-the-dead/880572f5-c72e-4512-8bea-1c2d5ddfcb71/page-0013_004_1787932914429-682438.webp",
+                "width": 800,
+                "height": 4004,
+                "order": 12
+            },
+            {
+                "id": 2031481,
+                "url": "https://storage.vortexscans.org/upload/series/rebirth-monarch-of-the-dead/880572f5-c72e-4512-8bea-1c2d5ddfcb71/page-0014_005_1787932914528-98488.webp",
+                "width": 800,
+                "height": 5000,
+                "order": 13
+            },
+            {
+                "id": 2031482,
+                "url": "https://storage.vortexscans.org/upload/series/rebirth-monarch-of-the-dead/880572f5-c72e-4512-8bea-1c2d5ddfcb71/page-0015_005_1787932914827-819883.webp",
+                "width": 800,
+                "height": 5000,
+                "order": 14
+            },
+            {
+                "id": 2031483,
+                "url": "https://storage.vortexscans.org/upload/series/rebirth-monarch-of-the-dead/880572f5-c72e-4512-8bea-1c2d5ddfcb71/page-0016_005_1787932914937-273197.webp",
+                "width": 800,
+                "height": 5000,
+                "order": 15
+            },
+            {
+                "id": 2031484,
+                "url": "https://storage.vortexscans.org/upload/series/rebirth-monarch-of-the-dead/880572f5-c72e-4512-8bea-1c2d5ddfcb71/page-0017_005_1787932916343-604016.webp",
+                "width": 800,
+                "height": 186,
+                "order": 16
+            },
+            {
+                "id": 2031485,
+                "url": "https://storage.vortexscans.org/upload/series/rebirth-monarch-of-the-dead/880572f5-c72e-4512-8bea-1c2d5ddfcb71/page-0018_006_1787932916640-882131.webp",
+                "width": 800,
+                "height": 5000,
+                "order": 17
+            },
+            {
+                "id": 2031486,
+                "url": "https://storage.vortexscans.org/upload/series/rebirth-monarch-of-the-dead/880572f5-c72e-4512-8bea-1c2d5ddfcb71/page-0019_006_1787932919243-963063.webp",
+                "width": 800,
+                "height": 5000,
+                "order": 18
+            },
+            {
+                "id": 2031487,
+                "url": "https://storage.vortexscans.org/upload/series/rebirth-monarch-of-the-dead/880572f5-c72e-4512-8bea-1c2d5ddfcb71/page-0020_006_1787932919447-819643.webp",
+                "width": 800,
+                "height": 4018,
+                "order": 19
+            },
+            {
+                "id": 2031488,
+                "url": "https://storage.vortexscans.org/upload/series/rebirth-monarch-of-the-dead/880572f5-c72e-4512-8bea-1c2d5ddfcb71/page-0021_007_1787932920643-594775.webp",
+                "width": 800,
+                "height": 5000,
+                "order": 20
+            },
+            {
+                "id": 2031489,
+                "url": "https://storage.vortexscans.org/upload/series/rebirth-monarch-of-the-dead/880572f5-c72e-4512-8bea-1c2d5ddfcb71/page-0022_007_1787932920939-385793.webp",
+                "width": 800,
+                "height": 5000,
+                "order": 21
+            },
+            {
+                "id": 2031490,
+                "url": "https://storage.vortexscans.org/upload/series/rebirth-monarch-of-the-dead/880572f5-c72e-4512-8bea-1c2d5ddfcb71/page-0023_007_1787932921141-296149.webp",
+                "width": 800,
+                "height": 5000,
+                "order": 22
+            },
+            {
+                "id": 2031491,
+                "url": "https://storage.vortexscans.org/upload/series/rebirth-monarch-of-the-dead/880572f5-c72e-4512-8bea-1c2d5ddfcb71/page-0024_007_1787932921439-236749.webp",
+                "width": 800,
+                "height": 403,
+                "order": 23
+            },
+            {
+                "id": 2031492,
+                "url": "https://storage.vortexscans.org/upload/series/rebirth-monarch-of-the-dead/880572f5-c72e-4512-8bea-1c2d5ddfcb71/page-0025_008_1787932921841-334789.webp",
+                "width": 800,
+                "height": 5000,
+                "order": 24
+            },
+            {
+                "id": 2031493,
+                "url": "https://storage.vortexscans.org/upload/series/rebirth-monarch-of-the-dead/880572f5-c72e-4512-8bea-1c2d5ddfcb71/page-0026_008_1787932922027-422429.webp",
+                "width": 800,
+                "height": 5000,
+                "order": 25
+            },
+            {
+                "id": 2031494,
+                "url": "https://storage.vortexscans.org/upload/series/rebirth-monarch-of-the-dead/880572f5-c72e-4512-8bea-1c2d5ddfcb71/page-0027_008_1787932923142-417976.webp",
+                "width": 800,
+                "height": 2986,
+                "order": 26
+            }
+        ],
+        "isPurchased": false,
+        "isLocked": false,
+        "isAccessible": true
+    },
+    "nextChapter": {
+        "slug": "chapter-31",
+        "number": 31,
+        "title": ""
+    },
+    "previousChapter": {
+        "slug": "chapter-29",
+        "number": 29,
+        "title": ""
+    }
+}

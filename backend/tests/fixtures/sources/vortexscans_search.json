@@ -1,0 +1,237 @@
+{
+    "posts": [
+        {
+            "id": 643,
+            "slug": "rebirth-monarch-of-the-dead",
+            "postTitle": "Rebirth: Monarch of the Dead",
+            "featuredImage": "https://storage.vortexscans.org/upload/series/featured/4/106b293a-7be1-4c35-8ce9-ba2f28843881.jpg",
+            "seriesType": "MANHWA",
+            "seriesStatus": "ONGOING",
+            "hot": false,
+            "isPinned": false,
+            "saleActive": false,
+            "salePercentage": 0,
+            "saleEndDate": null,
+            "genres": [
+                {
+                    "id": 33,
+                    "name": "Webtoon",
+                    "color": ""
+                }
+            ],
+            "chapters": [
+                {
+                    "id": 32889,
+                    "number": 33,
+                    "title": "",
+                    "slug": "chapter-33",
+                    "createdAt": "2026-09-14T09:12:47.697Z",
+                    "isPurchased": false,
+                    "hasPurchased": false,
+                    "isLocked": true,
+                    "isAccessible": false
+                },
+                {
+                    "id": 32888,
+                    "number": 32,
+                    "title": "",
+                    "slug": "chapter-32",
+                    "createdAt": "2026-09-14T09:11:17.695Z",
+                    "isPurchased": false,
+                    "hasPurchased": false,
+                    "isLocked": true,
+                    "isAccessible": false
+                },
+                {
+                    "id": 32288,
+                    "number": 30,
+                    "title": "",
+                    "slug": "chapter-30",
+                    "createdAt": "2026-08-28T16:02:12.945Z",
+                    "isPurchased": false,
+                    "hasPurchased": false,
+                    "isLocked": false,
+                    "isAccessible": true
+                },
+                {
+                    "id": 32110,
+                    "number": 29,
+                    "title": "",
+                    "slug": "chapter-29",
+                    "createdAt": "2026-08-21T20:59:40.741Z",
+                    "isPurchased": false,
+                    "hasPurchased": false,
+                    "isLocked": false,
+                    "isAccessible": true
+                }
+            ],
+            "averageRating": 4.75
+        },
+        {
+            "id": 543,
+            "slug": "rebirth-of-the-ultimate-war-god",
+            "postTitle": "Rebirth of the Ultimate War God",
+            "featuredImage": "https://storage.vortexscans.org/upload/2026/04/02/be8c85ac-b556-4af3-8bcf-ab722d6666d9.jpg",
+            "seriesType": "MANHWA",
+            "seriesStatus": "ONGOING",
+            "hot": false,
+            "isPinned": false,
+            "saleActive": false,
+            "salePercentage": 0,
+            "saleEndDate": null,
+            "genres": [
+                {
+                    "id": 1,
+                    "name": "Action",
+                    "color": ""
+                },
+                {
+                    "id": 6,
+                    "name": "Martial Arts",
+                    "color": ""
+                },
+                {
+                    "id": 27,
+                    "name": "Video Games",
+                    "color": ""
+                }
+            ],
+            "chapters": [
+                {
+                    "id": 26274,
+                    "number": 1,
+                    "title": "",
+                    "slug": "chapter-1",
+                    "createdAt": "2026-03-30T03:16:43.162Z",
+                    "isPurchased": false,
+                    "hasPurchased": false,
+                    "isLocked": false,
+                    "isAccessible": true
+                }
+            ],
+            "averageRating": 10
+        },
+        {
+            "id": 415,
+            "slug": "rebirth-of-the-divine-demon-novel",
+            "postTitle": "Rebirth of the Divine Demon [Novel]",
+            "featuredImage": "https://storage.vortexscans.org/upload/2025/10/11/4e8b5f75-7e07-44e8-b482-0ebd5274c0a3.webp",
+            "seriesType": "MANHWA",
+            "seriesStatus": "ONGOING",
+            "hot": false,
+            "isPinned": false,
+            "saleActive": false,
+            "salePercentage": null,
+            "saleEndDate": null,
+            "genres": [],
+            "chapters": [],
+            "averageRating": 10
+        },
+        {
+            "id": 412,
+            "slug": "rebirth-of-the-divine-demon",
+            "postTitle": "Rebirth of the Divine Demon",
+            "featuredImage": "https://storage.vortexscans.org/upload/2025/12/03/2ec0ad80-6044-446a-9858-53c38054bf01.webp",
+            "seriesType": "MANHWA",
+            "seriesStatus": "ONGOING",
+            "hot": false,
+            "isPinned": false,
+            "saleActive": false,
+            "salePercentage": 0,
+            "saleEndDate": null,
+            "genres": [
+                {
+                    "id": 1,
+                    "name": "Action",
+                    "color": ""
+                },
+                {
+                    "id": 6,
+                    "name": "Martial Arts",
+                    "color": ""
+                },
+                {
+                    "id": 16,
+                    "name": "Reincarnation",
+                    "color": ""
+                },
+                {
+                    "id": 31,
+                    "name": "Murim",
+                    "color": ""
+                },
+                {
+                    "id": 53,
+                    "name": "Swordsman",
+                    "color": ""
+                }
+            ],
+            "chapters": [
+                {
+                    "id": 31485,
+                    "number": 55,
+                    "title": "",
+                    "slug": "chapter-55",
+                    "createdAt": "2026-07-30T18:28:27.700Z",
+                    "isPurchased": false,
+                    "hasPurchased": false,
+                    "isLocked": false,
+                    "isAccessible": true
+                },
+                {
+                    "id": 31259,
+                    "number": 54,
+                    "title": "",
+                    "slug": "chapter-54",
+                    "createdAt": "2026-07-23T22:44:12.844Z",
+                    "isPurchased": false,
+                    "hasPurchased": false,
+                    "isLocked": false,
+                    "isAccessible": true
+                }
+            ],
+            "averageRating": 9.2
+        },
+        {
+            "id": 170,
+            "slug": "i-regressed-to-level-up-instead-of-being-a-simp",
+            "postTitle": "After Rebirth: Upgrading Through Consumption",
+            "featuredImage": "https://storage.vortexscans.org/upload/2024/08/17/IMG_216117.webp",
+            "seriesType": "MANHWA",
+            "seriesStatus": "ONGOING",
+            "hot": null,
+            "isPinned": false,
+            "saleActive": false,
+            "salePercentage": null,
+            "saleEndDate": null,
+            "genres": [],
+            "chapters": [
+                {
+                    "id": 18306,
+                    "number": 149,
+                    "title": null,
+                    "slug": "chapter-149",
+                    "createdAt": "2025-03-30T17:28:55.092Z",
+                    "isPurchased": false,
+                    "hasPurchased": false,
+                    "isLocked": false,
+                    "isAccessible": true
+                },
+                {
+                    "id": 18305,
+                    "number": 148,
+                    "title": null,
+                    "slug": "chapter-148",
+                    "createdAt": "2025-03-30T17:28:38.509Z",
+                    "isPurchased": false,
+                    "hasPurchased": false,
+                    "isLocked": false,
+                    "isAccessible": true
+                }
+            ],
+            "averageRating": 8.5
+        }
+    ],
+    "totalCount": 6,
+    "searchTerm": "rebirth"
+}
