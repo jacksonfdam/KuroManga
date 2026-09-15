@@ -5,15 +5,23 @@ No database here - CatalogueRow is a plain value the caller is expected to
 have already loaded (sources/ stays pure, CLAUDE.md "Module boundaries").
 """
 
+import asyncio
+import http.server
+import json
+import threading
+from collections.abc import Callable
+
 import httpx
 import pytest
 
 from app.sources.net import (
     DEFAULT_RATE_LIMIT,
     CatalogueRow,
+    ChallengeUnsolvable,
     RateLimit,
     SiteClient,
     TokenBucket,
+    _is_cloudflare_challenge,
     close_all,
     get_client,
 )
@@ -230,3 +238,211 @@ async def test_a_per_request_header_overrides_the_default():
 
     assert seen[0].headers["referer"] == "https://referer.example/chapter/1"
     assert seen[0].headers["user-agent"].startswith("Mozilla/5.0")
+
+
+# --- Cloudflare challenge detection and solving (#92) -----------------------
+#
+# Markers, verified rather than recalled (CLAUDE.md, "Gotchas learned the hard
+# way"):
+#
+# - `cf-mitigated: challenge` is Cloudflare's own documented signal - every
+#   Challenge Page response carries it, "challenge" is "the only valid value"
+#   (developers.cloudflare.com/cloudflare-challenges/challenge-types/
+#   challenge-pages/detect-response, read 2026-09-15).
+# - The page title "Just a moment..." is the exact string FlareSolverr's own
+#   CHALLENGE_TITLES list matches before it decides there is something to
+#   solve (src/flaresolverr_service.py, github.com/FlareSolverr/FlareSolverr,
+#   read 2026-09-15). Trusted only alongside `Server: cloudflare`, which every
+#   Cloudflare-proxied response carries - the title alone is just a title.
+
+
+def test_cf_mitigated_header_alone_marks_a_challenge():
+    response = httpx.Response(503, headers={"cf-mitigated": "challenge"}, text="")
+    assert _is_cloudflare_challenge(response)
+
+
+def test_a_plain_403_with_no_cloudflare_marker_is_not_a_challenge():
+    # A wrong referer produces a 403 too (decision 2, #92) - the status code
+    # alone must never be read as a challenge.
+    response = httpx.Response(403, text="forbidden")
+    assert not _is_cloudflare_challenge(response)
+
+
+def test_the_challenge_title_alone_is_not_enough_without_the_cloudflare_server_header():
+    response = httpx.Response(503, text="<title>Just a moment...</title>")
+    assert not _is_cloudflare_challenge(response)
+
+
+def test_the_challenge_title_with_the_cloudflare_server_header_is_a_challenge():
+    response = httpx.Response(
+        503, headers={"server": "cloudflare"}, text="<title>Just a moment...</title>"
+    )
+    assert _is_cloudflare_challenge(response)
+
+
+def test_a_200_is_never_a_challenge_even_with_every_marker_present():
+    response = httpx.Response(
+        200,
+        headers={"cf-mitigated": "challenge", "server": "cloudflare"},
+        text="<title>Just a moment...</title>",
+    )
+    assert not _is_cloudflare_challenge(response)
+
+
+ChallengeRouter = Callable[[str, str, dict, bytes], tuple[int, dict, bytes]]
+
+
+def _make_challenge_handler(router: ChallengeRouter):
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            self._handle("GET")
+
+        def do_POST(self):
+            self._handle("POST")
+
+        def _handle(self, method):
+            length = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(length) if length else b""
+            status, headers, response_body = router(method, self.path, dict(self.headers), body)
+            self.send_response(status)
+            for name, value in headers.items():
+                self.send_header(name, value)
+            self.send_header("Content-Length", str(len(response_body)))
+            self.end_headers()
+            self.wfile.write(response_body)
+
+        def log_message(self, format, *args):
+            pass  # the test suite's own output, not the stub's, is what matters here
+
+    return Handler
+
+
+class ChallengeStub:
+    """A throwaway HTTP server that answers both GET and POST - a site being
+    challenged plus a stand-in FlareSolverr both need to be servers, and a
+    real socket is what exercises the client path that talks to one (see
+    test_fetcher.py's own Stub for the same reasoning).
+    """
+
+    def __init__(self, router: ChallengeRouter) -> None:
+        self._server = http.server.ThreadingHTTPServer(
+            ("127.0.0.1", 0), _make_challenge_handler(router)
+        )
+        self._thread = threading.Thread(target=self._server.serve_forever, daemon=True)
+        self._thread.start()
+
+    @property
+    def base_url(self) -> str:
+        return f"http://127.0.0.1:{self._server.server_address[1]}"
+
+    def close(self) -> None:
+        self._server.shutdown()
+        self._server.server_close()
+        self._thread.join(timeout=1)
+
+
+def _header(headers: dict, name: str) -> str:
+    return next((v for k, v in headers.items() if k.lower() == name.lower()), "")
+
+
+async def test_a_challenge_triggers_exactly_one_solve_and_later_requests_reuse_the_cookies():
+    solves: list[dict] = []
+
+    def site_router(method, path, headers, body):
+        if "cf_clearance=solved" in _header(headers, "Cookie"):
+            return 200, {"Content-Type": "text/plain"}, b"ok"
+        return (
+            503,
+            {"cf-mitigated": "challenge", "Content-Type": "text/html"},
+            b"<title>Just a moment...</title>",
+        )
+
+    def flaresolverr_router(method, path, headers, body):
+        assert path == "/v1"
+        payload = json.loads(body)
+        solves.append(payload)
+        result = {
+            "status": "ok",
+            "message": "",
+            "solution": {
+                "url": payload["url"],
+                "status": 200,
+                "cookies": [{"name": "cf_clearance", "value": "solved", "path": "/"}],
+                "userAgent": "FlareSolverr/1.0 solved-agent",
+            },
+        }
+        return 200, {"Content-Type": "application/json"}, json.dumps(result).encode()
+
+    site = ChallengeStub(site_router)
+    flaresolverr = ChallengeStub(flaresolverr_router)
+    try:
+        row = CatalogueRow(
+            key="cf-site",
+            base_url=site.base_url,
+            rate_limit={"permits": 1000, "period_seconds": 0.01},
+        )
+        client = SiteClient(row, flaresolverr_url=flaresolverr.base_url)
+
+        # A chapter fetches pages four at a time (decision 3, #92): all four
+        # hitting the challenge together must still cost only one solve.
+        responses = await asyncio.gather(*(client.get(f"/page-{i}") for i in range(4)))
+
+        assert [r.status_code for r in responses] == [200, 200, 200, 200]
+        assert len(solves) == 1
+        assert solves[0]["cmd"] == "request.get"
+        assert solves[0]["url"].startswith(site.base_url)
+
+        again = await client.get("/page-5")
+        assert again.status_code == 200
+        assert len(solves) == 1  # the cookie is reused, not solved again
+
+        # Decision 4: the clearance cookie is tied to the user agent that
+        # obtained it, so it travels with it or the site rejects both.
+        assert client._client.headers["User-Agent"] == "FlareSolverr/1.0 solved-agent"
+    finally:
+        site.close()
+        flaresolverr.close()
+
+
+async def test_a_stubbed_solve_failure_raises_challenge_unsolvable():
+    def site_router(method, path, headers, body):
+        return 503, {"cf-mitigated": "challenge"}, b""
+
+    solves: list[int] = []
+
+    def flaresolverr_router(method, path, headers, body):
+        solves.append(1)
+        result = {
+            "status": "error",
+            "message": "Error: Error solving the challenge. Timeout after 60.0 seconds.",
+        }
+        return 200, {"Content-Type": "application/json"}, json.dumps(result).encode()
+
+    site = ChallengeStub(site_router)
+    flaresolverr = ChallengeStub(flaresolverr_router)
+    try:
+        row = CatalogueRow(key="cf-fail-site", base_url=site.base_url)
+        client = SiteClient(row, flaresolverr_url=flaresolverr.base_url)
+
+        with pytest.raises(ChallengeUnsolvable, match="Timeout after 60"):
+            await client.get("/")
+
+        assert len(solves) == 1
+    finally:
+        site.close()
+        flaresolverr.close()
+
+
+async def test_with_no_flaresolverr_configured_the_reason_says_so_without_a_network_call():
+    def site_router(method, path, headers, body):
+        return 403, {"cf-mitigated": "challenge"}, b""
+
+    site = ChallengeStub(site_router)
+    try:
+        row = CatalogueRow(key="cf-unconfigured-site", base_url=site.base_url)
+        client = SiteClient(row, flaresolverr_url="")
+
+        with pytest.raises(ChallengeUnsolvable, match="none is configured"):
+            await client.get("/")
+    finally:
+        site.close()
