@@ -11,7 +11,14 @@ import httpx
 
 from app.discovery.status_sync import mangadex_status
 from app.enums import ListStatus
-from app.sources.base import Candidate, ChapterRef, NotConfigured, PageRef, Source
+from app.sources.base import (
+    Candidate,
+    ChapterRef,
+    ChapterUnavailable,
+    NotConfigured,
+    PageRef,
+    Source,
+)
 from app.sources.mangadex_auth import tokens
 from app.text_utils import best_similarity
 
@@ -69,6 +76,26 @@ def parse_search(payload: dict[str, Any], titles: list[str]) -> list[Candidate]:
     return sorted(candidates, key=lambda c: c.score, reverse=True)
 
 
+def parse_at_home(payload: dict[str, Any]) -> list[PageRef]:
+    """Pure parser for the at-home response, so page order is testable from a
+    fixture without the base URL it returns ever going stale (decision 3, #96).
+
+    Full quality only, from `chapter.data` - `chapter.dataSaver` is out of
+    scope (decision 2, #96), one decision fewer for a pipeline that already
+    writes the archive once. No headers: read against MangaDex's own "at-home"
+    guide (api.mangadex.org/docs, 04-chapter/retrieving-chapter, read
+    2026-09-15), fetching an image needs none, unlike the scraped sites this
+    field also serves (decision 4, #96).
+    """
+    chapter = payload.get("chapter") or {}
+    base_url = payload["baseUrl"]
+    chapter_hash = chapter.get("hash", "")
+    return [
+        PageRef(url=f"{base_url}/data/{chapter_hash}/{filename}")
+        for filename in chapter.get("data") or []
+    ]
+
+
 def parse_feed(payload: dict[str, Any]) -> list[ChapterRef]:
     """Pure parser for one page of a manga feed."""
     chapters: list[ChapterRef] = []
@@ -116,6 +143,14 @@ def manga_id_from_candidate(candidate: Candidate) -> str | None:
         return manga_id_from_url(candidate.source_url)
     except ValueError:
         return None
+
+
+def chapter_id_from_url(url: str) -> str:
+    parts = [p for p in url.split("/") if p]
+    for index, part in enumerate(parts):
+        if part == "chapter" and index + 1 < len(parts):
+            return parts[index + 1]
+    raise ValueError(f"not a mangadex chapter url: {url}")
 
 
 class MangaDexSource(Source):
@@ -177,8 +212,19 @@ class MangaDexSource(Source):
         return deduplicate(chapters)
 
     async def list_pages(self, chapter_url: str, *, language: str = "en") -> list[PageRef]:
-        # Its own issue (#93 territory) lands the at-home /image endpoint dance.
-        raise NotImplementedError
+        chapter_id = chapter_id_from_url(chapter_url)
+        # The at-home base URL is per-chapter and short-lived - MangaDex's own
+        # guide guarantees only "15 minutes. Could be more, could be less" -
+        # so it is never cached here; every call re-asks and gets a URL good
+        # for the fetch that is about to use it, not for whatever chapter was
+        # requested last.
+        try:
+            payload = await self._get(f"/at-home/server/{chapter_id}", [])
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code == 404:
+                raise ChapterUnavailable(f"mangadex has no chapter {chapter_id}") from exc
+            raise
+        return parse_at_home(payload)
 
     async def set_reading_status(self, manga_id: str, status: ListStatus) -> None:
         """Follow-list status. This is one of the few endpoints that needs the login."""
