@@ -15,6 +15,7 @@ from typing import Any
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.sources.asurascans import AsuraScansSource
 from app.sources.base import RegisteredSource, Source, install_registry
 from app.sources.comick import SITES, ComickSource
 from app.sources.mangadex import MangaDexSource
@@ -35,6 +36,7 @@ NATIVE_SOURCES: dict[str, Source] = {
     "mangadex": MangaDexSource(),
     "comick": ComickSource(*SITES[0]),
     "mangageko": MangaGekoSource(),
+    "asurascans": AsuraScansSource(),
 }
 
 # Ported templates, keyed by site_catalogue.template. A template with no entry
