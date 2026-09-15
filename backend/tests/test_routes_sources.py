@@ -29,7 +29,8 @@ async def extra_row():
             text(
                 "insert into site_catalogue"
                 " (key, name, template, base_url, lang, nsfw, overrides, version, hand_ported)"
-                " values ('nihonsite', 'Nihon Site', 'madara', 'https://nihon.example', 'ja',"
+                " values ('nihonsite', 'Nihon Site', 'templatewithnoclass',"
+                " 'https://nihon.example', 'ja',"
                 " true, '{}'::jsonb, '1.0.0', false)"
                 " on conflict (key) do nothing"
             )
@@ -71,7 +72,12 @@ async def test_a_template_with_no_implementation_says_so(client):
 
     items = {i["key"]: i for i in (await client.get("/api/sources?size=100")).json()["items"]}
 
-    assert items["nihonsite"]["reason"] == "no implementation for the madara template"
+    # A template name nothing will ever implement, on purpose: the test used a
+    # real unported one and started failing the day that template was ported,
+    # which says nothing about the behaviour under test.
+    assert (
+        items["nihonsite"]["reason"] == "no implementation for the templatewithnoclass template"
+    )
 
 
 async def test_filters_narrow_by_language_and_content_warning(client):

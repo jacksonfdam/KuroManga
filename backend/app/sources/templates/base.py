@@ -19,11 +19,21 @@ class TemplateSource(Source):
     #: Matches site_catalogue.template; registry.TEMPLATE_CLASSES keys on it.
     template: ClassVar[str] = ""
 
-    #: Attribute names a catalogue row may set through `overrides`. An allow-list
-    #: rather than free assignment: a generated row naming an attribute this
-    #: template does not have is a generator bug, and silently absorbing it would
-    #: leave the site half-configured, parsing against defaults nobody chose.
-    overridable: ClassVar[frozenset[str]] = frozenset()
+    #: Upstream override name -> the attribute on this class it sets. The keys
+    #: are the names the generator writes, which are the extension's own
+    #: camelCase members; the values are this codebase's snake_case attributes.
+    #: An allow-list rather than free assignment: a generated row naming
+    #: something this template does not have is a generator bug, and silently
+    #: absorbing it would leave the site parsing against defaults nobody chose.
+    override_map: ClassVar[dict[str, str]] = {}
+
+    #: Upstream names this template accepts and deliberately does nothing with.
+    #: A leaf may declare a details-page selector this contract never fetches -
+    #: search already carries the title and cover, and chapters come from the
+    #: manga URL. Refusing those would disable the site over a setting that
+    #: cannot change any of the three operations, which is worse than accepting
+    #: one that does nothing.
+    ignored_overrides: ClassVar[frozenset[str]] = frozenset()
 
     def __init__(
         self,
@@ -45,9 +55,16 @@ class TemplateSource(Source):
         # Injectable so a test drives the template against a recorded fixture
         # without a live site, and without a live rate limit to wait on.
         self.client = client or get_client(row)
-        for attribute, value in (overrides or {}).items():
-            if attribute not in self.overridable:
-                raise ValueError(f"{self.template}: {attribute!r} is not an overridable attribute")
+        for upstream_name, value in (overrides or {}).items():
+            # Written by the generator onto every row it refused, so it arrives
+            # on far more rows than any real override and means nothing here.
+            if upstream_name == "_reason" or upstream_name in self.ignored_overrides:
+                continue
+            attribute = self.override_map.get(upstream_name)
+            if attribute is None:
+                raise ValueError(
+                    f"{self.template}: {upstream_name!r} is not an overridable attribute"
+                )
             setattr(self, attribute, value)
 
     def absolute(self, url: str) -> str:

@@ -6,6 +6,7 @@ for it - is the point of this task.
 """
 
 import logging
+from typing import ClassVar
 
 import pytest
 from sqlalchemy import text
@@ -54,7 +55,7 @@ async def test_a_non_native_template_row_is_skipped():
             text(
                 "insert into site_catalogue"
                 " (key, name, template, base_url, lang, nsfw, overrides, version, hand_ported)"
-                " values ('fakemadara', 'Fake', 'madara', 'https://fake.example', 'en',"
+                " values ('faketemplaterow', 'Fake', 'templatewithnoclass', 'https://fake.example', 'en',"
                 " false, '{}'::jsonb, '1.0.0', true)"
             )
         )
@@ -67,8 +68,8 @@ async def test_a_non_native_template_row_is_skipped():
             assert {source.site for source in all_sources()} == baseline
             assert get_source("mangadex").site == "mangadex"
         finally:
-            await session.execute(text("delete from source_pref where key = 'fakemadara'"))
-            await session.execute(text("delete from site_catalogue where key = 'fakemadara'"))
+            await session.execute(text("delete from source_pref where key = 'faketemplaterow'"))
+            await session.execute(text("delete from site_catalogue where key = 'faketemplaterow'"))
             await session.commit()
             await reload(session)
 
@@ -130,7 +131,9 @@ async def test_the_migration_seeded_both_native_sources_enabled():
 
 class FakeTemplate(TemplateSource):
     template = "faketemplate"
-    overridable = frozenset({"search_path"})
+    # Upstream writes camelCase; the attribute it sets here is this
+    # codebase's own snake_case name.
+    override_map: ClassVar[dict[str, str]] = {"searchPath": "search_path"}
     search_path = "/default"
 
     async def search(self, titles, *, limit=8):
@@ -172,7 +175,7 @@ async def _drop_row(session, key: str) -> None:
 async def test_a_template_row_becomes_a_source_instance(monkeypatch):
     monkeypatch.setitem(registry.TEMPLATE_CLASSES, "faketemplate", FakeTemplate)
     async with get_sessionmaker()() as session:
-        await _seed_template_row(session, "sitea", '{"search_path": "/find"}')
+        await _seed_template_row(session, "sitea", '{"searchPath": "/find"}')
         try:
             await reload(session)
 

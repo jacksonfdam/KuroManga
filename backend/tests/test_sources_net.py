@@ -552,3 +552,29 @@ async def test_a_clearance_the_site_still_refuses_is_reported_as_unsolvable():
     finally:
         site.close()
         flaresolverr.close()
+
+
+async def test_a_redirected_page_image_is_followed_rather_than_returned_as_a_redirect():
+    """These sites serve page images through a CDN redirect.
+
+    httpx does not follow redirects by default. Left off, the fetcher receives
+    a 302 carrying HTML, rejects it for not being an image, and the chapter
+    reads as removed rather than as redirected.
+    """
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/page.jpg":
+            return httpx.Response(302, headers={"Location": "https://cdn.test/real.jpg"})
+        return httpx.Response(200, content=b"\xff\xd8\xff", headers={"Content-Type": "image/jpeg"})
+
+    client = SiteClient(
+        CatalogueRow(key="redirects.test", base_url="https://redirects.test"),
+        transport=httpx.MockTransport(handler),
+    )
+    try:
+        response = await client.get("/page.jpg")
+    finally:
+        await client.aclose()
+
+    assert response.status_code == 200
+    assert response.headers["Content-Type"] == "image/jpeg"

@@ -294,6 +294,12 @@ class SiteClient:
             transport=transport,
             timeout=timeout,
             headers=DEFAULT_HEADERS,
+            # httpx does not follow redirects by default, and these sites lean
+            # on them: a madara leaf checked against its live site served every
+            # page image as a 302 to a CDN, which arrives here as a 200-less
+            # response carrying HTML. The fetcher then rejects it for not being
+            # an image, and the chapter looks removed rather than redirected.
+            follow_redirects=True,
         )
 
     async def get(self, url: str, **kwargs: Any) -> httpx.Response:
