@@ -35,6 +35,10 @@ def page_extension(data: bytes) -> str:
             return extension
     if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
         return "webp"
+    # AVIF and the HEIF family put their brand after the box length, so the
+    # signature does not start at byte zero the way the others do.
+    if data[4:8] == b"ftyp" and data[8:12] in (b"avif", b"avis"):
+        return "avif"
     raise ValueError("page bytes do not match a known image format")
 
 
@@ -60,9 +64,9 @@ async def write_cbz(pages: Sequence[bytes], destination: Path, info: ComicInfo) 
 
 def _archive_pages(pages: Sequence[bytes], scratch: Path) -> None:
     # Stored, not deflated: pages are already-compressed images, so deflating
-    # spends CPU on every one of them for no size reduction. (comicinfo.inject
-    # rewrites the archive again right after this to add ComicInfo.xml, and
-    # that step's own default compression is its own, unchanged business.)
+    # spends CPU on every one of them for no size reduction. comicinfo.inject
+    # rewrites the archive right after this to add ComicInfo.xml and carries
+    # each entry's own compression across, so the decision survives that step.
     with zipfile.ZipFile(scratch, "w", zipfile.ZIP_STORED) as archive:
         for index, data in enumerate(pages, start=1):
             # Three digits: it covers 999 pages, and a chapter longer than

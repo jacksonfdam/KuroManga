@@ -3,7 +3,7 @@ from decimal import Decimal
 
 import pytest
 
-from app.downloader.cbz import _archive_pages, place_file, write_cbz
+from app.downloader.cbz import _archive_pages, page_extension, place_file, write_cbz
 from app.downloader.comicinfo import COMIC_INFO_NAME, ComicInfo
 from app.downloader.paths import chapter_path
 
@@ -37,17 +37,26 @@ async def test_comicinfo_is_injected_after_the_pages(tmp_path):
 
 
 def test_pages_are_stored_uncompressed(tmp_path):
-    """Deflating an already-compressed image wastes CPU for nothing: ZIP_STORED.
-
-    comicinfo.inject rewrites the archive again right after this step and picks
-    its own default compression when it does, so this checks the point this
-    module controls rather than the byte-identical final file.
-    """
+    """Deflating an already-compressed image wastes CPU for nothing: ZIP_STORED."""
     scratch = tmp_path / "scratch.cbz"
     _archive_pages([JPEG], scratch)
 
     with zipfile.ZipFile(scratch) as archive:
         assert archive.getinfo("001.jpg").compress_type == zipfile.ZIP_STORED
+
+
+async def test_pages_are_still_stored_in_the_file_komga_receives(tmp_path):
+    """The archive is rewritten once more to stamp in ComicInfo.xml.
+
+    That rewrite used to deflate every page it carried across, which undid this
+    module's decision one archive later and spent the CPU anyway.
+    """
+    destination = tmp_path / "series" / "series - Ch.0003.cbz"
+    await write_cbz([JPEG, PNG], destination, ComicInfo(series="S", number=Decimal("3")))
+
+    with zipfile.ZipFile(destination) as archive:
+        assert archive.getinfo("001.jpg").compress_type == zipfile.ZIP_STORED
+        assert archive.getinfo("002.png").compress_type == zipfile.ZIP_STORED
 
 
 async def test_the_file_lands_at_exactly_the_path_chapter_path_returns(tmp_path):
@@ -81,3 +90,14 @@ async def test_place_file_renames_a_produced_file_into_the_destination(tmp_path)
 
     assert destination.read_bytes() == b"data"
     assert not produced.exists()
+
+
+def test_page_extension_reads_avif(tmp_path):
+    """AVIF puts its brand after the box length, so its signature does not start at byte zero."""
+    avif = b"\x00\x00\x00\x20ftypavif" + b"\x00" * 8
+    assert page_extension(avif) == "avif"
+
+
+def test_page_extension_refuses_bytes_that_are_not_an_image():
+    with pytest.raises(ValueError):
+        page_extension(b"<!DOCTYPE html><html><body>rate limited</body></html>")
