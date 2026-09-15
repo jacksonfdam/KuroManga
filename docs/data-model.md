@@ -44,6 +44,39 @@ display-only.
 The confirmed link from a series to a source URL. `active` is false for superseded mappings rather
 than deleting history.
 
+### `site_catalogue`
+Every source site the pipeline knows how to reach, and how to reach it.
+
+`key` (primary key), `name`, `template`, `base_url`, `lang`, `nsfw`, `overrides` (jsonb),
+`rate_limit` (jsonb), `version`, `hand_ported`
+
+Generated output. `app/catalogue/repo.py::replace_catalogue` is the only thing that writes it: it
+upserts every row a regeneration produced and deletes the keys that run left out. Two exceptions are
+deliberate. Rows with `template = 'native'` are never deleted — MangaDex and comick are hand-written
+Python classes, and the generator parses an extension repository that mentions neither. And an empty
+regeneration is refused rather than applied, because the source registry is built from this table
+and an accepted empty run would disable searching and downloading for the whole library at once.
+
+`hand_ported` is false for a site whose extension carries behaviour the generator cannot derive. It
+ships in the catalogue but disabled, with the reason on its settings row.
+
+### `source_pref`
+The user's own decision about a site, kept in a separate table on purpose.
+
+`key` (primary key), `enabled`, `priority`, `rate_limit_override` (jsonb), `disabled_reason`
+
+A regenerated catalogue must never silently re-enable a site someone turned off, or forget one they
+turned on, so nothing that writes the catalogue touches this table. A preference whose site vanished
+upstream is kept and shown as orphaned rather than deleted. There is no foreign key between the two
+tables for the same reason: one would cascade the catalogue's delete straight onto the preference.
+
+`source_mapping.source_site` likewise stays a plain string against the catalogue key, with no
+foreign key. A confirmed mapping outlives a regeneration, and if its site is gone the download fails
+naming the site — more use than the mapping quietly disappearing.
+
+The registry every source lookup goes through is these two tables joined: loaded once at boot in
+both the API and the worker, so enabling a site in settings is the same act as registering it.
+
 ### `series_candidate`
 Search results awaiting confirmation. Replaced wholesale on each `match_search`.
 
