@@ -1,0 +1,146 @@
+{
+  "data": {
+    "access_gate": "",
+    "chapter": {
+      "id": 261463,
+      "series_id": 2190,
+      "number": 139,
+      "slug": "chapter-139",
+      "pages": [
+        {
+          "url": "https://cdn.asurascans.com/asura-images/chapters/reborn-as-the-heavenly-demon/139/6a30f4.webp?v=1789404359"
+        },
+        {
+          "url": "https://cdn.asurascans.com/asura-images/chapters/reborn-as-the-heavenly-demon/139/d9839b.webp?v=1789404359"
+        },
+        {
+          "url": "https://cdn.asurascans.com/asura-images/chapters/reborn-as-the-heavenly-demon/139/085eff.webp?v=1789404359"
+        },
+        {
+          "url": "https://cdn.asurascans.com/asura-images/chapters/reborn-as-the-heavenly-demon/139/126a46.webp?v=1789404359"
+        },
+        {
+          "url": "https://cdn.asurascans.com/asura-images/chapters/reborn-as-the-heavenly-demon/139/c4ac80.webp?v=1789404359"
+        },
+        {
+          "url": "https://cdn.asurascans.com/asura-images/chapters/reborn-as-the-heavenly-demon/139/234b0a.webp?v=1789404359"
+        },
+        {
+          "url": "https://cdn.asurascans.com/asura-images/chapters/reborn-as-the-heavenly-demon/139/c84808.webp?v=1789404359"
+        },
+        {
+          "url": "https://cdn.asurascans.com/asura-images/chapters/reborn-as-the-heavenly-demon/139/48684d.webp?v=1789404359"
+        },
+        {
+          "url": "https://cdn.asurascans.com/asura-images/chapters/reborn-as-the-heavenly-demon/139/0327e5.webp?v=1789404359"
+        },
+        {
+          "url": "https://cdn.asurascans.com/asura-images/chapters/reborn-as-the-heavenly-demon/139/08e4bc.webp?v=1789404359"
+        },
+        {
+          "url": "https://cdn.asurascans.com/asura-images/chapters/reborn-as-the-heavenly-demon/139/0dbba8.webp?v=1789404359"
+        },
+        {
+          "url": "https://cdn.asurascans.com/asura-images/chapters/reborn-as-the-heavenly-demon/139/23cc5f.webp?v=1789404359"
+        },
+        {
+          "url": "https://cdn.asurascans.com/asura-images/chapters/reborn-as-the-heavenly-demon/139/6e05ee.webp?v=1789404359"
+        },
+        {
+          "url": "https://cdn.asurascans.com/asura-images/chapters/reborn-as-the-heavenly-demon/139/3e3d4b.webp?v=1789404359"
+        },
+        {
+          "url": "https://cdn.asurascans.com/asura-images/chapters/reborn-as-the-heavenly-demon/139/cd7a60.webp?v=1789404359"
+        },
+        {
+          "url": "https://cdn.asurascans.com/asura-images/chapters/reborn-as-the-heavenly-demon/139/7a4514.webp?v=1789404359"
+        },
+        {
+          "url": "https://cdn.asurascans.com/asura-images/chapters/reborn-as-the-heavenly-demon/139/3e4a67.webp?v=1789404359"
+        },
+        {
+          "url": "https://cdn.asurascans.com/asura-images/chapters/reborn-as-the-heavenly-demon/139/ce4152.webp?v=1789404359"
+        },
+        {
+          "url": "https://cdn.asurascans.com/asura-images/chapters/reborn-as-the-heavenly-demon/139/4bfb71.webp?v=1789404359"
+        },
+        {
+          "url": "https://cdn.asurascans.com/asura-images/chapters/reborn-as-the-heavenly-demon/139/922191.webp?v=1789404359"
+        },
+        {
+          "url": "https://cdn.asurascans.com/asura-images/chapters/reborn-as-the-heavenly-demon/139/67f851.webp?v=1789404359"
+        },
+        {
+          "url": "https://cdn.asurascans.com/asura-images/chapters/reborn-as-the-heavenly-demon/139/2cbfa7.webp?v=1789404359"
+        },
+        {
+          "url": "https://cdn.asurascans.com/asura-images/chapters/reborn-as-the-heavenly-demon/139/ab1e6f.webp?v=1789404359"
+        },
+        {
+          "url": "https://cdn.asurascans.com/asura-images/chapters/reborn-as-the-heavenly-demon/139/cc81a6.webp?v=1789404359"
+        }
+      ],
+      "page_count": 24,
+      "is_premium": false,
+      "comments_enabled": true,
+      "early_access_until": "2026-09-14T17:54:03.547487Z",
+      "published_at": "2026-09-14T11:54:03.547487Z",
+      "view_count": 61359,
+      "created_at": "2026-09-14T11:54:04.30363Z",
+      "series_slug": "reborn-as-the-heavenly-demon"
+    },
+    "chapter_list": [
+      {
+        "id": 261463,
+        "series_id": 0,
+        "number": 139,
+        "slug": "chapter-139",
+        "page_count": 0,
+        "is_premium": false,
+        "comments_enabled": false,
+        "view_count": 0,
+        "created_at": "0001-01-01T00:00:00Z"
+      },
+      {
+        "id": 261297,
+        "series_id": 0,
+        "number": 138,
+        "slug": "chapter-138",
+        "page_count": 0,
+        "is_premium": false,
+        "comments_enabled": false,
+        "view_count": 0,
+        "created_at": "0001-01-01T00:00:00Z"
+      }
+    ],
+    "is_locked": false,
+    "next_chapter": null,
+    "prev_chapter": {
+      "id": 261297,
+      "series_id": 0,
+      "number": 138,
+      "slug": "chapter-138",
+      "page_count": 0,
+      "is_premium": false,
+      "comments_enabled": false,
+      "view_count": 0,
+      "created_at": "0001-01-01T00:00:00Z"
+    },
+    "series": {
+      "id": 2190,
+      "slug": "reborn-as-the-heavenly-demon",
+      "title": "Reborn As The Heavenly Demon",
+      "cover": "https://cdn.asurascans.com/asura-images/covers/reborn-as-the-heavenly-demon.aec242.webp",
+      "status": "",
+      "type": "",
+      "bookmark_count": 0,
+      "rating": 0,
+      "chapter_count": 0,
+      "created_at": "0001-01-01T00:00:00Z",
+      "updated_at": "0001-01-01T00:00:00Z",
+      "public_url": "/comics/reborn-as-the-heavenly-demon-6f7fe6eb",
+      "source_url": "/s/2190"
+    },
+    "unlock_time": null
+  }
+}
