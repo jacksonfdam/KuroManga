@@ -1,10 +1,9 @@
 """Fetches a chapter's page images through the site client and refuses
 anything that is not really an image.
 
-This replaces the fetching half of the manga-downloader binary. The bytes it
-hands back go straight into downloader.cbz.write_cbz - nothing between here
-and the archive re-reads the network, so what this module accepts is what
-Komga ends up serving.
+The bytes it hands back go straight into downloader.cbz.write_cbz - nothing
+between here and the archive re-reads the network, so what this module accepts
+is what Komga ends up serving.
 """
 
 import asyncio

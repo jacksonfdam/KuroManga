@@ -40,11 +40,9 @@ class Settings(BaseSettings):
     mangadex_username: str = ""
     mangadex_password: str = ""
 
-    downloader_binary: str = "manga-downloader"
-
     # Self-hosted comick-source-api. It scrapes search results and chapter
-    # lists for sites the download binary already covers, but has no endpoint
-    # for page images, so it never touches downloading itself.
+    # lists, but has no endpoint for page images, so it never touches
+    # downloading itself.
     comick_api_url: str = "http://comick:3000"
 
     # Headless-Chrome Cloudflare challenge solver. Empty by default, and its

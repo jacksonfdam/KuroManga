@@ -1,7 +1,6 @@
 """Turn fetched page bytes into the CBZ archive Komga expects.
 
-This replaces the archiving half of the manga-downloader binary: the fetcher
-hands over page bytes, this module names and zips them, stamps in
+The fetcher hands over page bytes, this module names and zips them, stamps in
 ComicInfo.xml, and places the result where the library expects to find it.
 """
 

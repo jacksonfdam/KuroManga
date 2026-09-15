@@ -87,11 +87,12 @@ fetched.
 ### `download_batch`
 **Payload** `{chapter_ids}` · **Enqueues** `komga_scan`
 
-Downloads several chapters in one invocation of the binary. `manga-downloader` reads a manga's
-entire chapter index on every run, so one job per chapter meant re-reading seven hundred entries per
-file and the source began returning errors. A batch passes the tool's own range syntax
-(`1-20,22,25-30`) and costs one index read. Size is the `download_batch_size` setting, default 20 —
-a single job for a whole backlog would hold one lease for hours and fail all or nothing.
+Downloads several chapters in one job. Batching outlived the reason it was introduced: the old
+download binary re-read a manga's entire chapter index on every invocation, so one job per chapter
+meant re-reading seven hundred entries per file. On the Python path a chapter costs one request, and
+a batch now exists to size the lease and amortise the series metadata read — a single job for a
+whole backlog would hold one lease for hours and fail all or nothing. Size is the
+`download_batch_size` setting, default 20.
 
 Partial results are kept and the remainder requeued as a smaller batch, so nothing downloads twice.
 A chapter the source will not serve ends up isolated in ever-smaller batches until it is `skipped`.

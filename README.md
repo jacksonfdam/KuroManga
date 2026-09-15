@@ -70,12 +70,13 @@ Full walkthrough in [docs/configuration.md](docs/configuration.md).
 
 ## Built with
 
-Python, FastAPI and PostgreSQL on the backend. React on the front. Komga for reading.
-[manga-downloader](https://github.com/elboletaire/manga-downloader) fetches chapters.
+Python, FastAPI and PostgreSQL on the backend. React on the front. Komga for reading. Chapters are
+fetched and archived in Python, against source modules ported from the Tachiyomi extensions.
 
 ## License and credits
 
 MIT. See [LICENSE](LICENSE).
 
-KuroManga orchestrates other people's work — Komga, manga-downloader, and the databases that make a
-reading list mean anything. [CREDITS.md](CREDITS.md) names them.
+KuroManga orchestrates other people's work — Komga, the extension authors whose sources it was
+ported from, and the databases that make a reading list mean anything.
+[CREDITS.md](CREDITS.md) names them.
