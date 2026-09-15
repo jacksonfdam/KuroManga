@@ -17,12 +17,15 @@ export type View = 'grid' | 'table'
 const VIEWS: readonly View[] = ['grid', 'table']
 const STATUS_TABS: readonly (ListStatus | 'all')[] = [...STATUS_ORDER, 'all']
 
+// How long the manga is, from the two partial answers we hold.
+//
 // total_chapters is the provider's static count and is frequently null;
 // known is what chapter_discover has actually seen on the source. Either can
-// be the only number we have, so the display total falls back between them
-// rather than assuming one is always populated.
+// be the only number we have, and either can be the larger — so neither may
+// shrink the other. A provider count goes stale the moment a chapter is
+// published; discovery has only found what it has looked for so far.
 export function totalChapters(series: Series): number | null {
-  return series.total_chapters || series.known || null
+  return Math.max(series.total_chapters ?? 0, series.known ?? 0) || null
 }
 
 export function useLibrary() {
