@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.sources.base import RegisteredSource, Source, install_registry
 from app.sources.comick import SITES, ComickSource
 from app.sources.mangadex import MangaDexSource
+from app.sources.mangageko import MangaGekoSource
 from app.sources.net import CatalogueRow
 from app.sources.templates import TemplateSource
 from app.sources.templates.iken import IkenSource
@@ -33,6 +34,7 @@ logger = logging.getLogger(__name__)
 NATIVE_SOURCES: dict[str, Source] = {
     "mangadex": MangaDexSource(),
     "comick": ComickSource(*SITES[0]),
+    "mangageko": MangaGekoSource(),
 }
 
 # Ported templates, keyed by site_catalogue.template. A template with no entry
