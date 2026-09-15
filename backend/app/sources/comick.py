@@ -7,8 +7,7 @@ review screen.
 
 import httpx
 
-from app.downloader.runner import ChapterUnavailable
-from app.sources.base import Candidate, ChapterRef, PageRef, Source
+from app.sources.base import Candidate, ChapterRef, ChapterUnavailable, PageRef, Source
 from app.sources.comick_client import ComickClient, parse_chapters, parse_pages, parse_search
 
 SITES = (

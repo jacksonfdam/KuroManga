@@ -12,7 +12,7 @@ from urllib.parse import parse_qs, urlsplit
 import httpx
 import pytest
 
-from app.downloader.runner import ChapterUnavailable
+from app.sources.base import ChapterUnavailable
 from app.sources.comick import ComickSource
 
 FIXTURES = Path(__file__).parent / "fixtures"
