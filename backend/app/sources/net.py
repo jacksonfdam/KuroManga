@@ -33,6 +33,19 @@ class RateLimit:
 # cost of being too fast is a ban that looks like the site breaking.
 DEFAULT_RATE_LIMIT = RateLimit(permits=1, period_seconds=1)
 
+# Sent on every request unless the caller overrides them. A default httpx
+# User-Agent is refused outright by a good number of these sites - the
+# Tachiyomi extensions this layer is ported from all send a browser one, and
+# the failure without it is a 403 that looks like the site being down rather
+# than like a header being wrong.
+DEFAULT_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+        " (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+    ),
+    "Accept-Language": "en-US,en;q=0.9",
+}
+
 
 @dataclass(frozen=True)
 class CatalogueRow:
@@ -156,7 +169,10 @@ class SiteClient:
         # process from ever sharing cookies - no extra bookkeeping needed
         # here beyond not sharing the client itself.
         self._client = httpx.AsyncClient(
-            base_url=row.base_url, transport=transport, timeout=timeout
+            base_url=row.base_url,
+            transport=transport,
+            timeout=timeout,
+            headers=DEFAULT_HEADERS,
         )
 
     async def get(self, url: str, **kwargs: Any) -> httpx.Response:

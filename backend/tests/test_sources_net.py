@@ -194,3 +194,39 @@ async def test_close_all_closes_every_cached_client():
     client = get_client(row)
     await close_all()
     assert client._client.is_closed
+
+
+async def test_every_request_carries_a_browser_user_agent():
+    """A default httpx User-Agent is refused outright by a good number of these sites.
+
+    The failure it produces is a 403 that reads as the site being down, so the
+    header is set once on the client rather than left to each call site.
+    """
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200)
+
+    row = CatalogueRow(key="ua-site", base_url="https://ua.example")
+    client = SiteClient(row, transport=httpx.MockTransport(handler))
+    await client.get("/page")
+
+    assert seen[0].headers["user-agent"].startswith("Mozilla/5.0")
+    assert "httpx" not in seen[0].headers["user-agent"]
+
+
+async def test_a_per_request_header_overrides_the_default():
+    """PageRef carries its own headers - a referer these sites demand - and they must win."""
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200)
+
+    row = CatalogueRow(key="referer-site", base_url="https://referer.example")
+    client = SiteClient(row, transport=httpx.MockTransport(handler))
+    await client.get("/page", headers={"Referer": "https://referer.example/chapter/1"})
+
+    assert seen[0].headers["referer"] == "https://referer.example/chapter/1"
+    assert seen[0].headers["user-agent"].startswith("Mozilla/5.0")
