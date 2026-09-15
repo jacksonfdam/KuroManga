@@ -27,9 +27,10 @@ from app.text_utils import best_similarity
 class IkenSource(TemplateSource):
     template: ClassVar[str] = "iken"
 
-    overridable: ClassVar[frozenset[str]] = frozenset(
-        {"query_path", "chapters_path", "chapter_path", "series_path"}
-    )
+    override_map: ClassVar[dict[str, str]] = {
+        "apiPath": "query_path",
+        "seriesPath": "series_path",
+    }
 
     query_path: str = "/api/query"
     chapters_path: str = "/api/chapters"

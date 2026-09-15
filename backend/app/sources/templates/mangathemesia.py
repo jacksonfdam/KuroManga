@@ -40,7 +40,28 @@ class MangaThemesiaSource(TemplateSource):
     #: Every attribute a generated leaf may set. A name belongs here only once
     #: this class actually reads it - an allow-list promising more than the
     #: parser honours is worse than one that refuses.
-    overridable: ClassVar[frozenset[str]] = frozenset({"manga_sub_string", "search_path"})
+    override_map: ClassVar[dict[str, str]] = {
+        "mangaSubString": "manga_sub_string",
+        "mangaUrlDirectory": "manga_sub_string",
+    }
+
+    #: Declared by leaves, and none of them can change search, the chapter list
+    #: or the page list: they name details-page selectors this contract never
+    #: fetches, or a date format nothing here parses.
+    ignored_overrides: ClassVar[frozenset[str]] = frozenset(
+        {
+            "datePattern",
+            "hasProjectPage",
+            "seriesStatusSelector",
+            "seriesGenreSelector",
+            "seriesThumbnailSelector",
+            "seriesAuthorSelector",
+            "seriesArtistSelector",
+            "seriesDescriptionSelector",
+            "seriesAltNameSelector",
+            "seriesTypeSelector",
+        }
+    )
 
     #: The path segment a series lives under. Thunder Scans uses "comics"; the
     #: template's own default upstream is "manga", and 67 leaves override it.
