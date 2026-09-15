@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api import routes_health
 from app.api.deps import db_session
 from app.api.routes_jobs import JOB_COLUMNS, job_row
+from app.api.routes_series import writable_providers
 from app.config import get_settings
 from app.cron import schedule
 from app.enums import JobState
@@ -45,6 +46,16 @@ left join lateral (
 ) ahead on true
 """
 
+# "Reading" has to mean here what it means on the shelf, or the front page and
+# the library disagree about the same library — 29 against 14, on a real one.
+#
+# The filter is therefore the status the library *shows*, not any status a
+# series happens to carry: one per series, preferring a provider the pipeline
+# can write to. Selecting on `e.status = 'reading'` counted a series whenever
+# any entry said so, which let a read-only provider's opinion put a series on
+# the front page that the shelf listed as plan_to_read. The aggregates stay
+# over every entry, exactly as LIST_SQL computes them, so the two screens agree
+# on the numbers as well as on the membership.
 READING = """
 select s.id,
        s.canonical_title,
@@ -56,8 +67,10 @@ select s.id,
        max(e.updated_at) as updated_at
   from series s
   join list_entry e on e.series_id = s.id
- where e.status = 'reading'
  group by s.id
+having (array_agg(e.status order by
+           (e.provider = any(cast(:writable as text[]))) desc,
+           e.updated_at desc))[1] = 'reading'
 """
 
 ACTIVE_READING_SQL = f"""
@@ -218,14 +231,17 @@ async def dashboard(
     strip = await routes_health.integrations(session)
     items = strip["integrations"]
 
-    active = (await session.execute(text(ACTIVE_READING_SQL))).one()
+    writable = writable_providers()
+    active = (await session.execute(text(ACTIVE_READING_SQL), {"writable": writable})).one()
     downloads = (await session.execute(text(DOWNLOADS_SQL))).one()
     mappings = (await session.execute(text(MAPPINGS_SQL))).one()
     discovery = (await session.execute(text(DISCOVERY_SQL))).one()
     worker = (await session.execute(text(WORKER_SQL))).one()
 
     counts = await repo.counts_by_state(session)
-    reading = await session.execute(text(CONTINUE_READING_SQL), {"limit": continue_limit})
+    reading = await session.execute(
+        text(CONTINUE_READING_SQL), {"limit": continue_limit, "writable": writable}
+    )
     highlights = await session.execute(text(HIGHLIGHTS_SQL), {"limit": suggestion_limit})
     running = await session.execute(text(RUNNING_JOBS_SQL), {"limit": RUNNING_LIMIT})
     recent = await session.execute(text(RECENT_JOBS_SQL), {"limit": RECENT_LIMIT})
