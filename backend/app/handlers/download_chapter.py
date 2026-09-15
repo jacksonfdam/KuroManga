@@ -1,9 +1,9 @@
 """Download one chapter, tag it, and place it in the library atomically.
 
 Two safeguards matter here. A semaphore per source site keeps parallel downloads
-from tripping rate limits on the same host, and the archive is written to a
-scratch folder on the same filesystem and renamed into place, so Komga never
-indexes a half-written file.
+from tripping rate limits on the same host, and write_cbz builds the archive in
+a scratch file next to the destination and renames it into place, so Komga
+never indexes a half-written file.
 """
 
 import re
@@ -16,24 +16,30 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import settings_store
 from app.config import get_settings
-from app.downloader.cbz import place_file
-from app.downloader.comicinfo import ComicInfo, inject
+from app.downloader.cbz import write_cbz
+from app.downloader.comicinfo import ComicInfo
+from app.downloader.fetcher import fetch_pages
 from app.downloader.limits import source_semaphore
-from app.downloader.paths import chapter_path, series_dir
-from app.downloader.runner import ChapterUnavailable, download_chapter
+from app.downloader.paths import chapter_path
 from app.enums import JobType
 from app.handlers.base import JobContext, PermanentError, register
 from app.queue import repo
+from app.sources import source_for_url
+from app.sources.base import ChapterUnavailable
+from app.sources.net import CatalogueRow, get_client
 
-SCRATCH_DIR = ".tmp"
-PROGRESS_LOG_STEP = 10.0
+# How often a lease is renewed while one chapter's pages are still arriving.
+# The lease is fifteen minutes; twenty pages is short enough that no plausible
+# rate limit outruns it, and long enough that the renewal is not a write per
+# page.
+LEASE_RENEWAL_PAGES = 20
 
 
 async def load_context(session: AsyncSession, chapter_id: int) -> dict[str, Any]:
     result = await session.execute(
         text(
             """
-            select c.id, c.number, c.title, c.state,
+            select c.id, c.number, c.title, c.state, c.source_url as chapter_url,
                    s.id as series_id, s.slug, s.canonical_title, s.meta,
                    m.source_site, m.source_url
               from chapter c
@@ -52,6 +58,37 @@ async def load_context(session: AsyncSession, chapter_id: int) -> dict[str, Any]
     if row.source_url is None:
         raise PermanentError(f"series {row.series_id} has no confirmed source mapping")
     return dict(row._mapping)
+
+
+async def load_catalogue_row(session: AsyncSession, key: str) -> CatalogueRow:
+    """site_catalogue joined against source_pref, keyed by the mapping's own
+    source_site column.
+
+    That column already holds the catalogue key - source_mapping.source_site is
+    a plain string against site_catalogue.key, not a foreign key (design doc,
+    "Data model") - so a site withdrawn from the catalogue after a mapping was
+    confirmed fails here by name instead of the mapping being cascaded away.
+    """
+    result = await session.execute(
+        text(
+            """
+            select c.key, c.base_url, c.rate_limit, p.rate_limit_override
+              from site_catalogue c
+              join source_pref p on p.key = c.key
+             where c.key = :key
+            """
+        ),
+        {"key": key},
+    )
+    row = result.first()
+    if row is None:
+        raise PermanentError(f"source {key} is no longer in the catalogue")
+    return CatalogueRow(
+        key=row.key,
+        base_url=row.base_url,
+        rate_limit=row.rate_limit,
+        rate_limit_override=row.rate_limit_override,
+    )
 
 
 async def build_comicinfo(session: AsyncSession, ctx_row: dict[str, Any]) -> ComicInfo:
@@ -148,6 +185,18 @@ async def handle(ctx: JobContext) -> None:
         await mark_downloaded(ctx.session, chapter_id, destination)
         return
 
+    if row["chapter_url"] is None:
+        raise PermanentError(f"chapter {chapter_id} has no source url of its own")
+
+    source = source_for_url(row["chapter_url"])
+    catalogue_row = await load_catalogue_row(ctx.session, row["source_site"])
+    # Images are frequently served from a different host than the site itself
+    # (MangaDex hands out *.mangadex.network URLs) - the rate limit bucket that
+    # governs them is still the site's, keyed off the catalogue row above,
+    # rather than one per image CDN. Deliberate simplification, not an
+    # oversight: the CDN is fronting the same site's own capacity.
+    client = get_client(catalogue_row)
+
     limit = await settings_store.get_int(ctx.session, settings_store.PER_SOURCE_CONCURRENCY)
     semaphore = await source_semaphore(row["source_site"], limit)
 
@@ -156,35 +205,41 @@ async def handle(ctx: JobContext) -> None:
     )
     await ctx.session.commit()
 
-    work_dir = series_dir(library_root, row["slug"]).parent / SCRATCH_DIR / f"job-{ctx.job.id}"
-    last_logged = -PROGRESS_LOG_STEP
-
-    async def on_progress(line: str, pct: float | None) -> None:
-        nonlocal last_logged
-        if pct is None:
-            return
-        if pct - last_logged >= PROGRESS_LOG_STEP or pct >= 100:
-            last_logged = pct
-            await ctx.log(line[:200], pct=pct)
-            await ctx.session.commit()
-            await repo.renew_lease(ctx.session, ctx.job.id)
-
-    await ctx.log(f"downloading chapter {number} from {row['source_site']}", pct=0)
+    await ctx.log(f"chapter {number}: listing pages from {row['source_site']}", pct=0)
 
     async with semaphore:
         try:
-            result = await download_chapter(
-                row["source_url"], number, work_dir, on_progress=on_progress
-            )
+            pages = await source.list_pages(row["chapter_url"])
         except ChapterUnavailable as exc:
             await ctx.session.execute(
                 text("update chapter set state = 'skipped' where id = :id"), {"id": chapter_id}
             )
             raise PermanentError(str(exc)) from exc
 
+        total = len(pages)
+        await ctx.log(f"chapter {number}: 0/{total} pages", pct=10)
+
+        async def report(done: int, of: int) -> None:
+            # Renewed from inside the fetch, not only after it: a chapter of
+            # two hundred pages against a site that declared one request every
+            # ten seconds outlasts the fifteen minute lease on its own, and an
+            # expired lease hands the same chapter to a second worker.
+            if done % LEASE_RENEWAL_PAGES:
+                return
+            await ctx.log(f"chapter {number}: {done}/{of} pages", pct=10 + 80.0 * done / max(of, 1))
+            await ctx.session.commit()
+            await repo.renew_lease(ctx.session, ctx.job.id)
+
+        page_bytes = await fetch_pages(client, pages, on_page=report)
+        # A long batch depends on the lease being renewed as it goes; a single
+        # chapter rarely runs long enough to need it, but the archive write and
+        # place below are still ahead of us, so renew here rather than assume.
+        await repo.renew_lease(ctx.session, ctx.job.id)
+
+    await ctx.log(f"chapter {number}: {len(page_bytes)}/{total} pages fetched", pct=90)
+
     info = await build_comicinfo(ctx.session, row)
-    inject(result.path, info)
-    await place_file(result.path, destination)
+    await write_cbz(page_bytes, destination, info)
 
     await mark_downloaded(ctx.session, chapter_id, destination)
     await ctx.log(f"saved {destination.name}", pct=100)
