@@ -14,6 +14,8 @@ const DEFAULT_VALUES: Record<string, string> = {
   cron_anime_list_sync: '0 */12 * * *',
   download_concurrency: '3',
   per_source_concurrency: '2',
+  source_search_concurrency: '4',
+  source_search_timeout: '20',
   download_batch_size: '20',
   auto_download_new: 'true',
   comick_url: '',

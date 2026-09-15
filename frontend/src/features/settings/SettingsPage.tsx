@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { Button, ErrorState, Icon, NoticeBar, Skeleton, Toggle, type IconName } from '../../ui'
 import { ProviderCard } from './ProviderCard'
 import { PipelineFields } from './PipelineFields'
+import { SourcesPanel } from './SourcesPanel'
 import { SourceCard } from './SourceCard'
 import { StorageFields } from './StorageFields'
 import { useSettings } from './useSettings'
@@ -227,6 +228,15 @@ export function SettingsPage() {
           />
         )}
         <PipelineFields draft={draft} onChange={setField} />
+      </section>
+
+      <section className="flex flex-col gap-space-md">
+        <SectionHeader
+          icon="search"
+          title="Sources"
+          subtitle="Which scan sites are searched when a series needs a match"
+        />
+        <SourcesPanel />
       </section>
 
       <section className="flex flex-col gap-space-md">

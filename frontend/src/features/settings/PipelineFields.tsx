@@ -129,6 +129,29 @@ export function PipelineFields({
           onChange={(value) => onChange('per_source_concurrency', value)}
         />
       </FieldCard>
+      <FieldCard label="Source Search Fan-out" description="Sites searched at once when a series needs a match.">
+        <NumberInput
+          settingKey="source_search_concurrency"
+          label="Source Search Fan-out"
+          value={draft.source_search_concurrency ?? ''}
+          unit="sites"
+          min={1}
+          max={16}
+          onChange={(value) => onChange('source_search_concurrency', value)}
+        />
+      </FieldCard>
+      <FieldCard label="Source Search Timeout" description="How long one site may take before the search goes on without it.">
+        <NumberInput
+          settingKey="source_search_timeout"
+          label="Source Search Timeout"
+          value={draft.source_search_timeout ?? ''}
+          unit="seconds"
+          min={5}
+          max={120}
+          step={5}
+          onChange={(value) => onChange('source_search_timeout', value)}
+        />
+      </FieldCard>
       <FieldCard label="Batch Size" description="Chapters requested per batch (keeps MangaDex from answering with a 400).">
         <NumberInput
           settingKey="download_batch_size"
