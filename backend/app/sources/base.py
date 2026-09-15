@@ -8,6 +8,7 @@ pages is the downloader's job.
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from decimal import Decimal
+from urllib.parse import urlsplit
 
 
 class NotConfigured(RuntimeError):
@@ -69,27 +70,54 @@ class Source(ABC):
         """Every page image for one chapter, in reading order."""
 
 
-_REGISTRY: dict[str, Source] = {}
+@dataclass(frozen=True)
+class RegisteredSource:
+    """A loaded row: the source instance plus the catalogue base_url it resolves from.
+
+    The base_url travels separately from Source.domains because it comes from
+    data (site_catalogue), while domains stays the extra aliases a hand-written
+    class already carries - both are checked when a URL is resolved.
+    """
+
+    source: Source
+    base_url: str
 
 
-def register(source: Source) -> Source:
-    _REGISTRY[source.site] = source
-    return source
+_REGISTRY: dict[str, RegisteredSource] = {}
+
+
+def install_registry(entries: dict[str, RegisteredSource]) -> None:
+    """Replace the registry wholesale.
+
+    Called by app.sources.registry.reload once at boot and again whenever
+    settings change which sites are enabled - never incrementally, so a
+    disabled site cannot linger from a stale entry nobody removed.
+    """
+    _REGISTRY.clear()
+    _REGISTRY.update(entries)
 
 
 def get_source(site: str) -> Source:
     if site not in _REGISTRY:
         raise ValueError(f"unknown source site: {site}")
-    return _REGISTRY[site]
+    return _REGISTRY[site].source
 
 
 def all_sources() -> list[Source]:
-    return list(_REGISTRY.values())
+    return [entry.source for entry in _REGISTRY.values()]
 
 
 def source_for_url(url: str) -> Source:
-    """Pick the source that owns a URL, so a hand-pasted link still resolves."""
-    for source in _REGISTRY.values():
-        if any(domain in url for domain in source.domains):
-            return source
-    raise ValueError(f"no source registered for url: {url}")
+    """Pick the enabled source that owns a URL, so a hand-pasted link still resolves.
+
+    Matches the URL's host against the host of each loaded row's base_url,
+    and against the source's own domains tuple - the extra aliases a
+    hand-written class already carries alongside what the catalogue knows.
+    """
+    host = urlsplit(url).netloc.lower()
+    for entry in _REGISTRY.values():
+        aliases = {urlsplit(entry.base_url).netloc.lower(), *(d.lower() for d in entry.source.domains)}
+        if host in aliases:
+            return entry.source
+    enabled = ", ".join(sorted(entry.source.site for entry in _REGISTRY.values())) or "none"
+    raise ValueError(f"no enabled source handles {url} - enabled sites: {enabled}")

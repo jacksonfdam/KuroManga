@@ -11,7 +11,7 @@ import httpx
 
 from app.discovery.status_sync import mangadex_status
 from app.enums import ListStatus
-from app.sources.base import Candidate, ChapterRef, NotConfigured, PageRef, Source, register
+from app.sources.base import Candidate, ChapterRef, NotConfigured, PageRef, Source
 from app.sources.mangadex_auth import tokens
 from app.text_utils import best_similarity
 
@@ -202,6 +202,3 @@ def deduplicate(chapters: list[ChapterRef]) -> list[ChapterRef]:
     for chapter in chapters:
         seen.setdefault(chapter.number, chapter)
     return [seen[number] for number in sorted(seen)]
-
-
-register(MangaDexSource())
