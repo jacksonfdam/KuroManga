@@ -163,10 +163,25 @@ def upgrade() -> None:
         # up, find this series still claiming it, and re-merge it right back,
         # silently, because the lookup that finds it never reaches the guard.
         moved = {(r["provider"], r["provider_media_id"]) for r in prose_rows}
+        # A known comic entry is a better identifier to repoint at than one
+        # whose kind is merely unrecognised (MyAnimeList's one_shot, say) -
+        # that entry stays on the series either way, but it is not the one
+        # the provider itself would call a manga. Fall back to it only when a
+        # provider has nothing else left on the comic side. Within either
+        # group the lowest id wins, since `entries` is already ordered that
+        # way from the query above.
         comic_media_id: dict[str, str] = {}
+        unknown_kind_media_id: dict[str, str] = {}
         for row in entries:
-            if kinds[row["id"]] not in PROSE_FORMATS and row["provider"] not in comic_media_id:
-                comic_media_id[row["provider"]] = row["provider_media_id"]
+            kind = kinds[row["id"]]
+            if kind in PROSE_FORMATS:
+                continue
+            if kind in MANGA_FORMATS:
+                comic_media_id.setdefault(row["provider"], row["provider_media_id"])
+            else:
+                unknown_kind_media_id.setdefault(row["provider"], row["provider_media_id"])
+        for provider, media_id in unknown_kind_media_id.items():
+            comic_media_id.setdefault(provider, media_id)
 
         held = bind.execute(
             text("select coalesce(meta -> 'cross_refs', '{}'::jsonb) from series where id = :id"),
