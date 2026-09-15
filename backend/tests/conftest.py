@@ -25,8 +25,8 @@ _NATIVE_CATALOGUE_SEED = text(
     values
         ('mangadex', 'MangaDex', 'native', 'https://mangadex.org', 'en', false, '{}'::jsonb,
          null, '1.0.0', true),
-        ('comick', 'WeebCentral', 'native', 'https://weebcentral.com', 'en', false, '{}'::jsonb,
-         null, '1.0.0', true)
+        ('weebcentral', 'WeebCentral', 'native', 'https://weebcentral.com', 'en', false,
+         '{}'::jsonb, null, '1.0.0', true)
     on conflict (key) do update
        set template = excluded.template,
            base_url = excluded.base_url,
@@ -35,7 +35,7 @@ _NATIVE_CATALOGUE_SEED = text(
 )
 _NATIVE_SOURCE_PREF_SEED = text(
     """
-    insert into source_pref (key, enabled) values ('mangadex', true), ('comick', true)
+    insert into source_pref (key, enabled) values ('mangadex', true), ('weebcentral', true)
     on conflict (key) do update set enabled = excluded.enabled
     """
 )

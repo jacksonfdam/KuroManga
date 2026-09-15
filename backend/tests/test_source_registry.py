@@ -115,16 +115,18 @@ async def test_the_migration_seeded_both_native_sources_enabled():
                     text(
                         "select c.key, c.template, p.enabled"
                         " from site_catalogue c join source_pref p using (key)"
-                        " where c.key in ('mangadex', 'comick') order by c.key"
+                        " where c.key in ('mangadex', 'weebcentral') order by c.key"
                     )
                 )
             )
             .mappings()
             .all()
         )
+    # Ordered by key, and 'weebcentral' sorts after 'mangadex' where the old
+    # 'comick' sorted before it.
     assert [dict(row) for row in rows] == [
-        {"key": "comick", "template": "native", "enabled": True},
         {"key": "mangadex", "template": "native", "enabled": True},
+        {"key": "weebcentral", "template": "native", "enabled": True},
     ]
 
 
@@ -200,3 +202,19 @@ async def test_an_unknown_override_skips_the_site_instead_of_failing_the_boot(mo
             assert "no_such_attribute" in caplog.text
         finally:
             await _drop_row(session, "siteb")
+
+
+async def test_every_native_catalogue_key_is_its_source_site():
+    """A catalogue key and the site it serves are the same name, or lookups miss.
+
+    `source_mapping.source_site` stores the site, `source_pref` is keyed the
+    same, and a download handler asks the catalogue for the site it is
+    downloading from. One row was keyed after the service that fetches it
+    ('comick') rather than the site it serves ('weebcentral'), and the first
+    real weebcentral download failed with "source weebcentral is no longer in
+    the catalogue".
+    """
+    from app.sources.registry import NATIVE_SOURCES
+
+    for key, source in NATIVE_SOURCES.items():
+        assert key == source.site, f"catalogue key {key!r} serves site {source.site!r}"
