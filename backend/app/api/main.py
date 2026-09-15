@@ -19,6 +19,7 @@ from app.api import (
 from app.api.events import broker, event_stream
 from app.db import get_sessionmaker
 from app.sources import reload as reload_sources
+from app.sources.net import close_all as close_site_clients
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 
@@ -33,6 +34,9 @@ async def lifespan(app: FastAPI):
     await broker.start()
     yield
     await broker.stop()
+    # Closes every SiteClient's httpx.AsyncClient - the connections and the
+    # cookie jars they hold have no other owner to release them.
+    await close_site_clients()
 
 
 app = FastAPI(title="KuroManga", lifespan=lifespan)
