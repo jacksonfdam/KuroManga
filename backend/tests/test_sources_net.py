@@ -446,3 +446,109 @@ async def test_with_no_flaresolverr_configured_the_reason_says_so_without_a_netw
             await client.get("/")
     finally:
         site.close()
+
+
+async def test_an_expired_clearance_is_solved_again():
+    """A cf_clearance cookie expires and a worker outlives it by days.
+
+    The second challenge arrives on a request that already carried the
+    clearance's own user agent, which is what distinguishes "the cookie ran
+    out" from "concurrent callers who left before the first solve landed" -
+    those must reuse the clearance rather than each discarding it.
+    """
+    solves: list[dict] = []
+    accepted = {"value": "first"}
+
+    def site_router(method, path, headers, body):
+        if f"cf_clearance={accepted['value']}" in _header(headers, "Cookie"):
+            return 200, {"Content-Type": "text/plain"}, b"ok"
+        return (
+            503,
+            {"cf-mitigated": "challenge", "Content-Type": "text/html"},
+            b"<title>Just a moment...</title>",
+        )
+
+    def flaresolverr_router(method, path, headers, body):
+        payload = json.loads(body)
+        solves.append(payload)
+        result = {
+            "status": "ok",
+            "message": "",
+            "solution": {
+                "url": payload["url"],
+                "status": 200,
+                "cookies": [
+                    {"name": "cf_clearance", "value": accepted["value"], "path": "/"}
+                ],
+                "userAgent": f"FlareSolverr/1.0 agent-{accepted['value']}",
+            },
+        }
+        return 200, {"Content-Type": "application/json"}, json.dumps(result).encode()
+
+    site = ChallengeStub(site_router)
+    flaresolverr = ChallengeStub(flaresolverr_router)
+    try:
+        row = CatalogueRow(
+            key="cf-expiring",
+            base_url=site.base_url,
+            rate_limit={"permits": 1000, "period_seconds": 0.01},
+        )
+        client = SiteClient(row, flaresolverr_url=flaresolverr.base_url)
+
+        assert (await client.get("/page-1")).status_code == 200
+        assert len(solves) == 1
+
+        # The site rotates what it will accept: the cookie we hold has expired.
+        accepted["value"] = "second"
+
+        assert (await client.get("/page-2")).status_code == 200
+        assert len(solves) == 2
+        assert client._client.headers["User-Agent"] == "FlareSolverr/1.0 agent-second"
+    finally:
+        site.close()
+        flaresolverr.close()
+
+
+async def test_a_clearance_the_site_still_refuses_is_reported_as_unsolvable():
+    """Handing the challenge page back would reach the fetcher as "not an image".
+
+    True, and useless for working out what happened - so the client says what
+    it was instead.
+    """
+
+    def site_router(method, path, headers, body):
+        return (
+            403,
+            {"cf-mitigated": "challenge", "Content-Type": "text/html"},
+            b"<title>Just a moment...</title>",
+        )
+
+    def flaresolverr_router(method, path, headers, body):
+        payload = json.loads(body)
+        result = {
+            "status": "ok",
+            "message": "",
+            "solution": {
+                "url": payload["url"],
+                "status": 200,
+                "cookies": [{"name": "cf_clearance", "value": "rejected", "path": "/"}],
+                "userAgent": "FlareSolverr/1.0 solved-agent",
+            },
+        }
+        return 200, {"Content-Type": "application/json"}, json.dumps(result).encode()
+
+    site = ChallengeStub(site_router)
+    flaresolverr = ChallengeStub(flaresolverr_router)
+    try:
+        row = CatalogueRow(
+            key="cf-never-clears",
+            base_url=site.base_url,
+            rate_limit={"permits": 1000, "period_seconds": 0.01},
+        )
+        client = SiteClient(row, flaresolverr_url=flaresolverr.base_url)
+
+        with pytest.raises(ChallengeUnsolvable, match="refused the clearance"):
+            await client.get("/page-1")
+    finally:
+        site.close()
+        flaresolverr.close()

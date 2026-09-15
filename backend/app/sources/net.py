@@ -275,6 +275,9 @@ class SiteClient:
             _buckets[host] = bucket
         self.host = host
         self._bucket = bucket
+        # The clearance this client is currently sending, so a later challenge
+        # can tell "the cookie expired" from "we never had one".
+        self._clearance: _Clearance | None = None
         # None means "read the setting"; an explicit "" (test or a deployment
         # that unset it) means "no solver, and don't consult the setting
         # either" - both end up here as None, which _clear_challenge reads as
@@ -316,15 +319,42 @@ class SiteClient:
             return response
         await self._clear_challenge(response)
         await self._bucket.acquire()
-        return await self._client.request(method, url, **kwargs)
+        replayed = await self._client.request(method, url, **kwargs)
+        if _is_cloudflare_challenge(replayed):
+            # The clearance we just applied did not satisfy the site. Returning
+            # the challenge page would hand the caller a 403 whose body is HTML,
+            # and the fetcher would report it as a page that is not an image -
+            # true, and useless for working out what happened. Say what it was.
+            raise ChallengeUnsolvable(
+                f"{self.host}: the challenge was solved but the site refused the clearance"
+            )
+        return replayed
 
     async def _clear_challenge(self, response: httpx.Response) -> None:
+        current = self._clearance
+        sent_with_clearance = (
+            current is not None
+            and response.request.headers.get("user-agent") == current.user_agent
+        )
+
         # Decision 3: concurrent callers wait for the first solve rather than
         # each starting their own - a chapter fetches pages four at a time,
         # and four callers hitting the challenge together must still cost
         # one browser round trip, not four.
         async with _lock_for_host(self.host):
             clearance = _clearances.get(self.host)
+            # A cf_clearance cookie expires, and a worker outlives it by days.
+            # Whether this challenge means "expired" or "never had one" is
+            # decided by the failed request itself, not by what the client
+            # holds now: a request that already went out carrying the
+            # clearance's own user agent was refused *with* the clearance, so
+            # it is stale. Concurrent callers whose requests left before the
+            # first solve landed carry the default agent, and must reuse the
+            # clearance rather than each discarding it - that is what keeps
+            # four pages hitting one challenge down to one browser round trip.
+            if clearance is not None and sent_with_clearance:
+                _clearances.pop(self.host, None)
+                clearance = None
             if clearance is None:
                 if not self._flaresolverr_url:
                     raise ChallengeUnsolvable(
@@ -352,6 +382,7 @@ class SiteClient:
         # cookie gets the clearance rejected, and the failure looks exactly
         # like the solve not having worked.
         self._client.headers["User-Agent"] = clearance.user_agent
+        self._clearance = clearance
 
     async def aclose(self) -> None:
         await self._client.aclose()
