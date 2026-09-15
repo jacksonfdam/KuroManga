@@ -397,6 +397,13 @@ async def series_detail(series_id: int, session: Session) -> dict[str, Any]:
         "reading_minutes_per_chapter": await settings_store.get_int(
             session, settings_store.READING_MINUTES_PER_CHAPTER
         ),
+        # Served here for the same reason as the line above: the screen needs it
+        # to build a reader link, and fetching /api/settings for one string would
+        # cost it the whole settings blob and its provider health with it. Empty
+        # means no link is offered at all.
+        "komga_public_url": (
+            await settings_store.get(session, settings_store.KOMGA_PUBLIC_URL)
+        ).rstrip("/"),
         "reading_frequency": await reading_frequency(session, series_id),
     }
 

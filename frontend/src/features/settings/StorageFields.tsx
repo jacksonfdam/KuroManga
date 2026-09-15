@@ -70,6 +70,29 @@ export function StorageFields({
             />
           </div>
         </div>
+        <div className="flex flex-col gap-space-xs rounded-lg bg-surface-container-low p-space-md">
+          <span className="text-title-md text-on-surface">Komga address</span>
+          <p className="text-body-sm text-on-surface-variant">
+            Where Komga answers in a browser, used to link a chapter straight into its reader.
+            This is not the address the worker uses — that one names a container and means nothing
+            outside the compose network. Left empty, the series screen offers no reader links.
+          </p>
+          <div className="mt-space-xs flex items-center gap-space-sm">
+            <Icon name="book" className="h-4 w-4 shrink-0 text-outline" />
+            <input
+              id="komga_public_url"
+              name="komga_public_url"
+              type="url"
+              inputMode="url"
+              spellCheck={false}
+              placeholder="https://komga.example.com"
+              aria-label="Komga address"
+              value={draft.komga_public_url ?? ''}
+              onChange={(event) => onChange('komga_public_url', event.target.value)}
+              className="w-full rounded-lg bg-surface-container-lowest px-space-md py-space-sm font-mono text-label-md text-primary shadow-inner focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+          </div>
+        </div>
       </div>
     </div>
   )

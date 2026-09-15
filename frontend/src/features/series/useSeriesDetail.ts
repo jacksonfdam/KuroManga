@@ -116,6 +116,16 @@ export function useSeriesDetail(id: number) {
   const download = useCallback((from?: number, to?: number) => api.download(id, from, to), [id])
   const research = useCallback(() => api.research(id), [id])
 
+  // Superseding a mapping re-runs chapter discovery against the new source, so
+  // the screen has to reload rather than patch the field it just sent.
+  const remap = useCallback(
+    async (sourceUrl: string) => {
+      await api.confirmMapping(id, sourceUrl)
+      await reload()
+    },
+    [id, reload],
+  )
+
   // The chapter still travelling to the providers, or null once the reload has
   // brought the written one back up to it.
   const queuedChapter = detail === null ? null : awaiting(id, detail.series.progress)
@@ -144,5 +154,6 @@ export function useSeriesDetail(id: number) {
     saveNotes,
     download,
     research,
+    remap,
   }
 }

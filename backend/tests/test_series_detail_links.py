@@ -134,3 +134,62 @@ async def test_a_similar_work_already_in_the_library_carries_its_series_id():
     similar = {item["title"]: item for item in body["metadata"]["similar"]}
     assert similar["Already Owned"]["series_id"] == owned
     assert similar["Not Owned"]["series_id"] is None
+
+
+async def test_the_reader_link_base_is_empty_until_it_is_configured():
+    """komga_url is the compose-network address and is useless in a browser.
+
+    An unset public URL has to reach the screen as an empty string so it offers
+    no link at all, rather than one that lands on a host the reader cannot see.
+    """
+    async with get_sessionmaker()() as session:
+        series_id = await _series(session, "Unconfigured")
+        await session.commit()
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as http:
+        body = (await http.get(f"/api/series/{series_id}")).json()
+
+    assert body["komga_public_url"] == ""
+
+
+async def test_a_configured_reader_link_base_loses_its_trailing_slash():
+    """The screen joins it to `/book/<id>/read`, and `//book` is a 404."""
+    async with get_sessionmaker()() as session:
+        series_id = await _series(session, "Configured")
+        await session.execute(
+            text(
+                """
+                insert into setting (key, value) values ('komga_public_url', :value)
+                on conflict (key) do update set value = excluded.value
+                """
+            ),
+            {"value": "https://komga.test/"},
+        )
+        await session.commit()
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as http:
+        body = (await http.get(f"/api/series/{series_id}")).json()
+
+    assert body["komga_public_url"] == "https://komga.test"
+
+    async with get_sessionmaker()() as session:
+        await session.execute(text("delete from setting where key = 'komga_public_url'"))
+        await session.commit()
+
+
+async def test_the_settings_screen_can_edit_the_komga_address():
+    """A key the settings route never lists is a field nobody can fill in.
+
+    The detail screen reads this value and offers no reader links while it is
+    empty, so a writable key that the screen cannot show is the same as the
+    feature not existing.
+    """
+    from app import settings_store
+    from app.api.routes_settings import EDITABLE
+
+    assert settings_store.KOMGA_PUBLIC_URL in EDITABLE
+
+    async with get_sessionmaker()() as session:
+        values = await settings_store.all_settings(session)
+
+    assert settings_store.KOMGA_PUBLIC_URL in values

@@ -38,7 +38,14 @@ export function QuickIncrement({
   return (
     <button
       type="button"
-      onClick={() => trigger(progress + 1)}
+      // Both callers sit inside a link to the series, so a bare handler marks
+      // the chapter read and then navigates away from the card the reader was
+      // watching the number change on.
+      onClick={(event) => {
+        event.preventDefault()
+        event.stopPropagation()
+        void trigger(progress + 1)
+      }}
       disabled={busy}
       aria-label="Mark next chapter read"
       title={pending ? 'Waiting for the write to reach your lists' : 'Mark next chapter read'}

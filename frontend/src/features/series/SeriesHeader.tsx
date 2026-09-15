@@ -1,4 +1,4 @@
-import { Badge, StatusPill } from '../../ui'
+import { Badge, Icon, StatusPill } from '../../ui'
 import type { Series, SeriesMetadata } from '../../lib/api'
 import { formatSeriesFormat } from '../../lib/format'
 
@@ -21,9 +21,12 @@ function runYears(start: number | null, end: number | null): string | null {
 export function SeriesHeader({
   series,
   metadata,
+  komgaBaseUrl,
 }: {
   series: Series
   metadata: SeriesMetadata
+  /** Where Komga is served to a browser. Empty means no link is offered. */
+  komgaBaseUrl: string
 }) {
   const format = formatSeriesFormat(series.format)
   const years = runYears(metadata.start_year, metadata.end_year)
@@ -54,6 +57,20 @@ export function SeriesHeader({
         {series.status && <StatusPill status={series.status} />}
         {series.state === 'needs_review' && <Badge tone="error">Needs review</Badge>}
         {series.auto_download && <Badge tone="secondary">Auto-download active</Badge>}
+        {/* The reader is Komga's, not this application's. Offered only once a
+            scan has matched the series there and someone has said what address
+            Komga answers on. */}
+        {komgaBaseUrl && series.komga_series_id && (
+          <a
+            href={`${komgaBaseUrl}/series/${series.komga_series_id}`}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1.5 rounded-full bg-primary/[0.12] px-space-sm py-0.5 font-mono text-label-sm text-primary transition-colors hover:bg-primary/20"
+          >
+            <Icon name="book" className="h-3.5 w-3.5" />
+            Open in Komga
+          </a>
+        )}
       </div>
 
       {/* display-lg already carries weight 800 and -0.03em tracking, so a paired

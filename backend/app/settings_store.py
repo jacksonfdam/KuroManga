@@ -127,5 +127,6 @@ async def all_settings(session: AsyncSession) -> dict[str, str]:
         COMICK_URL,
         COMICK_ENABLED,
         READING_MINUTES_PER_CHAPTER,
+        KOMGA_PUBLIC_URL,
     ]
     return {key: stored.get(key, _fallback(key)) for key in keys}
