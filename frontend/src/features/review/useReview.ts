@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { api, type ReviewPayload, type ReviewQueueItem } from '../../lib/api'
 import { useAsyncData } from '../../lib/useAsyncData'
+import { useJobEvents } from '../../lib/useEvents'
 import { useNotice } from '../../lib/useNotice'
 import { useUrlNumber, useUrlPatch, useUrlState } from '../../lib/useUrlState'
 import { arrange, readSkipped, writeSkipped } from './queue'
@@ -76,6 +77,20 @@ export function useReview(onResolved: () => void) {
     [seriesId],
   )
   const detail = useAsyncData(loadCurrent)
+
+  // Search again queues a match_search and returns; the candidates it finds
+  // land later, and the job stream is what says so. Without this the screen
+  // went on showing the list it already had, and reloading the page was the
+  // only way to see the new one — every other screen here already listens.
+  useJobEvents((event) => {
+    if (event.event === 'job.progress') return
+    // The candidate list belongs to one series, so only that series' outcome
+    // changes what is drawn beside it.
+    if (seriesId !== null && event.series_id === seriesId) detail.reload()
+    // A finished search also moves the candidate count the queue prints for
+    // that row, which is the same staleness one tab over.
+    if (event.job_type === 'match_search') lists.reload()
+  })
 
   const settle = useCallback(() => {
     clear()
