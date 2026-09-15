@@ -16,13 +16,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import settings_store
 from app.config import get_settings
+from app.downloader.cbz import place_file
 from app.downloader.comicinfo import inject
 from app.downloader.limits import source_semaphore
 from app.downloader.paths import chapter_path, format_range_spec, match_to_requested, series_dir
 from app.downloader.runner import ChapterUnavailable, download_range
 from app.enums import JobType
 from app.handlers.base import JobContext, PermanentError, register
-from app.handlers.download_chapter import build_comicinfo, place_file
+from app.handlers.download_chapter import build_comicinfo
 from app.queue import repo
 
 SCRATCH_DIR = ".tmp"
