@@ -22,6 +22,7 @@ AUTO_DOWNLOAD_NEW = "auto_download_new"
 COMICK_URL = "comick_url"
 COMICK_ENABLED = "comick_enabled"
 READING_MINUTES_PER_CHAPTER = "reading_minutes_per_chapter"
+KOMGA_PUBLIC_URL = "komga_public_url"
 
 
 @dataclass(frozen=True)
@@ -39,6 +40,11 @@ class Defaults:
     comick_url: str = ""
     comick_enabled: bool = False
     reading_minutes_per_chapter: int = 8
+    # Empty, and it stays empty until someone fills it in. `komga_url` is how
+    # the worker reaches Komga inside the compose network, which is useless as a
+    # link in a browser; there is no way to guess the address the reader is
+    # actually served on, and a link that 404s is worse than no link.
+    komga_public_url: str = ""
 
 
 DEFAULTS = Defaults()
@@ -68,6 +74,8 @@ def _fallback(key: str) -> str:
             return "true" if DEFAULTS.comick_enabled else "false"
         case k if k == READING_MINUTES_PER_CHAPTER:
             return str(DEFAULTS.reading_minutes_per_chapter)
+        case k if k == KOMGA_PUBLIC_URL:
+            return DEFAULTS.komga_public_url
         case _:
             return ""
 

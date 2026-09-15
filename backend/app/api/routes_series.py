@@ -200,8 +200,49 @@ def _row_to_series(row: Any) -> dict[str, Any]:
         "status": row.status,
         "progress": row.progress,
         "updated_at": row.updated_at.isoformat() if row.updated_at else None,
+        # The reader lives in Komga, not here, so the screen needs Komga's own
+        # id to link to it. Null until a scan has matched the series there.
+        "komga_series_id": row.komga_series_id,
         **display_fields(row.raw),
     }
+
+
+async def _resolve_similar(session: AsyncSession, metadata: dict[str, Any] | None) -> None:
+    """Say which similar works are already in the library, by AniList id.
+
+    Matched on `provider_media_id` rather than on the title: the recommendations
+    and the list entries come from the same provider, so the id is exact, and
+    title matching across romanisations is the thing this project already spends
+    a whole screen correcting.
+
+    A work with no `series_id` is one the reader does not have, and the screen
+    sends them to AniList for it instead.
+    """
+    if not metadata:
+        return
+    similar = metadata.get("similar")
+    if not similar:
+        return
+
+    ids = [str(item["media_id"]) for item in similar if item.get("media_id")]
+    if not ids:
+        return
+
+    rows = await session.execute(
+        text(
+            """
+            select provider_media_id, series_id
+              from list_entry
+             where provider = 'anilist'
+               and series_id is not null
+               and provider_media_id = any(cast(:ids as text[]))
+            """
+        ),
+        {"ids": ids},
+    )
+    owned = {row.provider_media_id: row.series_id for row in rows.all()}
+    for item in similar:
+        item["series_id"] = owned.get(str(item.get("media_id")))
 
 
 def _state_of(row: Any) -> str:
@@ -294,7 +335,7 @@ async def series_detail(series_id: int, session: Session) -> dict[str, Any]:
     chapters = await session.execute(
         text(
             """
-            select number, title, state, file_path
+            select number, title, state, file_path, komga_book_id
               from chapter where series_id = :id order by number
             """
         ),
@@ -332,6 +373,10 @@ async def series_detail(series_id: int, session: Session) -> dict[str, Any]:
                 "title": c.title,
                 "state": c.state,
                 "file_path": c.file_path,
+                # Only a book Komga has indexed can be opened in its reader, so
+                # this is null for every chapter that is not downloaded yet -
+                # and the row simply does not offer a link.
+                "komga_book_id": c.komga_book_id,
             }
             for c in chapters.all()
         ],
@@ -354,6 +399,8 @@ async def series_detail(series_id: int, session: Session) -> dict[str, Any]:
         ),
         "reading_frequency": await reading_frequency(session, series_id),
     }
+
+    await _resolve_similar(session, result["metadata"])
 
     # Opening the page is what asks for the extras. A job rather than a fetch
     # in the request path: AniList rate-limits, and a detail page must not fail
