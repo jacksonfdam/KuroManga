@@ -313,6 +313,7 @@ def parse_page(page: dict[str, Any]) -> list[ListEntryDTO]:
                 progress_chapter=int(status.get("num_chapters_read") or 0),
                 total_chapters=node.get("num_chapters") or None,
                 cover_url=(node.get("main_picture") or {}).get("large"),
+                kind=MEDIA_TYPE_MAP.get(node.get("media_type") or ""),
                 raw=item,
             )
         )

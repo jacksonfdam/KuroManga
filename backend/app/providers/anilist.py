@@ -361,6 +361,7 @@ def parse_list(data: dict[str, Any]) -> list[ListEntryDTO]:
                     progress_chapter=int(entry.get("progress") or 0),
                     total_chapters=media.get("chapters"),
                     cover_url=(media.get("coverImage") or {}).get("large"),
+                    kind=media.get("format") or None,
                     raw=entry,
                 )
             )

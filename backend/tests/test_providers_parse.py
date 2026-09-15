@@ -62,6 +62,19 @@ def test_mal_raw_carries_the_score_and_media_type_the_fields_param_now_requests(
     assert entry.raw["node"]["media_type"] == "manga"
 
 
+def test_mal_media_type_is_normalised_onto_the_shared_vocabulary(fixture):
+    assert parse_page(fixture("mal_page.json"))[0].kind == "MANGA"
+
+
+def test_anilist_format_is_carried_as_the_shared_vocabulary_directly(fixture):
+    assert parse_list(fixture("anilist_list.json"))[0].kind == "MANGA"
+
+
+def test_anilist_a_missing_format_is_not_a_claim_about_the_kind(fixture):
+    """Issue #88: absent or unrecognised is silence, not evidence of prose."""
+    assert parse_list(fixture("anilist_list.json"))[1].kind is None
+
+
 def test_anilist_percent_encodes_the_redirect_uri(monkeypatch):
     monkeypatch.setenv("ANILIST_CLIENT_ID", "51042")
     get_settings.cache_clear()
