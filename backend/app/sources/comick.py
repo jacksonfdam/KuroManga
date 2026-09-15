@@ -7,7 +7,7 @@ review screen.
 
 import httpx
 
-from app.sources.base import Candidate, ChapterRef, Source, register
+from app.sources.base import Candidate, ChapterRef, PageRef, Source
 from app.sources.comick_client import ComickClient, parse_chapters, parse_search
 
 SITES = (
@@ -38,6 +38,6 @@ class ComickSource(Source):
         payload = await self._api.chapters(url, self.site)
         return parse_chapters(payload)
 
-
-for site, domains in SITES:
-    register(ComickSource(site, domains))
+    async def list_pages(self, chapter_url: str, *, language: str = "en") -> list[PageRef]:
+        # Its own issue (#93 territory) ports the comick page endpoint.
+        raise NotImplementedError

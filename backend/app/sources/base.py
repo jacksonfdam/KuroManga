@@ -1,12 +1,14 @@
 """Contract for a source site, plus the registry that picks one for a URL.
 
-A source answers two questions and nothing else: which manga match this title,
-and which chapters exist at this URL. Downloading is the downloader's job.
+A source answers three questions: which manga match this title, which
+chapters exist at this URL, and which pages a chapter has. Fetching those
+pages is the downloader's job.
 """
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from decimal import Decimal
+from urllib.parse import urlsplit
 
 
 class NotConfigured(RuntimeError):
@@ -38,6 +40,19 @@ class ChapterRef:
     language: str = "en"
 
 
+@dataclass(frozen=True)
+class PageRef:
+    """One page of a chapter.
+
+    Headers travel with the page rather than with the source: many sites
+    answer 403 without their own referer, and that referer is per-chapter,
+    not per-site.
+    """
+
+    url: str
+    headers: dict[str, str] = field(default_factory=dict)
+
+
 class Source(ABC):
     site: str
     domains: tuple[str, ...]
@@ -50,28 +65,71 @@ class Source(ABC):
     async def list_chapters(self, url: str, *, language: str = "en") -> list[ChapterRef]:
         """Every chapter the source publishes for this manga."""
 
+    @abstractmethod
+    async def list_pages(self, chapter_url: str, *, language: str = "en") -> list[PageRef]:
+        """Every page image for one chapter, in reading order."""
 
-_REGISTRY: dict[str, Source] = {}
+
+@dataclass(frozen=True)
+class RegisteredSource:
+    """A loaded row: the source instance plus the catalogue base_url it resolves from.
+
+    The base_url travels separately from Source.domains because it comes from
+    data (site_catalogue), while domains stays the extra aliases a hand-written
+    class already carries - both are checked when a URL is resolved.
+    """
+
+    source: Source
+    base_url: str
 
 
-def register(source: Source) -> Source:
-    _REGISTRY[source.site] = source
-    return source
+_REGISTRY: dict[str, RegisteredSource] = {}
+
+
+def install_registry(entries: dict[str, RegisteredSource]) -> None:
+    """Replace the registry wholesale.
+
+    Called by app.sources.registry.reload once at boot and again whenever
+    settings change which sites are enabled - never incrementally, so a
+    disabled site cannot linger from a stale entry nobody removed.
+    """
+    _REGISTRY.clear()
+    _REGISTRY.update(entries)
 
 
 def get_source(site: str) -> Source:
     if site not in _REGISTRY:
         raise ValueError(f"unknown source site: {site}")
-    return _REGISTRY[site]
+    return _REGISTRY[site].source
 
 
 def all_sources() -> list[Source]:
-    return list(_REGISTRY.values())
+    return [entry.source for entry in _REGISTRY.values()]
+
+
+def _host(url: str) -> str:
+    """The comparable host of a URL.
+
+    The `www.` prefix is dropped on both sides of the comparison. This used to
+    be a substring test, which matched a pasted `https://www.weebcentral.com/…`
+    by accident; an exact host match is right but would have started rejecting
+    the same link, and the review screen is where people paste links by hand.
+    """
+    host = urlsplit(url).netloc.lower()
+    return host.removeprefix("www.")
 
 
 def source_for_url(url: str) -> Source:
-    """Pick the source that owns a URL, so a hand-pasted link still resolves."""
-    for source in _REGISTRY.values():
-        if any(domain in url for domain in source.domains):
-            return source
-    raise ValueError(f"no source registered for url: {url}")
+    """Pick the enabled source that owns a URL, so a hand-pasted link still resolves.
+
+    Matches the URL's host against the host of each loaded row's base_url,
+    and against the source's own domains tuple - the extra aliases a
+    hand-written class already carries alongside what the catalogue knows.
+    """
+    host = _host(url)
+    for entry in _REGISTRY.values():
+        aliases = {_host(entry.base_url), *(_host(f"//{d}") for d in entry.source.domains)}
+        if host in aliases:
+            return entry.source
+    enabled = ", ".join(sorted(entry.source.site for entry in _REGISTRY.values())) or "none"
+    raise ValueError(f"no enabled source handles {url} - enabled sites: {enabled}")

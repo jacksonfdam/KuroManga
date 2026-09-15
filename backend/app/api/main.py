@@ -17,12 +17,19 @@ from app.api import (
     routes_stats,
 )
 from app.api.events import broker, event_stream
+from app.db import get_sessionmaker
+from app.sources import reload as reload_sources
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # The registry is loaded once here rather than queried per request - see
+    # app/sources/registry.py - so a review-screen search never waits on
+    # Postgres just to find out which sites exist.
+    async with get_sessionmaker()() as session:
+        await reload_sources(session)
     await broker.start()
     yield
     await broker.stop()
