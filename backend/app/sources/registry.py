@@ -23,6 +23,7 @@ from app.sources.mangageko import MangaGekoSource
 from app.sources.net import CatalogueRow
 from app.sources.templates import TemplateSource
 from app.sources.templates.iken import IkenSource
+from app.sources.templates.madara import MadaraSource
 from app.sources.templates.mangathemesia import MangaThemesiaSource
 
 logger = logging.getLogger(__name__)
@@ -46,6 +47,7 @@ NATIVE_SOURCES: dict[str, Source] = {
 TEMPLATE_CLASSES: dict[str, type[TemplateSource]] = {
     "mangathemesia": MangaThemesiaSource,
     "iken": IkenSource,
+    "madara": MadaraSource,
 }
 
 
