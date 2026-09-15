@@ -82,6 +82,30 @@ async def test_a_suggestion_is_written_with_its_reason(fixture):
     assert row.state == "new"
 
 
+async def test_a_suggestion_records_the_candidates_format(fixture):
+    """Approval reads this to keep a light novel from merging onto the manga
+    it adapts by title alone (issue #88)."""
+    meta = parse_manga_meta(fixture("anilist_manga_meta.json"))["4001"]
+    async with get_sessionmaker()() as session:
+        await upsert_suggestion(session, SEED, meta, 0.75)
+        await session.commit()
+        row = (await session.execute(text("select meta from suggestion"))).scalar_one()
+    assert row["format"] == "NOVEL"
+
+
+async def test_a_failed_metadata_fetch_does_not_blank_a_format_already_recorded(fixture):
+    """Same rule as the mangadex uuid below: a run that found nothing must not
+    overwrite a fact an earlier, successful run already recorded."""
+    meta = parse_manga_meta(fixture("anilist_manga_meta.json"))["4001"]
+    async with get_sessionmaker()() as session:
+        await upsert_suggestion(session, SEED, meta, 0.75)
+        await session.commit()
+        await upsert_suggestion(session, SEED, None, 0.75)
+        await session.commit()
+        row = (await session.execute(text("select meta from suggestion"))).scalar_one()
+    assert row["format"] == "NOVEL"
+
+
 async def test_rebuilding_never_resurrects_a_dismissed_suggestion(fixture):
     meta = parse_manga_meta(fixture("anilist_manga_meta.json"))["3000"]
     async with get_sessionmaker()() as session:

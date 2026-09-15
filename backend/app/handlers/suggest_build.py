@@ -214,6 +214,13 @@ async def upsert_suggestion(
                         "progress_episode": seed.origin.progress_episode,
                         "total_episodes": seed.origin.total_episodes,
                     },
+                    # Same rule as `sources` below: the merge is shallow, so a key
+                    # written as null on a run that found nothing would overwrite
+                    # a format an earlier run already recorded. Left out entirely
+                    # instead, the way an absent metadata fetch leaves every other
+                    # field alone too - approval reads this to keep a light novel
+                    # from merging onto the manga it adapts (issue #88).
+                    **({"format": meta.format} if meta and meta.format else {}),
                     **(sources or {}),
                 }
             ),
