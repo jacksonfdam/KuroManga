@@ -78,6 +78,11 @@ export function ProgressManager({
       </div>
       {statusError && <NoticeBar tone="error" text={statusError} />}
       {refusal && <NoticeBar tone="error" text={refusal} />}
+      {/* The steppers below carry this as a tooltip, which a disabled button
+          does not reliably show. This is the screen a reader opens to ask why
+          the number will not move, so the reason is stated rather than hovered
+          for. Not an error: nothing failed, there is simply nowhere to write. */}
+      {!series.writable && <NoticeBar text={NO_WRITE_TARGET} />}
 
       <div className="grid grid-cols-1 gap-space-lg md:grid-cols-2">
         <div className="flex flex-col gap-space-sm">
