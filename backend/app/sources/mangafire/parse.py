@@ -89,16 +89,25 @@ def has_next(payload: dict[str, Any]) -> bool:
     return bool((payload.get("meta") or {}).get("hasNext"))
 
 
+# The page CDN refuses a request without it: checked against a real chapter,
+# the same URL answers 403 with no headers and 200 with this one. The recorded
+# response could not show that - it was captured in a browser, which sends a
+# referer without being asked, which is exactly how this was missed.
+PAGE_HEADERS = {"Referer": f"{BASE_URL}/"}
+
+
 def parse_pages(payload: dict[str, Any]) -> list[PageRef]:
     """The images of one chapter, in reading order.
 
-    No per-page headers. The recording shows plain CDN URLs on a different host
-    from the site, and inventing a referer the service did not ask for would be
-    noise - the field is there for the sites that do demand one.
+    Every page carries the referer the CDN demands. This is what `PageRef`
+    headers exist for: the images sit on a different host from the site, and
+    that host checks who sent the reader.
     """
     data = payload.get("data") or {}
     return [
-        PageRef(url=page["url"]) for page in data.get("pages") or [] if page.get("url")
+        PageRef(url=page["url"], headers=dict(PAGE_HEADERS))
+        for page in data.get("pages") or []
+        if page.get("url")
     ]
 
 
