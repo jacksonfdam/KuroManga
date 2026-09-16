@@ -81,6 +81,11 @@ select s.id, s.canonical_title, s.slug, s.needs_review, s.meta, s.komga_series_i
        (array_agg(e.status order by
            (e.provider = any(cast(:writable as text[]))) desc,
            e.updated_at desc))[1] as status,
+       -- Whether a progress or status write has anywhere to land. A series
+       -- held only by read-only providers (MangaBaka reads, it is never
+       -- written) can accept neither, and the screen has to know that before
+       -- it draws a control rather than after the click fails.
+       coalesce(bool_or(e.provider = any(cast(:writable as text[]))), false) as writable,
        coalesce(max(e.user_progress_chapter), 0) as progress,
        max(e.updated_at) as updated_at,
        (array_agg(e.raw order by e.updated_at desc))[1] as raw
@@ -121,6 +126,11 @@ select s.id, s.canonical_title, s.slug, s.needs_review, s.meta, s.komga_series_i
        (array_agg(e.status order by
            (e.provider = any(cast(:writable as text[]))) desc,
            e.updated_at desc))[1] as status,
+       -- Whether a progress or status write has anywhere to land. A series
+       -- held only by read-only providers (MangaBaka reads, it is never
+       -- written) can accept neither, and the screen has to know that before
+       -- it draws a control rather than after the click fails.
+       coalesce(bool_or(e.provider = any(cast(:writable as text[]))), false) as writable,
        coalesce(max(e.user_progress_chapter), 0) as progress,
        max(e.updated_at) as updated_at,
        (array_agg(e.raw order by e.updated_at desc))[1] as raw
@@ -190,6 +200,7 @@ def _row_to_series(row: Any) -> dict[str, Any]:
         "source_site": row.source_site or None,
         "source_url": row.source_url or None,
         "providers": sorted(row.providers or []),
+        "writable": row.writable,
         "downloaded": row.downloaded,
         "known": row.known,
         "in_flight": row.in_flight,
