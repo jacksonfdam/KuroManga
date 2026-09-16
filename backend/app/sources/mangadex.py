@@ -20,9 +20,18 @@ from app.sources.base import (
     Source,
 )
 from app.sources.mangadex_auth import tokens
+from app.sources.net import CatalogueRow, get_client
 from app.text_utils import best_similarity
 
 API_BASE = "https://api.mangadex.org"
+
+# MangaDex documents 40 requests a minute on the at-home endpoint specifically,
+# separate from its general limit. One bucket cannot express two, so the whole
+# client takes the stricter of them: being slower than necessary on a search
+# costs a few seconds, and being faster than allowed on at-home costs a 429
+# that reads as the site being down. `list_pages` calls at-home once per
+# chapter, so a download batch is where the difference is felt.
+API_RATE_LIMIT = {"permits": 40, "period_seconds": 60}
 SITE = "mangadex"
 FEED_PAGE = 500
 
@@ -158,7 +167,13 @@ class MangaDexSource(Source):
     domains = ("mangadex.org",)
 
     def __init__(self, client: httpx.AsyncClient | None = None) -> None:
-        self._client = client
+        # Keyed on the API host rather than the site's, because that is what the
+        # limit belongs to and what the bucket in net.py keys on. The catalogue
+        # row for `mangadex` carries mangadex.org, which is the address a reader
+        # pastes and the one URL resolution matches - a different thing.
+        self._client = client or get_client(
+            CatalogueRow(key="mangadex-api", base_url=API_BASE, rate_limit=API_RATE_LIMIT)
+        )
 
     async def _headers(self) -> dict[str, str]:
         token = await tokens.token(self._client)
@@ -166,13 +181,7 @@ class MangaDexSource(Source):
 
     async def _get(self, path: str, params: list[tuple[str, Any]]) -> dict[str, Any]:
         headers = await self._headers()
-        if self._client is not None:
-            response = await self._client.get(
-                f"{API_BASE}{path}", params=params, headers=headers
-            )
-        else:
-            async with httpx.AsyncClient(timeout=30) as client:
-                response = await client.get(f"{API_BASE}{path}", params=params, headers=headers)
+        response = await self._client.get(f"{API_BASE}{path}", params=params, headers=headers)
         response.raise_for_status()
         return response.json()
 
@@ -246,11 +255,7 @@ class MangaDexSource(Source):
         headers = {"Authorization": f"Bearer {token}"}
         body = {"status": mangadex_status(status)}
         url = f"{API_BASE}/manga/{manga_id}/status"
-        if self._client is not None:
-            response = await self._client.post(url, json=body, headers=headers)
-        else:
-            async with httpx.AsyncClient(timeout=30) as client:
-                response = await client.post(url, json=body, headers=headers)
+        response = await self._client.post(url, json=body, headers=headers)
         response.raise_for_status()
 
 
