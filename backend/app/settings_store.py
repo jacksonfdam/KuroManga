@@ -25,6 +25,7 @@ COMICK_URL = "comick_url"
 COMICK_ENABLED = "comick_enabled"
 READING_MINUTES_PER_CHAPTER = "reading_minutes_per_chapter"
 KOMGA_PUBLIC_URL = "komga_public_url"
+MANGAFIRE_WAF_PASS = "mangafire_waf_pass"
 
 
 @dataclass(frozen=True)
@@ -55,6 +56,10 @@ class Defaults:
     # link in a browser; there is no way to guess the address the reader is
     # actually served on, and a link that 404s is worse than no link.
     komga_public_url: str = ""
+    # Empty, and only a person can fill it in. MangaFire gates its API behind a
+    # challenge that is solved in a browser by a human; the cookie that solving
+    # it produces is what this holds. Nothing here solves the challenge.
+    mangafire_waf_pass: str = ""
 
 
 DEFAULTS = Defaults()
@@ -90,6 +95,8 @@ def _fallback(key: str) -> str:
             return str(DEFAULTS.reading_minutes_per_chapter)
         case k if k == KOMGA_PUBLIC_URL:
             return DEFAULTS.komga_public_url
+        case k if k == MANGAFIRE_WAF_PASS:
+            return DEFAULTS.mangafire_waf_pass
         case _:
             return ""
 
@@ -144,5 +151,6 @@ async def all_settings(session: AsyncSession) -> dict[str, str]:
         COMICK_ENABLED,
         READING_MINUTES_PER_CHAPTER,
         KOMGA_PUBLIC_URL,
+        MANGAFIRE_WAF_PASS,
     ]
     return {key: stored.get(key, _fallback(key)) for key in keys}

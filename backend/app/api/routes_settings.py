@@ -34,6 +34,7 @@ EDITABLE = {
     settings_store.COMICK_ENABLED,
     settings_store.READING_MINUTES_PER_CHAPTER,
     settings_store.KOMGA_PUBLIC_URL,
+    settings_store.MANGAFIRE_WAF_PASS,
 }
 
 
