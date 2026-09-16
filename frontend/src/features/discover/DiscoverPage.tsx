@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { Button, EmptyState, ErrorState, NoticeBar, Skeleton } from '../../ui'
 import type { DiscoverItem } from '../../lib/api'
 import { DiscoverCard } from './DiscoverCard'
+import { DiscoverDetail } from './DiscoverDetail'
 import { PAGE_SIZE, useDiscover } from './useDiscover'
 
 /**
@@ -50,43 +51,58 @@ export function DiscoverPage() {
           detail="Every anime on your lists has an answer, and every series has a source."
         />
       ) : (
-        <>
-          <div className="grid grid-cols-2 gap-space-md sm:grid-cols-3 xl:grid-cols-5">
-            {items.map((item) => (
-              <DiscoverCard
-                key={`${item.kind}-${item.id}`}
-                item={item}
-                selected={openItem?.kind === item.kind && openItem?.id === item.id}
-                onOpen={() => setOpenItem(item)}
-              />
-            ))}
+        <div className={openItem ? 'grid grid-cols-1 gap-space-lg lg:grid-cols-[1fr_360px]' : ''}>
+          <div className="flex min-w-0 flex-col gap-space-lg">
+            <div className="grid grid-cols-2 gap-space-md sm:grid-cols-3 xl:grid-cols-5">
+              {items.map((item) => (
+                <DiscoverCard
+                  key={`${item.kind}-${item.id}`}
+                  item={item}
+                  selected={openItem?.kind === item.kind && openItem?.id === item.id}
+                  onOpen={() => setOpenItem(item)}
+                />
+              ))}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-space-md">
+              <Button
+                variant="surface"
+                disabled={offset === 0}
+                onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}
+              >
+                Previous
+              </Button>
+              <Button
+                variant="surface"
+                disabled={offset + PAGE_SIZE >= total}
+                onClick={() => setOffset(offset + PAGE_SIZE)}
+              >
+                Next
+              </Button>
+              <span className="font-mono text-label-sm text-outline">
+                {offset + 1}–{Math.min(offset + PAGE_SIZE, total)} of {total}
+              </span>
+            </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-space-md">
-            <Button
-              variant="surface"
-              disabled={offset === 0}
-              onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}
-            >
-              Previous
-            </Button>
-            <Button
-              variant="surface"
-              disabled={offset + PAGE_SIZE >= total}
-              onClick={() => setOffset(offset + PAGE_SIZE)}
-            >
-              Next
-            </Button>
-            <span className="font-mono text-label-sm text-outline">
-              {offset + 1}–{Math.min(offset + PAGE_SIZE, total)} of {total}
-            </span>
-            {openItem && (
-              <Button variant="ghost" onClick={() => dismiss(openItem)}>
-                Don't suggest {openItem.title}
-              </Button>
-            )}
-          </div>
-        </>
+          {openItem && (
+            <DiscoverDetail
+              // Remounted per item, so a panel opened on one item never shows
+              // the search results or fetched sources of the one before it.
+              key={`${openItem.kind}-${openItem.id}`}
+              item={openItem}
+              onDone={() => {
+                setOpenItem(null)
+                void reload()
+              }}
+              onDismiss={() => {
+                dismiss(openItem)
+                setOpenItem(null)
+              }}
+              onClose={() => setOpenItem(null)}
+            />
+          )}
+        </div>
       )}
     </div>
   )
