@@ -7,7 +7,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import db_session
-from app.enums import JobType, Provider
+from app.enums import JobType, Provider, lane_of
 from app.queue import repo
 
 router = APIRouter(prefix="/api", tags=["jobs"])
@@ -46,6 +46,10 @@ def job_row(row: Any) -> dict[str, Any]:
     return {
         "id": row.id,
         "type": row.type,
+        # Which worker owns it. Derived here rather than in the screen:
+        # lane membership is the backend's to know, and a second copy in
+        # the interface is one that drifts when a job type is added.
+        "lane": str(lane_of(JobType(row.type))),
         "state": row.state,
         "attempts": row.attempts,
         "max_attempts": row.max_attempts,
