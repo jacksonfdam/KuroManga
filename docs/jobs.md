@@ -24,6 +24,14 @@ and sets `state = 'leased'` with `lease_until = now() + 15 minutes`.
 lease expiry is what makes a dead worker harmless: `reclaim_expired()` returns anything whose lease
 has passed to `pending`, so the work is retried rather than lost.
 
+A job is not the only thing a dead worker leaves behind. `download_batch` marks its chapters
+`downloading` and commits before fetching, so the screen can show what is under way — and if the job
+then disappears, that claim stands with nothing to honour it. `reclaim_orphaned_chapters()` runs on
+the same pass and puts back any chapter in `downloading` or `queued` that no pending or leased job
+references. It matters because nothing else would: auto-download and the download screen queue
+chapters in state `known`, so a stranded one is invisible to them and the interface says
+"Downloading" forever.
+
 **Priority is ascending — 0 runs before 100.** Anything a person asked for is enqueued at 0 so it
 overtakes cron work without a second queue.
 

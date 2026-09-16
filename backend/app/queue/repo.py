@@ -205,6 +205,49 @@ async def retry(session: AsyncSession, job_id: int) -> None:
     )
 
 
+async def reclaim_orphaned_chapters(session: AsyncSession) -> int:
+    """Put back chapters that claim to be in flight with no job behind them.
+
+    `download_batch` marks its chapters `downloading` and commits before
+    fetching anything, so the screen can show what is under way. If the job
+    then disappears without reaching its completion path - the worker recreated
+    mid-batch, the retry ladder exhausted, the row removed - nothing puts the
+    state back.
+
+    It never heals on its own: auto-download and the download screen both queue
+    chapters in state `known`, so one stuck in `downloading` is invisible to
+    them. It is never retried and never downloads, while the interface keeps
+    saying "Downloading", which reads as slow rather than dead.
+
+    `queued` is the same kind of claim and gets the same treatment.
+
+    The two job shapes name the chapter differently - `chapter_id` for one,
+    `chapter_ids` for a batch - so both are matched, and matched exactly. A
+    substring search over the payload would have let a job for chapter 11 shield
+    chapter 1 from being reclaimed, which is the kind of near-miss that leaves a
+    single chapter stuck and no pattern to notice it by.
+    """
+    result = await session.execute(
+        text(
+            """
+            update chapter
+               set state = 'known'
+             where state in ('downloading', 'queued')
+               and not exists (
+                   select 1 from job
+                    where job.state in ('pending', 'leased')
+                      and (
+                          (job.payload ->> 'chapter_id')::bigint = chapter.id
+                          or job.payload -> 'chapter_ids' @> to_jsonb(chapter.id)
+                      )
+               )
+            returning id
+            """
+        )
+    )
+    return len(result.fetchall())
+
+
 async def reclaim_expired(session: AsyncSession) -> int:
     """Return jobs whose worker died to the pending pool. Returns how many."""
     result = await session.execute(

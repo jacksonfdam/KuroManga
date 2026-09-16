@@ -64,15 +64,22 @@ async def run_job(job: repo.LeasedJob) -> None:
 
 
 async def reclaim_loop(stop: asyncio.Event) -> None:
-    """A worker that dies leaves leases behind. Hand them back to the pool."""
+    """A worker that dies leaves leases behind, and chapters claiming to be in
+    flight. Hand both back."""
     sessionmaker = get_sessionmaker()
     while not stop.is_set():
         try:
             async with sessionmaker() as session:
                 reclaimed = await repo.reclaim_expired(session)
+                # Chapters outlive the job that claimed them, so they are
+                # reclaimed on the same pass rather than only at boot: a lease
+                # that expires here is exactly the event that strands one.
+                chapters = await repo.reclaim_orphaned_chapters(session)
                 await session.commit()
             if reclaimed:
                 log.info("reclaimed %d expired job leases", reclaimed)
+            if chapters:
+                log.info("reclaimed %d chapters left in flight by a job that is gone", chapters)
         except Exception:
             log.exception("reclaim pass failed")
         await _wait(stop, RECLAIM_INTERVAL_SECONDS)
