@@ -36,9 +36,18 @@ export function CandidateCard({
       </div>
 
       <div className="flex min-w-0 flex-1 flex-col gap-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <h3 className="truncate text-body-md font-bold text-on-surface">{candidate.title}</h3>
-          <span className="shrink-0 rounded bg-primary/10 px-1.5 py-0.5 font-mono text-label-sm text-primary">
+        {/* Titles here run to a couple of hundred characters - a doujinshi's
+            full subtitle chain is normal on MangaDex - and truncating to one
+            line hid the part that distinguishes one candidate from the next,
+            which is the whole judgement this screen asks for. Three lines is
+            enough to tell them apart and bounded enough that one absurd title
+            cannot own the list. Aligned to the start so the source badge rides
+            with the first line instead of the middle of a three-line block. */}
+        <div className="flex flex-wrap items-start gap-2">
+          <h3 className="line-clamp-3 text-body-md font-bold text-on-surface">
+            {candidate.title}
+          </h3>
+          <span className="mt-0.5 shrink-0 rounded bg-primary/10 px-1.5 py-0.5 font-mono text-label-sm text-primary">
             {candidate.source_site}
           </span>
         </div>
