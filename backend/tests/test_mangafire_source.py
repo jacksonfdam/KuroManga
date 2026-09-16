@@ -102,16 +102,24 @@ async def test_a_refusal_arriving_as_200_is_not_read_as_data():
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json={"message": "Invalid token."})
 
-    with pytest.raises(ChallengeRequired, match="waf_pass"):
+    with pytest.raises(ChallengeRequired, match="FlareSolverr"):
         await _source(handler).search(["Naruto"])
 
 
-async def test_a_403_says_what_to_check_first():
+async def test_a_refusal_names_the_causes_in_the_order_worth_checking():
+    """Cloudflare first. Checked against a real browser session, the site's
+    cookies are `cf_clearance` and a login — there is no `waf_pass`, so telling
+    someone to go and find one sends them looking for a cookie that is not
+    there. It happened."""
+
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(403, json={})
 
-    with pytest.raises(ChallengeRequired, match="vrf.py"):
+    with pytest.raises(ChallengeRequired) as refusal:
         await _source(handler).search(["Naruto"])
+
+    message = str(refusal.value)
+    assert message.index("FlareSolverr") < message.index("waf_pass") < message.index("vrf.py")
 
 
 async def test_the_chapter_list_follows_the_site_paging():

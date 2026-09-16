@@ -1,11 +1,18 @@
 """MangaFire (mangafire.to).
 
-A JSON API rather than a scraped site, with two things no other source here
-has: every request is signed (see `vrf.py`), and the API sits behind a check
-that only a person can clear. That check is an image puzzle the site's own
-application solves in a browser; nothing here solves it. The reader clears it
-themselves and pastes the resulting cookie into settings, and this module sends
-it.
+A JSON API rather than a scraped site, and every request is signed - see
+`vrf.py`.
+
+Getting in is Cloudflare's doing, not the site's own. Checked against a real
+browser session on 2026-09-16, the cookies it holds are `cf_clearance` and a
+login; there is no `waf_pass`, which is what the upstream extension watches
+for. So the ordinary path here is the one every source already has:
+`SiteClient` detects a Cloudflare challenge and clears it through FlareSolverr.
+
+`waf_pass` is kept as a setting because the extension still guards against that
+challenge, so the site evidently raises it under conditions this deployment has
+not met. Nothing here solves it - it is an image puzzle cleared in a browser by
+a person, who then pastes what that produced.
 
 Standalone rather than a template leaf: there is no second site to configure.
 """
@@ -39,11 +46,10 @@ MAX_CHAPTER_PAGES = 200
 class ChallengeRequired(RuntimeError):
     """The site refused the signature or the session.
 
-    Named rather than left as a bare 4xx because the two causes need different
-    answers from a person and neither is a retry: either the `waf_pass` cookie
-    has expired and they clear the check again in their browser, or the site has
-    rotated the signing tables and `vrf.py` needs re-porting. The message says
-    which to look at first.
+    Named rather than left as a bare 4xx because the causes need different
+    answers from a person and none of them is a retry: Cloudflare was not
+    cleared, the site raised its own challenge, or it rotated the signing
+    tables. The message lists them in the order worth checking.
     """
 
 
@@ -133,9 +139,12 @@ class MangaFireSource(Source):
         )
         if response.status_code in (401, 403) or _is_invalid_token(response):
             raise ChallengeRequired(
-                f"{SITE} refused the request: either the waf_pass cookie has expired - clear the "
-                "site's check in a browser and paste the new one in Settings - or the site has "
-                "rotated its signing tables, which needs app/sources/mangafire/vrf.py re-ported"
+                f"{SITE} refused the request. In the order worth checking: Cloudflare was not "
+                "cleared, so make sure FlareSolverr is running "
+                "(docker compose --profile flaresolverr up -d) and its URL is set; or the site "
+                "raised its own challenge, which a person clears in a browser before pasting the "
+                "waf_pass cookie into Settings; or it has rotated its signing tables, which needs "
+                "app/sources/mangafire/vrf.py re-ported"
             )
         response.raise_for_status()
         return response.json()

@@ -215,7 +215,7 @@ export function SettingsPage() {
           <SourceCard
             icon="lock"
             title="MangaFire"
-            subtitle="Needs a challenge you solve yourself"
+            subtitle="Cloudflare, cleared by FlareSolverr"
             tone={draft.mangafire_waf_pass ? 'ok' : 'neutral'}
             statusLabel={draft.mangafire_waf_pass ? 'Cookie set' : 'Cookie not set'}
           >
@@ -238,10 +238,13 @@ export function SettingsPage() {
                 className="w-full rounded-lg bg-surface-container-lowest px-space-md py-space-sm font-mono text-label-md text-tertiary shadow-inner focus:outline-none focus:ring-2 focus:ring-primary"
               />
               <p className="text-body-sm text-on-surface-variant">
-                Open mangafire.to in your browser, let its check complete, then copy the
+                Usually not needed. The site sits behind Cloudflare, which FlareSolverr clears on
+                its own — start it with
+                <code className="mx-1 font-mono text-primary">--profile flaresolverr</code>
+                and leave this empty. Fill it in only if the site raises its own challenge: clear
+                that in your browser, then copy the
                 <code className="mx-1 font-mono text-primary">waf_pass</code>
-                cookie here. It expires, and when it does the source stops answering until you
-                paste a fresh one.
+                cookie here.
               </p>
             </div>
           </SourceCard>
