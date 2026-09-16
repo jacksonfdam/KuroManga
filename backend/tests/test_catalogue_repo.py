@@ -171,3 +171,69 @@ async def test_replace_catalogue_refuses_an_empty_catalogue():
 
         keys = (await session.execute(text("select key from site_catalogue"))).scalars().all()
     assert keys == ["mangadex"]
+
+
+async def test_a_site_the_user_enabled_is_not_deleted_by_a_regeneration():
+    """The regression that took three working sources off a running install.
+
+    Migration 0013 seeded thunderscans, vortexscans and orionscans by hand with
+    real template names. The generated catalogue does not contain those keys, so
+    the first load deleted all three and left their preferences orphaned - the
+    pipeline went from seven sources to four with nothing said about it.
+
+    A regeneration may retire a site upstream dropped. It may not switch off one
+    the user is using.
+    """
+    async with get_sessionmaker()() as session:
+        await replace_catalogue(session, [_entry("hand.seeded"), _entry("generated.one")])
+        await session.execute(
+            text("insert into source_pref (key, enabled) values ('hand.seeded', true)")
+        )
+        await session.commit()
+
+        # A regeneration that knows nothing about the hand-seeded key.
+        await replace_catalogue(session, [_entry("generated.one")])
+        await session.commit()
+
+        surviving = set(
+            (await session.execute(text("select key from site_catalogue"))).scalars()
+        )
+
+    assert surviving == {"hand.seeded", "generated.one"}
+
+
+async def test_a_site_whose_preference_is_disabled_is_still_retired():
+    async with get_sessionmaker()() as session:
+        await replace_catalogue(session, [_entry("switched.off"), _entry("still.there")])
+        await session.execute(
+            text("insert into source_pref (key, enabled) values ('switched.off', false)")
+        )
+        await session.commit()
+
+        await replace_catalogue(session, [_entry("still.there")])
+        await session.commit()
+
+        surviving = set(
+            (await session.execute(text("select key from site_catalogue"))).scalars()
+        )
+
+    # A disabled preference is not somebody using the site. Sparing those would
+    # mean a catalogue that never shrinks.
+    assert surviving == {"still.there"}
+
+
+async def test_a_site_nobody_has_an_opinion_about_is_still_retired():
+    async with get_sessionmaker()() as session:
+        await replace_catalogue(session, [_entry("gone.upstream"), _entry("still.there")])
+        await session.commit()
+
+        await replace_catalogue(session, [_entry("still.there")])
+        await session.commit()
+
+        surviving = set(
+            (await session.execute(text("select key from site_catalogue"))).scalars()
+        )
+
+    # Without a preference there is nothing to protect, and a catalogue that
+    # kept every site it ever saw would never shrink.
+    assert surviving == {"still.there"}

@@ -80,14 +80,30 @@ async def replace_catalogue(session: AsyncSession, entries: list[CatalogueEntry]
             },
         )
 
-    # mangadex and comick are hand-written classes, not templates the generator
-    # produced from the extension repository - it never mentions either of
-    # them, so an unscoped delete here would drop both of them on the very
-    # first regeneration and take the only two working sources down with it.
+    # Two kinds of row survive a regeneration that does not mention them.
+    #
+    # `native` rows are hand-written classes rather than generated leaves - the
+    # generator never names them, so an unscoped delete would drop them on the
+    # very first run and take the only working sources down with it.
+    #
+    # Rows the user has switched *on* survive too. A regeneration may retire a
+    # site nobody enabled - that is how a catalogue shrinks, and the preference
+    # left behind is kept and shown as orphaned. It may not switch off a source
+    # that is running. That clause is here because its absence cost a live
+    # install three of its seven sources: migration 0013 seeded thunderscans,
+    # vortexscans and orionscans by hand under keys the generated set does not
+    # contain, and the first load deleted all three in silence.
+    #
+    # Deliberately `p.enabled` rather than any preference at all: a disabled
+    # preference is not somebody using the site, and sparing those would mean a
+    # catalogue that never shrinks.
     await session.execute(
         text(
-            "delete from site_catalogue"
-            " where key <> all(cast(:keys as text[])) and template <> 'native'"
+            "delete from site_catalogue c"
+            " where c.key <> all(cast(:keys as text[]))"
+            "   and c.template <> 'native'"
+            "   and not exists"
+            "       (select 1 from source_pref p where p.key = c.key and p.enabled)"
         ),
         {"keys": keys},
     )

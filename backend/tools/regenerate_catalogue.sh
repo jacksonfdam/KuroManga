@@ -16,7 +16,7 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Kept in step with SUPPORTED_TEMPLATES in gen_catalogue.py. They are separate
 # because the generator may be pointed at anything, while the committed
 # catalogue covers one specific set.
-TEMPLATES="madara,mangathemesia,madaralegacy,zeistmanga,comiciviewer,keyoapp"
+TEMPLATES="madara,mangathemesia,madaralegacy,zeistmanga,comiciviewer,keyoapp,iken"
 
 exec "${PYTHON:-python3}" "$here/gen_catalogue.py" \
   --repo "$repo" \

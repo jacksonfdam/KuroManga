@@ -230,6 +230,18 @@
     "hand_ported": false
   },
   {
+    "key": "ar.azora",
+    "name": "Azora",
+    "template": "iken",
+    "base_url": "https://azorafly.com",
+    "lang": "ar",
+    "nsfw": false,
+    "overrides": {},
+    "rate_limit": null,
+    "version": "46",
+    "hand_ported": true
+  },
+  {
     "key": "ar.comicverse",
     "name": "Comic Verse",
     "template": "zeistmanga",
@@ -1353,6 +1365,32 @@
     "hand_ported": false
   },
   {
+    "key": "en.hijalascans",
+    "name": "Hijala Scans",
+    "template": "iken",
+    "base_url": "https://en-hijala.com",
+    "lang": "en",
+    "nsfw": false,
+    "overrides": {},
+    "rate_limit": null,
+    "version": "0",
+    "hand_ported": true
+  },
+  {
+    "key": "en.hivescans",
+    "name": "Hive Scans",
+    "template": "iken",
+    "base_url": "https://hivetoons.org",
+    "lang": "en",
+    "nsfw": false,
+    "overrides": {
+      "_reason": "override fun imageRequest present"
+    },
+    "rate_limit": null,
+    "version": "44",
+    "hand_ported": false
+  },
+  {
     "key": "en.hm2d",
     "name": "HM2D",
     "template": "madara",
@@ -1418,6 +1456,18 @@
     "overrides": {},
     "rate_limit": null,
     "version": "0",
+    "hand_ported": true
+  },
+  {
+    "key": "en.kenscans",
+    "name": "Ken Scans",
+    "template": "iken",
+    "base_url": "https://kencomics.com",
+    "lang": "en",
+    "nsfw": false,
+    "overrides": {},
+    "rate_limit": null,
+    "version": "10",
     "hand_ported": true
   },
   {
@@ -1599,6 +1649,24 @@
     "rate_limit": null,
     "version": "4",
     "hand_ported": true
+  },
+  {
+    "key": "en.magusmanga",
+    "name": "Magus Manga",
+    "template": "iken",
+    "base_url": "https://magustoon.org",
+    "lang": "en",
+    "nsfw": false,
+    "overrides": {
+      "sortPagesByFilename": true,
+      "_reason": "override fun configureClient present"
+    },
+    "rate_limit": {
+      "permits": 1,
+      "period_seconds": 1.0
+    },
+    "version": "46",
+    "hand_ported": false
   },
   {
     "key": "en.mahouirexnohentaikarte",
@@ -2341,6 +2409,18 @@
     "hand_ported": true
   },
   {
+    "key": "en.nyxscans",
+    "name": "Nyx Scans",
+    "template": "iken",
+    "base_url": "https://nyxscans.com",
+    "lang": "en",
+    "nsfw": false,
+    "overrides": {},
+    "rate_limit": null,
+    "version": "4",
+    "hand_ported": true
+  },
+  {
     "key": "en.octopusmanga",
     "name": "OctopusManga",
     "template": "madara",
@@ -2364,6 +2444,18 @@
     "overrides": {
       "mangaSubString": "comic"
     },
+    "rate_limit": null,
+    "version": "0",
+    "hand_ported": true
+  },
+  {
+    "key": "en.orionscans",
+    "name": "Orion Scans",
+    "template": "iken",
+    "base_url": "https://orion-scans.com",
+    "lang": "en",
+    "nsfw": false,
+    "overrides": {},
     "rate_limit": null,
     "version": "0",
     "hand_ported": true
@@ -2498,6 +2590,18 @@
     "hand_ported": false
   },
   {
+    "key": "en.renascans",
+    "name": "Renascans",
+    "template": "iken",
+    "base_url": "https://renascans.net",
+    "lang": "en",
+    "nsfw": false,
+    "overrides": {},
+    "rate_limit": null,
+    "version": "0",
+    "hand_ported": true
+  },
+  {
     "key": "en.ritharscans",
     "name": "RitharScans",
     "template": "keyoapp",
@@ -2595,6 +2699,21 @@
     "rate_limit": null,
     "version": "5",
     "hand_ported": false
+  },
+  {
+    "key": "en.sanascans",
+    "name": "Sana Scans",
+    "template": "iken",
+    "base_url": "https://sanascans.com",
+    "lang": "en",
+    "nsfw": false,
+    "overrides": {
+      "perPage": 30,
+      "sortPagesByFilename": true
+    },
+    "rate_limit": null,
+    "version": "0",
+    "hand_ported": true
   },
   {
     "key": "en.seraphicdeviltry",
@@ -2859,6 +2978,18 @@
     "hand_ported": false
   },
   {
+    "key": "en.vanillascans",
+    "name": "Vanilla Scans",
+    "template": "iken",
+    "base_url": "https://vanillascans.org",
+    "lang": "en",
+    "nsfw": false,
+    "overrides": {},
+    "rate_limit": null,
+    "version": "0",
+    "hand_ported": true
+  },
+  {
     "key": "en.violetscans",
     "name": "Violet Scans",
     "template": "mangathemesia",
@@ -2873,6 +3004,18 @@
     "rate_limit": null,
     "version": "5",
     "hand_ported": false
+  },
+  {
+    "key": "en.vortexscans",
+    "name": "Vortex Scans",
+    "template": "iken",
+    "base_url": "https://vortexscans.org",
+    "lang": "en",
+    "nsfw": false,
+    "overrides": {},
+    "rate_limit": null,
+    "version": "62",
+    "hand_ported": true
   },
   {
     "key": "en.wearehunger",
@@ -3380,6 +3523,18 @@
     },
     "version": "1",
     "hand_ported": false
+  },
+  {
+    "key": "es.eternalmangas",
+    "name": "EternalMangas",
+    "template": "iken",
+    "base_url": "https://eternalmangas.org",
+    "lang": "es",
+    "nsfw": true,
+    "overrides": {},
+    "rate_limit": null,
+    "version": "2",
+    "hand_ported": true
   },
   {
     "key": "es.gistamishouse",

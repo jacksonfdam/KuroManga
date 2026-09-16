@@ -32,7 +32,7 @@ from typing import Any
 # reads it, so every leaf on it is `hand_ported = false` regardless of what its
 # own overrides look like.
 SUPPORTED_TEMPLATES = frozenset(
-    {"madara", "mangathemesia", "madaralegacy", "zeistmanga", "comiciviewer", "keyoapp"}
+    {"madara", "mangathemesia", "madaralegacy", "zeistmanga", "comiciviewer", "keyoapp", "iken"}
 )
 
 # SAFE is the only value that is not a content warning of its own.
