@@ -89,7 +89,6 @@ export function DownloadsPage() {
   // A permanent failure is not retryable, so a button offering to retry them
   // all would be offering nothing on a list made only of those.
   const retryable = failed.filter((job) => !job.permanent)
-  const hopeless = failed.filter((job) => job.permanent)
 
   return (
     <div className="flex flex-col gap-space-xl">
@@ -147,11 +146,13 @@ export function DownloadsPage() {
                 Retry all {retryable.length}
               </Button>
             )}
-            {/* Only the ones a retry cannot help. Clearing an ordinary failure
-                would throw away work the user is still owed. */}
-            {hopeless.length > 0 && (
+            {/* Every failure, not only the ones a retry cannot help. The
+                narrower version was gated on a flag nothing ever set, so a
+                queue of dead failures had no way out. What it costs is said
+                in the dialog rather than decided here. */}
+            {failed.length > 0 && (
               <Button variant="ghost" size="sm" onClick={() => setAsking({ kind: 'clear' })}>
-                Clear {hopeless.length} final
+                Clear {failed.length} failed
               </Button>
             )}
           </div>
@@ -248,11 +249,11 @@ export function DownloadsPage() {
 
       {asking?.kind === 'clear' && (
         <ConfirmDialog
-          title={`Clear ${hopeless.length} final ${hopeless.length === 1 ? 'failure' : 'failures'}?`}
+          title={`Clear ${failed.length} ${failed.length === 1 ? 'failure' : 'failures'}?`}
           consequences={[
-            'These are failures a retry cannot change.',
-            'Failures that can still be retried are left alone.',
-            'The work itself is not lost — only the record of it failing.',
+            'Every failure goes, including ones that could still be retried.',
+            'Nothing is retried on the way out — chapters they were for stay missing.',
+            'Discovery queues a missing chapter again, so this is recoverable.',
           ]}
           confirmLabel="Clear"
           onConfirm={() => {

@@ -533,3 +533,34 @@ async def test_retry_failed_skips_a_key_already_waiting():
         await db.commit()
 
     assert requeued == 0
+
+
+async def test_clearing_failures_takes_every_one_of_them():
+    """Not only the permanent ones.
+
+    The narrower version was gated on a flag nothing in practice ever set, so
+    the control it guarded could not appear and dead failures had no way out.
+    """
+    async with get_sessionmaker()() as session:
+        await session.execute(
+            text(
+                "insert into job"
+                " (type, payload, state, priority, attempts, max_attempts, permanent)"
+                " values ('download_batch', '{}'::jsonb, 'failed', 100, 3, 3, false),"
+                "        ('progress_write', '{}'::jsonb, 'failed', 100, 1, 3, true),"
+                "        ('list_sync', '{}'::jsonb, 'pending', 100, 0, 3, false)"
+            )
+        )
+        await session.commit()
+
+        cleared = await repo.clear_failed_jobs(session)
+        await session.commit()
+
+        remaining = (
+            await session.execute(text("select state from job order by id"))
+        ).scalars().all()
+
+    assert cleared == 2
+    # Work that has not failed is untouched: this clears a list, it does not
+    # cancel the queue.
+    assert remaining == ["pending"]
