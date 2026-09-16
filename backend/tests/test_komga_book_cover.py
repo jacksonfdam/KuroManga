@@ -126,7 +126,7 @@ async def test_a_book_already_showing_its_first_page_is_left_alone():
 
 
 async def test_a_book_with_artwork_already_uploaded_is_skipped():
-    client = FakeKomga(pages={"b1": [BANNER, PAGE]}, existing={"b1": [{"id": "already"}]})
+    client = FakeKomga(pages={"b1": [BANNER, PAGE]}, existing={"b1": [{"id": "already", "type": "USER_UPLOADED"}]})
     async with get_sessionmaker()() as session:
         series_id = await _series(session)
         ctx = await _context(session, series_id)
@@ -134,6 +134,24 @@ async def test_a_book_with_artwork_already_uploaded_is_skipped():
         await komga_scan.ensure_book_covers(ctx, client, series_id, [Book("b1")])
 
     assert client.uploaded == []
+
+
+async def test_komgas_own_generated_thumbnail_does_not_count_as_artwork():
+    # Komga lists the thumbnail it derives from page one beside any uploaded,
+    # and only `type` separates them. Counting the generated one as artwork
+    # already set is what made the first version skip every book it was meant
+    # to fix.
+    client = FakeKomga(
+        pages={"b1": [BANNER, PAGE]},
+        existing={"b1": [{"id": "komga-made-it", "type": "GENERATED", "selected": True}]},
+    )
+    async with get_sessionmaker()() as session:
+        series_id = await _series(session)
+        ctx = await _context(session, series_id)
+
+        await komga_scan.ensure_book_covers(ctx, client, series_id, [Book("b1")])
+
+    assert client.uploaded == [("b1", 2)]
 
 
 async def test_one_book_failing_does_not_stop_the_others():

@@ -147,7 +147,7 @@ async def test_the_provider_cover_is_uploaded_and_selected(monkeypatch):
 
 
 async def test_a_series_komga_already_has_artwork_for_is_left_alone(monkeypatch):
-    client = FakeKomga(existing=[{"id": "already-there"}])
+    client = FakeKomga(existing=[{"id": "already-there", "type": "USER_UPLOADED"}])
     _http(monkeypatch, _image)
 
     async with get_sessionmaker()() as session:
@@ -159,6 +159,19 @@ async def test_a_series_komga_already_has_artwork_for_is_left_alone(monkeypatch)
     # Komga keeps every thumbnail it is given; re-uploading each scan would pile
     # up copies of an image that has not changed.
     assert client.uploaded == []
+
+
+async def test_komgas_own_generated_thumbnail_does_not_count_as_artwork(monkeypatch):
+    client = FakeKomga(existing=[{"id": "komga-made-it", "type": "GENERATED"}])
+    _http(monkeypatch, _image)
+
+    async with get_sessionmaker()() as session:
+        series_id = await _series(session, [("anilist", "https://cdn/a.jpg")])
+        ctx = await _context(session, series_id)
+
+        await komga_scan.ensure_series_cover(ctx, client, "komga-1", series_id)
+
+    assert client.uploaded == [JPEG]
 
 
 async def test_a_cdn_answering_with_a_page_instead_of_an_image_is_refused(monkeypatch):
