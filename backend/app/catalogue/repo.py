@@ -8,11 +8,15 @@ orphaned rather than deleted, for the settings screen to say so later.
 """
 
 import json
+import logging
 from dataclasses import dataclass
 from typing import Any
+from urllib.parse import urlsplit
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -29,6 +33,36 @@ class CatalogueEntry:
     hand_ported: bool
 
 
+def _host(base_url: str) -> str:
+    """The comparable host of a base URL: no scheme, no `www.`, no trailing slash.
+
+    Two rows describe the same site when they answer on the same host, whatever
+    keys they were given.
+    """
+    host = urlsplit(base_url).netloc.lower() or base_url.strip("/").lower()
+    return host.removeprefix("www.")
+
+
+async def _sites_already_running(session: AsyncSession, keys: list[str]) -> dict[str, str]:
+    """Hosts that are enabled under a key the incoming set does not use.
+
+    Migration 0013 seeded three sites by hand, under bare keys, before a
+    generator existed. The generator later produced its own rows for the same
+    sites under `<lang>.<name>`, and nothing reconciled them - so the database
+    carried each site twice, the seeded one working and the generated one inert
+    beside it in Settings.
+    """
+    rows = await session.execute(
+        text(
+            "select c.key, c.base_url from site_catalogue c"
+            " join source_pref p on p.key = c.key and p.enabled"
+            " where c.key <> all(cast(:keys as text[]))"
+        ),
+        {"keys": keys},
+    )
+    return {_host(row.base_url): row.key for row in rows.all()}
+
+
 async def replace_catalogue(session: AsyncSession, entries: list[CatalogueEntry]) -> None:
     """Upsert every entry by key, then drop whatever key the new run left out.
 
@@ -42,8 +76,28 @@ async def replace_catalogue(session: AsyncSession, entries: list[CatalogueEntry]
     if not entries:
         raise ValueError("replace_catalogue refuses an empty catalogue")
 
+    # A site already switched on under another key keeps that row, and the
+    # generated duplicate is not written. The alternative - renaming the
+    # running row to the generated key - moves a preference onto a row that may
+    # behave differently: `en.thunderscans` is `hand_ported = false` upstream,
+    # so the rename would have left a working source inert.
+    #
+    # The cost is that generated improvements never reach a hand-seeded site.
+    # That is the conservative direction: the seeded row is one a person wrote
+    # and verified, and it is the one the reader is actually using.
+    running = await _sites_already_running(session, [entry.key for entry in entries])
+
     keys: list[str] = []
     for entry in entries:
+        existing = running.get(_host(entry.base_url))
+        if existing is not None:
+            logger.info(
+                "catalogue: %s describes the same site as %s, which is enabled - keeping %s",
+                entry.key,
+                existing,
+                existing,
+            )
+            continue
         keys.append(entry.key)
         await session.execute(
             text(

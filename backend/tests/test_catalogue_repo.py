@@ -237,3 +237,105 @@ async def test_a_site_nobody_has_an_opinion_about_is_still_retired():
     # Without a preference there is nothing to protect, and a catalogue that
     # kept every site it ever saw would never shrink.
     assert surviving == {"still.there"}
+
+
+async def _enable(session, key: str) -> None:
+    await session.execute(
+        text("insert into source_pref (key, enabled) values (:key, true)"), {"key": key}
+    )
+
+
+async def test_a_generated_duplicate_of_a_running_site_is_not_written():
+    """Migration 0013 seeded three sites by hand before a generator existed.
+
+    The generator then produced its own rows for the same sites under
+    `<lang>.<name>`, and the database carried each twice — the seeded one
+    working, the generated one inert beside it in Settings.
+    """
+    async with get_sessionmaker()() as session:
+        await replace_catalogue(session, [_entry("thunderscans", base_url="https://en-thunderscans.com")])
+        await _enable(session, "thunderscans")
+        await session.commit()
+
+        await replace_catalogue(
+            session,
+            [
+                _entry("en.thunderscans", base_url="https://en-thunderscans.com"),
+                _entry("en.other", base_url="https://other.example"),
+            ],
+        )
+        await session.commit()
+
+        keys = (
+            (await session.execute(text("select key from site_catalogue order by key")))
+            .scalars()
+            .all()
+        )
+
+    assert keys == ["en.other", "thunderscans"]
+
+
+async def test_the_running_site_keeps_its_preference():
+    """Renaming instead would move the preference onto a row that may behave
+    differently — `en.thunderscans` is hand_ported false upstream, so the site
+    would have arrived inert."""
+    async with get_sessionmaker()() as session:
+        await replace_catalogue(session, [_entry("thunderscans", base_url="https://en-thunderscans.com")])
+        await _enable(session, "thunderscans")
+        await session.commit()
+
+        await replace_catalogue(
+            session,
+            [_entry("en.thunderscans", base_url="https://en-thunderscans.com", hand_ported=False)],
+        )
+        await session.commit()
+
+        row = (
+            await session.execute(
+                text(
+                    "select c.key, c.hand_ported, p.enabled from site_catalogue c"
+                    " join source_pref p using (key)"
+                )
+            )
+        ).mappings().one()
+
+    assert row["key"] == "thunderscans"
+    assert row["hand_ported"] is True
+    assert row["enabled"] is True
+
+
+async def test_a_disabled_duplicate_does_not_block_the_generated_row():
+    """Only a site somebody is actually using wins. A disabled seeded row is
+    not somebody using the site, and sparing those would keep every retired
+    key forever."""
+    async with get_sessionmaker()() as session:
+        await replace_catalogue(session, [_entry("oldkey", base_url="https://same.example")])
+        await session.execute(
+            text("insert into source_pref (key, enabled) values ('oldkey', false)")
+        )
+        await session.commit()
+
+        await replace_catalogue(session, [_entry("en.newkey", base_url="https://same.example")])
+        await session.commit()
+
+        keys = (
+            (await session.execute(text("select key from site_catalogue"))).scalars().all()
+        )
+
+    assert keys == ["en.newkey"]
+
+
+async def test_the_host_comparison_ignores_scheme_and_www():
+    async with get_sessionmaker()() as session:
+        await replace_catalogue(session, [_entry("seeded", base_url="https://www.site.example/")])
+        await _enable(session, "seeded")
+        await session.commit()
+
+        await replace_catalogue(session, [_entry("en.site", base_url="http://site.example")])
+        await session.commit()
+
+        keys = (
+            (await session.execute(text("select key from site_catalogue"))).scalars().all()
+        )
+
+    assert keys == ["seeded"]
