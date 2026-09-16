@@ -354,15 +354,22 @@ async def retry_failed(session: AsyncSession) -> int:
     return len(result.fetchall())
 
 
-async def clear_permanent_failures(session: AsyncSession) -> int:
-    """Delete the failures a retry cannot help. Returns how many went.
+async def clear_failed_jobs(session: AsyncSession) -> int:
+    """Delete every failed job. Returns how many went.
 
-    Only the permanent ones. An ordinary failure is still work waiting to be
-    retried, and clearing those would quietly throw away chapters the user is
-    owed rather than tidying a list.
+    This used to remove only the permanent ones, on the reasoning that an
+    ordinary failure is work still owed and clearing it would throw that away
+    quietly. The reasoning holds; what it missed is that nothing in practice
+    ever set `permanent`, so the control it guarded could not appear at all and
+    a queue of dead failures had no way out.
+
+    So the scope is the whole list and the honesty moves to the point of use:
+    the screen names how many will go and says the work is not retried, rather
+    than a comment here deciding it for the reader. A failure that mattered is
+    recoverable - the chapter is still missing, and discovery queues it again.
     """
     result = await session.execute(
-        text("delete from job where state = 'failed' and permanent returning id")
+        text("delete from job where state = 'failed' returning id")
     )
     return len(result.fetchall())
 

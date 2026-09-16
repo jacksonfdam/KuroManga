@@ -811,7 +811,14 @@ async def test_removing_a_series_over_http(client):
         ).scalar_one() == 1
 
 
-async def test_clearing_failed_jobs_takes_only_the_permanent_ones(client):
+async def test_clearing_failed_jobs_takes_every_one_of_them(client):
+    """It used to take only the permanent ones.
+
+    That was the safer promise and it could not be kept: nothing in practice
+    ever set `permanent`, so the control was unreachable and a queue of dead
+    failures had no way out. Clearing now means clearing, and the screen says
+    so before it happens.
+    """
     series_id = await _a_series("clear-failed")
     ordinary = await _a_job("list_sync", series_id, "failed")
     hopeless = await _a_job("progress_write", series_id, "failed", permanent=True)
@@ -819,16 +826,13 @@ async def test_clearing_failed_jobs_takes_only_the_permanent_ones(client):
     response = await client.request("DELETE", "/api/jobs/failed")
 
     assert response.status_code == 200
-    assert response.json() == {"ok": True, "cleared": 1}
+    assert response.json() == {"ok": True, "cleared": 2}
 
     async with get_sessionmaker()() as db:
-        rows = dict(
-            (
-                await db.execute(
-                    text("select id, state from job where id in (:a, :b)"),
-                    {"a": ordinary, "b": hopeless},
-                )
-            ).all()
-        )
-    assert rows[ordinary] == "failed", "an ordinary failure was thrown away"
-    assert hopeless not in rows
+        rows = (
+            await db.execute(
+                text("select id from job where id in (:a, :b)"),
+                {"a": ordinary, "b": hopeless},
+            )
+        ).all()
+    assert rows == []

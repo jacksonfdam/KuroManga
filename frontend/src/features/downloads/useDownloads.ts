@@ -133,7 +133,11 @@ export function useDownloads() {
       .then((result) => {
         report(
           result.requeued === 0
-            ? 'Nothing to retry — every failure left is one a second attempt cannot change.'
+            ? // Not "a retry cannot help": that is rarely why. A batch requeues
+              // one row per dedupe key and skips any whose twin is already
+              // waiting, so nothing moving usually means the work is queued
+              // already - see repo.retry_failed.
+              'Nothing was requeued — the work is already waiting, or another failure for the same job covers it.'
             : `Requeued ${result.requeued} ${result.requeued === 1 ? 'job' : 'jobs'}.`,
         )
         return reload()
