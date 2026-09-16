@@ -2,14 +2,15 @@
 
 ## Processes
 
-Eight services in `docker-compose.yml`. Six start with `docker compose up -d`; the last two are
+Nine services in `docker-compose.yml`. Seven start with `docker compose up -d`; the last two are
 gated behind Compose profiles and start only when asked for by name.
 
 | Service | What it is |
 |---|---|
 | `postgres` | The only datastore. Domain, queue and history |
 | `api` | FastAPI. REST and the SSE stream. Runs migrations on start |
-| `worker` | The job loop and the cron that feeds it. Scalable |
+| `worker` | The fetch lane: every job type but the two downloads, plus the cron that feeds them. The only process running the scheduler |
+| `worker-download` | The download lane: `download_batch` and `download_chapter`. The only process that writes archives |
 | `web` | Caddy, serving the built interface and proxying `/api` |
 | `komga` | The library server and reader |
 | `bootstrap` | One-shot: claims Komga if needed, creates the library, exits |

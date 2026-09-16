@@ -11,13 +11,18 @@ import pytest
 from sqlalchemy import text
 
 from app.db import get_sessionmaker
-from app.enums import JobType
+from app.enums import JobType, Lane, types_for
 from app.handlers import match_search
 from app.handlers.base import JobContext
 from app.queue import repo
 from app.sources.base import Candidate
 
 pytestmark = pytest.mark.asyncio
+
+# Tests lease whatever they just enqueued, so they ask for both lanes. Stated
+# rather than defaulted: the production callers must each name a lane.
+EVERY_TYPE = [*types_for(Lane.FETCH), *types_for(Lane.DOWNLOAD)]
+
 
 
 class FakeSource:
@@ -78,7 +83,7 @@ async def _series(session, title="Rebirth: Monarch of the Dead") -> int:
 async def _context(session, series_id: int) -> JobContext:
     await repo.enqueue(session, JobType.MATCH_SEARCH, {"series_id": series_id})
     await session.commit()
-    job = await repo.lease(session)
+    job = await repo.lease(session, types=EVERY_TYPE)
     await session.commit()
     return JobContext(session=session, job=job)
 

@@ -54,15 +54,22 @@ CI runs the same checks on every push and pull request, against a Postgres that 
 
 ## Rebuilding after a code change
 
-`api`, `worker` and `bootstrap` are the same program with different entrypoints and share
-`image: kuromanga:local`. Build once and recreate the containers that matter:
+`api`, `worker`, `worker-download` and `bootstrap` are the same program with different entrypoints
+and share `image: kuromanga:local`. Build once and recreate the containers that matter:
 
 ```bash
-docker compose build api && docker compose up -d --force-recreate api worker
+docker compose build api && docker compose up -d --force-recreate api worker worker-download
 ```
 
 Building a single service used to leave the others on stale code, and the symptom was a job failing
-with `no handler registered` — a build problem wearing a code problem's clothes.
+with `no handler registered` — a build problem wearing a code problem's clothes. There are two
+workers now, so that trap has a third container to hide in: forgetting `worker-download` leaves
+downloads running yesterday's code while everything else runs today's.
+
+The two workers are the same image in different lanes. `worker` takes every job type except the two
+downloads and is the only one that runs the cron scheduler; `worker-download` takes
+`download_batch` and `download_chapter` and is the only one that writes archives. Neither can take
+the other's work, which is what stops a download backlog starving the jobs a user is waiting on.
 
 ## Architecture
 

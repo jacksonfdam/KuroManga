@@ -6,6 +6,32 @@ x-logging: &logging
     max-size: "10m"
     max-file: "3"
 
+x-worker-env: &worker-env
+  POSTGRES_HOST: postgres
+  POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+  POSTGRES_USER: ${POSTGRES_USER:-manga}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-manga}
+  POSTGRES_DB: ${POSTGRES_DB:-manga}
+  LIBRARY_PATH: ${LIBRARY_PATH:-/manga}
+  DOWNLOAD_CONCURRENCY: ${DOWNLOAD_CONCURRENCY:-3}
+  PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:8080}
+  MAL_CLIENT_ID: ${MAL_CLIENT_ID:-}
+  MAL_CLIENT_SECRET: ${MAL_CLIENT_SECRET:-}
+  ANILIST_CLIENT_ID: ${ANILIST_CLIENT_ID:-}
+  ANILIST_CLIENT_SECRET: ${ANILIST_CLIENT_SECRET:-}
+  MANGABAKA_TOKEN: ${MANGABAKA_TOKEN:-}
+  MANGADEX_CLIENT_ID: ${MANGADEX_CLIENT_ID:-}
+  MANGADEX_CLIENT_SECRET: ${MANGADEX_CLIENT_SECRET:-}
+  MANGADEX_USERNAME: ${MANGADEX_USERNAME:-}
+  MANGADEX_PASSWORD: ${MANGADEX_PASSWORD:-}
+  KOMGA_URL: ${KOMGA_URL:-http://komga:25600}
+  KOMGA_API_KEY: ${KOMGA_API_KEY:-}
+  KOMGA_USER: ${KOMGA_USER:-}
+  KOMGA_PASS: ${KOMGA_PASS:-}
+  KOMGA_LIBRARY_NAME: ${KOMGA_LIBRARY_NAME:-Manga}
+  COMICK_API_URL: ${COMICK_API_URL:-http://comick:3000}
+  FLARESOLVERR_URL: ${FLARESOLVERR_URL:-}
+
 services:
   postgres:
     image: postgres:17-alpine
@@ -66,32 +92,33 @@ services:
     image: kuromanga:local
     restart: unless-stopped
     environment:
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
-      POSTGRES_USER: ${POSTGRES_USER:-manga}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-manga}
-      POSTGRES_DB: ${POSTGRES_DB:-manga}
-      LIBRARY_PATH: ${LIBRARY_PATH:-/manga}
-      DOWNLOAD_CONCURRENCY: ${DOWNLOAD_CONCURRENCY:-3}
-      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:8080}
-      MAL_CLIENT_ID: ${MAL_CLIENT_ID:-}
-      MAL_CLIENT_SECRET: ${MAL_CLIENT_SECRET:-}
-      ANILIST_CLIENT_ID: ${ANILIST_CLIENT_ID:-}
-      ANILIST_CLIENT_SECRET: ${ANILIST_CLIENT_SECRET:-}
-      MANGABAKA_TOKEN: ${MANGABAKA_TOKEN:-}
-      MANGADEX_CLIENT_ID: ${MANGADEX_CLIENT_ID:-}
-      MANGADEX_CLIENT_SECRET: ${MANGADEX_CLIENT_SECRET:-}
-      MANGADEX_USERNAME: ${MANGADEX_USERNAME:-}
-      MANGADEX_PASSWORD: ${MANGADEX_PASSWORD:-}
-      KOMGA_URL: ${KOMGA_URL:-http://komga:25600}
-      KOMGA_API_KEY: ${KOMGA_API_KEY:-}
-      KOMGA_USER: ${KOMGA_USER:-}
-      KOMGA_PASS: ${KOMGA_PASS:-}
-      KOMGA_LIBRARY_NAME: ${KOMGA_LIBRARY_NAME:-Manga}
-      COMICK_API_URL: ${COMICK_API_URL:-http://comick:3000}
-      FLARESOLVERR_URL: ${FLARESOLVERR_URL:-}
+      <<: *worker-env
+      LANE: fetch
+      FETCH_CONCURRENCY: ${FETCH_CONCURRENCY:-3}
     command: python -m app.worker.main
-    # Same uid as komga, so the files this writes are the files komga can read.
+    depends_on:
+      postgres:
+        condition: service_healthy
+      api:
+        condition: service_started
+    volumes:
+      # Read-only: chapter_discover runs in this lane and its
+      # reconcile_with_disk fallback reads the library when Komga cannot
+      # answer. Take the mount away and it finds nothing rather than
+      # failing, so a downloaded series merely looks undownloaded.
+      - ${LIBRARY_PATH_HOST:-./data/manga}:/manga:ro
+    logging: *logging
+
+  worker-download:
+    build: ./backend
+    image: kuromanga:local
+    restart: unless-stopped
+    environment:
+      <<: *worker-env
+      LANE: download
+    command: python -m app.worker.main
+    # Same uid as komga, so the files this writes are the files komga can
+    # read. Only this lane writes archives.
     user: "${PUID:-1000}:${PGID:-1000}"
     depends_on:
       postgres:

@@ -3,6 +3,7 @@
 import asyncio
 import logging
 import traceback
+from collections.abc import Sequence
 
 from app.db import get_sessionmaker
 from app.handlers.base import JobContext, PermanentError, get_handler
@@ -63,14 +64,14 @@ async def run_job(job: repo.LeasedJob) -> None:
             await session.commit()
 
 
-async def reclaim_loop(stop: asyncio.Event) -> None:
+async def reclaim_loop(stop: asyncio.Event, types: Sequence[str]) -> None:
     """A worker that dies leaves leases behind, and chapters claiming to be in
     flight. Hand both back."""
     sessionmaker = get_sessionmaker()
     while not stop.is_set():
         try:
             async with sessionmaker() as session:
-                reclaimed = await repo.reclaim_expired(session)
+                reclaimed = await repo.reclaim_expired(session, types=types)
                 # Chapters outlive the job that claimed them, so they are
                 # reclaimed on the same pass rather than only at boot: a lease
                 # that expires here is exactly the event that strands one.
@@ -85,7 +86,7 @@ async def reclaim_loop(stop: asyncio.Event) -> None:
         await _wait(stop, RECLAIM_INTERVAL_SECONDS)
 
 
-async def work_loop(concurrency: int, stop: asyncio.Event) -> None:
+async def work_loop(concurrency: int, stop: asyncio.Event, types: Sequence[str]) -> None:
     sessionmaker = get_sessionmaker()
     running: set[asyncio.Task[None]] = set()
 
@@ -96,7 +97,7 @@ async def work_loop(concurrency: int, stop: asyncio.Event) -> None:
             continue
 
         async with sessionmaker() as session:
-            job = await repo.lease(session)
+            job = await repo.lease(session, types=types)
             await session.commit()
 
         if job is None:
