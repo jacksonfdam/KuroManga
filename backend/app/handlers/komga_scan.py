@@ -129,6 +129,18 @@ async def record_marked_books(
     )
 
 
+def has_uploaded_artwork(thumbnails: list[dict]) -> bool:
+    """Whether anything other than Komga's own derivation is on this record.
+
+    Komga lists the thumbnail it generates from page one alongside any that were
+    uploaded, and only the `type` separates them. Treating a GENERATED entry as
+    artwork already set is what made the first version of this skip every book
+    it was meant to fix - and the check that confirmed it was reading the same
+    generated entry back.
+    """
+    return any(thumbnail.get("type") != "GENERATED" for thumbnail in thumbnails)
+
+
 async def cover_url_for(session: AsyncSession, series_id: int) -> str | None:
     """The artwork to give Komga for this series.
 
@@ -164,7 +176,7 @@ async def ensure_series_cover(ctx: JobContext, client, komga_series_id: str, ser
     CDN being briefly unreachable is not a reason to retry a scan.
     """
     try:
-        if await client.series_thumbnails(komga_series_id):
+        if has_uploaded_artwork(await client.series_thumbnails(komga_series_id)):
             # Komga keeps every thumbnail it is given. Uploading on each scan
             # would pile up copies and make the job slower the longer a library
             # lives, for an image that has not changed.
@@ -241,7 +253,7 @@ async def ensure_book_covers(ctx: JobContext, client, series_id: int, books) -> 
     fixed = 0
     for book in books:
         try:
-            if await client.book_thumbnails(book.id):
+            if has_uploaded_artwork(await client.book_thumbnails(book.id)):
                 continue
             page = first_portrait_page(await client.book_pages(book.id))
             if page is None or page == 1:
