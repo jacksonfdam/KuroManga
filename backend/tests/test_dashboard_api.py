@@ -241,6 +241,8 @@ async def test_a_continue_reading_card_carries_what_the_strip_renders(client):
         "slug": "berserk",
         "cover_url": None,
         "progress": 3,
+        # AniList holds this one, so the card's +1 has somewhere to land.
+        "writable": True,
         "total_chapters": 10,
         "chapters_remaining": 7,
         "known_ahead": 3,
@@ -489,3 +491,31 @@ async def test_home_counts_the_status_the_library_shows(client):
 
     assert body["active_reading"]["series"] == 1
     assert [row["title"] for row in body["continue_reading"]] == ["Actually reading"]
+
+
+async def test_a_card_says_when_no_list_can_take_the_write(client):
+    """A read-only provider is not a write target, and the card has to know.
+
+    MangaBaka is read and never written. A series it alone holds fails every
+    progress write in the handler with "no connected list entry", so the +1 on
+    the card is a button that cannot work — and the screen only found out after
+    the click, in wording that read as a passing failure.
+    """
+    series_id = await _series("Read Only", "read-only", progress=1, status="reading")
+    await _exec("delete from list_entry where series_id = :id", {"id": series_id})
+    await _exec(
+        """
+        insert into list_entry (provider, provider_media_id, series_id, synonyms,
+                                status, user_progress_chapter, total_chapters, raw,
+                                updated_at)
+        values ('mangabaka', :media_id, :series_id, '[]'::jsonb, 'reading', 1, 9,
+                '{}'::jsonb, now())
+        """,
+        {"media_id": f"mb-{series_id}", "series_id": series_id},
+    )
+
+    body = (await client.get("/api/dashboard")).json()
+    card = body["continue_reading"][0]
+
+    assert card["series_id"] == series_id
+    assert card["writable"] is False

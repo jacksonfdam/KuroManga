@@ -1,6 +1,6 @@
 import { useState } from 'react'
 
-import { Card, Icon, NoticeBar, ProgressBar, SegmentedControl } from '../../ui'
+import { Card, Icon, NO_WRITE_TARGET, NoticeBar, ProgressBar, SegmentedControl } from '../../ui'
 import type { ListStatus } from '../../lib/format'
 import { messageOf, type SeriesDetail } from '../../lib/api'
 import { formatChapter, relativeTime } from '../../lib/format'
@@ -87,9 +87,10 @@ export function ProgressManager({
           <div className="flex items-center gap-space-sm">
             <button
               type="button"
-              disabled={busy || series.progress <= 0}
+              disabled={busy || series.progress <= 0 || !series.writable}
               onClick={() => void trigger(series.progress - 1)}
               aria-label="Step back one chapter"
+              title={series.writable ? undefined : NO_WRITE_TARGET}
               className="flex h-9 w-9 items-center justify-center rounded-lg bg-surface-container-high text-on-surface transition-colors hover:bg-surface-bright disabled:cursor-not-allowed disabled:text-outline"
             >
               <Icon name="chevron" className="h-4 w-4 rotate-90" />
@@ -99,9 +100,10 @@ export function ProgressManager({
             </span>
             <button
               type="button"
-              disabled={busy}
+              disabled={busy || !series.writable}
               onClick={() => void trigger(series.progress + 1)}
-              aria-label="Mark next chapter read"
+              aria-label={series.writable ? 'Mark next chapter read' : NO_WRITE_TARGET}
+              title={series.writable ? undefined : NO_WRITE_TARGET}
               className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-on-primary transition-colors hover:bg-primary-container disabled:cursor-not-allowed"
             >
               <Icon name="add" className="h-4 w-4" />

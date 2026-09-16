@@ -1,4 +1,4 @@
-import { Icon, useIncrementFlash, type FlashState } from '../../ui'
+import { Icon, NO_WRITE_TARGET, useIncrementFlash, type FlashState } from '../../ui'
 import type { Series, SeriesState } from '../../lib/api'
 import { PROVIDER_LABEL, formatChapter, formatSeriesFormat } from '../../lib/format'
 import { totalChapters } from './useLibrary'
@@ -152,8 +152,9 @@ function SeriesRow({
             <button
               type="button"
               onClick={() => trigger(row.progress + 1)}
-              disabled={busy}
-              aria-label="Mark next chapter read"
+              disabled={busy || !row.writable}
+              aria-label={row.writable ? 'Mark next chapter read' : NO_WRITE_TARGET}
+              title={row.writable ? undefined : NO_WRITE_TARGET}
               className={`flex h-5 w-5 items-center justify-center rounded font-bold text-on-primary-container transition-colors disabled:cursor-not-allowed ${
                 flash ? FLASH[flash] : pending ? PENDING : 'bg-primary/20 hover:bg-primary hover:text-on-primary'
               }`}

@@ -64,7 +64,10 @@ select s.id,
        s.komga_series_id,
        coalesce(max(e.user_progress_chapter), 0) as progress,
        max(e.total_chapters) as total_chapters,
-       max(e.updated_at) as updated_at
+       max(e.updated_at) as updated_at,
+       -- Whether a progress write has anywhere to land, so the card can refuse
+       -- before the click rather than after the job fails.
+       coalesce(bool_or(e.provider = any(cast(:writable as text[]))), false) as writable
   from series s
   join list_entry e on e.series_id = s.id
  group by s.id
@@ -181,6 +184,7 @@ def _continue_reading_row(row: Any) -> dict[str, Any]:
     return {
         "series_id": row.id,
         "title": row.canonical_title,
+        "writable": row.writable,
         "slug": row.slug,
         "cover_url": (row.meta or {}).get("cover_url"),
         "progress": row.progress,

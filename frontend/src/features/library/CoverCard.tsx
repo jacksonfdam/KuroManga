@@ -115,6 +115,7 @@ export function CoverCard({
           <QuickIncrement
             progress={series.progress}
             pending={pending}
+            writable={series.writable}
             onIncrement={(next) => onIncrement(series.id, next)}
           />
         </div>
