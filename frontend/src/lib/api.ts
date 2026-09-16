@@ -199,6 +199,9 @@ export interface Job {
   attempts: number
   max_attempts: number
   last_error: string | null
+  /** Whether retrying could ever help. False for an ordinary failure; true for
+      one nothing about a second attempt would change. */
+  permanent: boolean
   series_id: number | null
   series_title: string | null
   chapter_number: number | null
