@@ -11,6 +11,7 @@ from apscheduler.triggers.cron import CronTrigger
 from sqlalchemy import text
 
 from app import settings_store
+from app.catalogue.loader import load_catalogue
 from app.config import get_settings
 from app.cron import CRON_JOBS
 from app.db import get_sessionmaker
@@ -139,8 +140,21 @@ async def load_registry() -> None:
     """The registry is loaded once here rather than queried per job - see
     app/sources/registry.py - so a download or a search job never waits on
     Postgres just to find out which sites are enabled.
+
+    The generated catalogue is read in first, so a deploy that ships a new one
+    picks it up without a separate command. It is safe to do unattended: the
+    load never touches source_pref, and the registry joins against it, so a
+    site arriving in the catalogue is listed in Settings and searched by
+    nothing until someone enables it there.
     """
     async with get_sessionmaker()() as session:
+        try:
+            await load_catalogue(session)
+        except (OSError, ValueError) as exc:
+            # A catalogue that will not parse is a bad deploy, not a reason for
+            # the worker to refuse to start: whatever was loaded last time is
+            # still in the table, and the jobs that depend on it still run.
+            log.warning("catalogue not loaded, keeping the one in the database: %s", exc)
         await reload_sources(session)
 
 
