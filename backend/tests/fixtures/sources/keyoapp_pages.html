@@ -1,0 +1,73 @@
+<!doctype html><html><head><title>fixture</title></head><body>
+<div id="pages" show_bar_button="mobile" class="grid sm:max-w-[--width] relative overflow-hidden sm:w-full sm:mx-auto sm:rounded-lg sm:overflow-hidden -mx-[4vw] sm:cursor-[url(https://api.iconify.design/uim:arrow-circle-down.svg?color=red&amp;width=40),_pointer]">
+                                                                                                <img src="/assets/images/placeholder.svg?clear=3" count="0" uid="ZNfIQ0sbS-t" class="lazy w-full myImage" alt="Loading Page..." loading="lazy">
+                                                                                                                                <img src="/assets/images/placeholder.svg?clear=3" count="1" uid="u-Xgs6kdn-f" class="lazy w-full myImage" alt="Loading Page..." loading="lazy">
+                                                                                                                                <img src="/assets/images/placeholder.svg?clear=3" count="2" uid="noZ2vK-rpev" class="lazy w-full myImage" alt="Loading Page..." loading="lazy">
+                                                                                                                                <img src="/assets/images/placeholder.svg?clear=3" count="3" uid="JGmzb3zRh8h" class="lazy w-full myImage" alt="Loading Page..." loading="lazy">
+                                                                                        <script>
+                                function loadImage(imgElement, count) {
+                                    count++;
+                                    const uid = imgElement.getAttribute('uid');
+                                    let realUrl = `https://cdn.meowing.org/uploads/${uid}`;
+
+                                    // Check if the image is already loading
+                                    if (imgElement.dataset.loading === "true") {
+                                        return; // Exit if already loading
+                                    }
+                                    // Set loading state
+                                    imgElement.dataset.loading = "true";
+
+                                    // Set the src to the real URL to start loading
+                                    imgElement.src = realUrl;
+
+                                    // Handle the load event
+                                    imgElement.onload = function() {
+                                        imgElement.dataset.loading = "false";
+                                        const nextImg = getNextImage(imgElement);
+                                        if (nextImg) {
+                                            loadImage(nextImg, 1);
+                                        }
+                                    };
+
+                                    imgElement.onerror = function() {
+                                        imgElement.dataset.loading = "false";
+                                        setTimeout(() => {
+                                            loadImage(imgElement, count);
+                                        }, 2000); // 10 
+                                    };
+                                }
+
+                                function getNextImage(currentImg) {
+                                    const images = document.querySelectorAll('.myImage');
+                                    for (let i = 0; i < images.length; i++) {
+                                        if (images[i] === currentImg && i + 1 < images.length) {
+                                            return images[i + 1];
+                                        }
+                                    }
+                                    return null; // No next image
+                                }
+
+                                document.addEventListener('DOMContentLoaded', function() {
+                                    const images = document.querySelectorAll('.myImage');
+                                    if (images.length > 0) {
+                                        // Start loading the first image immediately
+                                        loadImage(images[0], 1);
+                                    }
+                                });
+                                const images = document.querySelectorAll('.myImage');
+                                const observer = new IntersectionObserver((entries, observer) => {
+                                    entries.forEach(entry => {
+                                        if (entry.isIntersecting) {
+                                            loadImage(entry.target, 1);
+                                            observer.unobserve(entry
+                                                .target); // Stop observing after loading
+                                        }
+                                    });
+                                });
+
+                                images.forEach(img => {
+                                    observer.observe(img);
+                                });
+                            </script>
+                        </div>
+</body></html>
