@@ -359,6 +359,26 @@ async def merge_aliases(session: AsyncSession, series_id: int, dto: ListEntryDTO
     )
 
 
+async def skip_removed(session: AsyncSession, dto: ListEntryDTO) -> bool:
+    """Whether the user removed this work and a sync must not bring it back.
+
+    Checked before the series is resolved rather than after, so a removed entry
+    never recreates the row it was deleted from.
+    """
+    row = (
+        await session.execute(
+            text(
+                """
+                select 1 from removed_entry
+                 where provider = :provider and provider_media_id = :media_id
+                """
+            ),
+            {"provider": str(dto.provider), "media_id": dto.media_id},
+        )
+    ).first()
+    return row is not None
+
+
 async def upsert_entry(session: AsyncSession, dto: ListEntryDTO, series_id: int) -> None:
     await session.execute(
         text(
@@ -496,7 +516,12 @@ async def handle(ctx: JobContext) -> None:
     auto_search = await settings_store.get_bool(ctx.session, settings_store.AUTO_DOWNLOAD_NEW)
     created = 0
 
+    skipped = 0
+
     for index, dto in enumerate(entries, start=1):
+        if await skip_removed(ctx.session, dto):
+            skipped += 1
+            continue
         series_id, is_new = await resolve_series(ctx.session, dto)
         await upsert_entry(ctx.session, dto, series_id)
         if is_new:
@@ -513,4 +538,8 @@ async def handle(ctx: JobContext) -> None:
                 f"processed {index}/{len(entries)}", pct=10 + 90 * index / max(len(entries), 1)
             )
 
-    await ctx.log(f"done: {len(entries)} entries, {created} new series", pct=100)
+    await ctx.log(
+        f"done: {len(entries)} entries, {created} new series"
+        + (f", {skipped} removed by the user and left out" if skipped else ""),
+        pct=100,
+    )

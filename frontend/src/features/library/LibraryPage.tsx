@@ -1,4 +1,4 @@
-import { EmptyState, ErrorState, Icon, NoticeBar, SegmentedControl, Skeleton } from '../../ui'
+import { ConfirmDialog, EmptyState, ErrorState, Icon, NoticeBar, SegmentedControl, Skeleton } from '../../ui'
 import { STATUS_LABEL } from '../../lib/format'
 import type { ListStatus } from '../../lib/format'
 import { api } from '../../lib/api'
@@ -40,6 +40,8 @@ export function LibraryPage() {
   const selection = useSelection()
   const [applying, setApplying] = useState(false)
   const [batchNotice, setBatchNotice] = useState<string | null>(null)
+  const [confirmingRemove, setConfirmingRemove] = useState(false)
+  const [removing, setRemoving] = useState(false)
 
   // A selection restored from the session describes the library as it was when
   // the tab was opened. Anything answered in Review, or dropped by a sync,
@@ -68,6 +70,24 @@ export function LibraryPage() {
       setBatchNotice(`Couldn't queue the batch: ${String(failure)}`)
     } finally {
       setApplying(false)
+    }
+  }
+
+  const removeSelected = async () => {
+    setRemoving(true)
+    try {
+      const result = await api.removeSeries(selection.ids)
+      setBatchNotice(
+        `Removed ${result.removed} ${result.removed === 1 ? 'series' : 'series'}. ` +
+          'A list sync will not bring them back.',
+      )
+      selection.clear()
+      setConfirmingRemove(false)
+      await reload()
+    } catch (failure) {
+      setBatchNotice(`Couldn't remove: ${String(failure)}`)
+    } finally {
+      setRemoving(false)
     }
   }
 
@@ -209,11 +229,28 @@ export function LibraryPage() {
         )}
       </section>
 
+      {confirmingRemove && (
+        <ConfirmDialog
+          title={`Remove ${selection.count} ${selection.count === 1 ? 'series' : 'series'}?`}
+          consequences={[
+            'Anything queued for them is cancelled.',
+            'Chapters already downloaded stay on disk and in Komga.',
+            'A list sync will not bring them back.',
+            'Your MyAnimeList and AniList entries are left as they are.',
+          ]}
+          confirmLabel={removing ? 'Removing…' : 'Remove'}
+          busy={removing}
+          onConfirm={() => void removeSelected()}
+          onCancel={() => setConfirmingRemove(false)}
+        />
+      )}
+
       {selection.count > 0 && (
         <BatchActionBar
           count={selection.count}
           busy={applying}
           onApply={applyBatch}
+          onRemove={() => setConfirmingRemove(true)}
           onCancel={selection.clear}
         />
       )}

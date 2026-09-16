@@ -354,6 +354,19 @@ async def retry_failed(session: AsyncSession) -> int:
     return len(result.fetchall())
 
 
+async def clear_permanent_failures(session: AsyncSession) -> int:
+    """Delete the failures a retry cannot help. Returns how many went.
+
+    Only the permanent ones. An ordinary failure is still work waiting to be
+    retried, and clearing those would quietly throw away chapters the user is
+    owed rather than tidying a list.
+    """
+    result = await session.execute(
+        text("delete from job where state = 'failed' and permanent returning id")
+    )
+    return len(result.fetchall())
+
+
 async def promote_series(session: AsyncSession, series_id: int) -> int:
     """Put a series' waiting work at the front. Returns how many jobs moved.
 

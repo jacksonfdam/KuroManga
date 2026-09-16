@@ -141,6 +141,18 @@ export function useDownloads() {
       .catch(reportFailure)
   }, [reload, report, reportFailure])
 
+  const clearFailed = useCallback(() => {
+    api
+      .clearFailedJobs()
+      .then((result) => {
+        report(
+          `Cleared ${result.cleared} ${result.cleared === 1 ? 'failure' : 'failures'} nothing can carry on from.`,
+        )
+        return reload()
+      })
+      .catch(reportFailure)
+  }, [reload, report, reportFailure])
+
   const promote = useCallback(
     (seriesId: number, title: string) => {
       api
@@ -179,6 +191,7 @@ export function useDownloads() {
     grouping,
     setGrouping,
     retryFailed,
+    clearFailed,
     promote,
     cancel,
     counts: data?.counts ?? {},
