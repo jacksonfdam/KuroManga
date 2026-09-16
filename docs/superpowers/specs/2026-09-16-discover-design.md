@@ -81,11 +81,21 @@ item:
   status      the current list status, where one exists
 ```
 
-Ordering and paging happen in the query. `routes_dashboard.py` already argues this case for a
-smaller screen: *"Six parallel requests to build one above-the-fold view looks fine on localhost and
-falls apart on a NAS, so the whole screen is assembled here."* Sorting 698 items by distance to done
-requires something to see all of them, and doing that in the browser means fetching 527 unmatched
-rows before the first paint.
+Ordering and paging happen **in the API process**, not in one query. This is a correction to an
+earlier draft, found while writing the implementation plan.
+
+Suggestions and review items are plain SQL. The unmatched list is not: it is assembled in Python by
+`collapsed_anime()`, which collapses roughly a thousand narrow `anime_entry` rows and filters them
+against a settled set. `routes_discovery.py` says why — *"It is a thousand narrow rows… only the
+collapsed shape can answer it."* A single SQL union would mean reimplementing that logic in a second
+language, leaving two copies that must agree forever.
+
+So the endpoint runs the existing assembly, fetches the two SQL sources, merges, ranks and pages —
+all server-side. The argument for doing it there rather than in the browser is unchanged, and
+`routes_dashboard.py` already makes it for a smaller screen: *"Six parallel requests to build one
+above-the-fold view looks fine on localhost and falls apart on a NAS, so the whole screen is
+assembled here."* Sorting 698 items by distance to done requires something to see all of them; doing
+that in the browser means shipping 527 unmatched rows before the first paint.
 
 ## Unify the read, keep the writes
 
