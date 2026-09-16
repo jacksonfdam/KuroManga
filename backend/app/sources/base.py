@@ -80,6 +80,15 @@ class Source(ABC):
     async def list_pages(self, chapter_url: str, *, language: str = "en") -> list[PageRef]:
         """Every page image for one chapter, in reading order."""
 
+    def descramble(self, data: bytes, page: PageRef) -> bytes:
+        """The bytes a reader should see. Identity for every source but one.
+
+        Concrete rather than abstract: adding it here must not force every
+        other source to grow a no-op override. comiciviewer is the only site
+        that needs it today.
+        """
+        return data
+
 
 @dataclass(frozen=True)
 class RegisteredSource:
