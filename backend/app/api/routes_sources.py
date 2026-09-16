@@ -59,7 +59,7 @@ def _reason(row: Any) -> str | None:
     if not row["hand_ported"]:
         return "not hand-ported"
     if row["template"] == "native":
-        return None if row["key"] in registry.NATIVE_SOURCES else "no implementation for this site"
+        return None if row["key"] in registry.native_keys() else "no implementation for this site"
     if row["template"] not in registry.TEMPLATE_CLASSES:
         return f"no implementation for the {row['template']} template"
     return None
