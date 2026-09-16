@@ -133,3 +133,33 @@ async def test_a_chapter_hosted_elsewhere_is_unavailable():
     source = MangaDexSource(client=httpx.AsyncClient(transport=httpx.MockTransport(handler)))
     with pytest.raises(ChapterUnavailable, match="hosted elsewhere"):
         await source.list_pages("https://mangadex.org/chapter/65698b34-e7e1-4e42-8b79-a5bf6c8827b8")
+
+
+async def test_api_calls_go_through_the_rate_limited_client():
+    """MangaDex documents 40 requests a minute on at-home specifically, and
+    `list_pages` calls it once per chapter — so a download batch is exactly
+    where an unlimited client trips it. The failure is a 429 that reads as the
+    site being down."""
+    from app.sources.mangadex import API_RATE_LIMIT, MangaDexSource
+    from app.sources.net import SiteClient
+
+    source = MangaDexSource()
+
+    assert isinstance(source._client, SiteClient)
+    # Keyed on the API host, which is what the limit belongs to — not
+    # mangadex.org, which is the address a reader pastes.
+    assert source._client.host == "api.mangadex.org"
+    assert API_RATE_LIMIT == {"permits": 40, "period_seconds": 60}
+
+
+async def test_the_bucket_is_the_documented_at_home_limit():
+    """One bucket cannot express two limits, so the client takes the stricter.
+    Slower than necessary on a search costs seconds; faster than allowed on
+    at-home costs a ban."""
+    from app.sources.mangadex import API_RATE_LIMIT, MangaDexSource
+
+    source = MangaDexSource()
+    bucket = source._client._bucket
+
+    assert bucket._permits == API_RATE_LIMIT["permits"]
+    assert bucket._period == API_RATE_LIMIT["period_seconds"]
