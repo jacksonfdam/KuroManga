@@ -1,7 +1,9 @@
 # Porting Tachiyomi extensions to Python
 
 Date: 2026-09-15
-Status: approved. Foundation in progress; site selection amended 2026-09-15.
+Status: approved. Foundation complete on 2026-09-16 — the binary is deleted and both existing
+sources download through Python. Templates and the settings screen remain. Site selection amended
+2026-09-15.
 
 ## What this changes
 
