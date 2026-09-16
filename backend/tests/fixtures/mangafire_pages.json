@@ -1,0 +1,153 @@
+{
+  "data": {
+    "id": 1326884,
+    "number": 700,
+    "name": "Uzumaki Naruto!!",
+    "language": "en",
+    "type": "unofficial",
+    "latest": 700,
+    "title": {
+      "id": 40271,
+      "hid": "92kk8",
+      "slug": "naruto",
+      "name": "Naruto",
+      "url": "/title/92kk8-naruto",
+      "type": "manga",
+      "languages": [
+        "en",
+        "es-la",
+        "fr",
+        "ja",
+        "pt-br"
+      ],
+      "hasVolumes": true,
+      "malId": "11",
+      "anilistId": "30011",
+      "mangabakaId": ""
+    },
+    "pages": [
+      {
+        "url": "https://o48.mfcdn3.xyz/mf/12a3db61fa0f4f41a6ce794a81a7e1039035ad4255a7beb2541e2dfab23ccb812a5cd519486725eaff/h/p.jpg",
+        "width": 1013,
+        "height": 1600
+      },
+      {
+        "url": "https://o48.mfcdn3.xyz/mf/12a3db61fa0f4f41a6ce794a81a7e1039035ad4255a7beb1541e2dfab23ccb812a5cd519486725eaff/h/p.jpg",
+        "width": 1013,
+        "height": 1600
+      },
+      {
+        "url": "https://o48.mfcdn3.xyz/mf/12a3db61fa0f4f41a6ce794a81a7e1039035ad4255a7beb0541e2dfab23ccb812a5cd519486725eaff/h/p.jpg",
+        "width": 1013,
+        "height": 1600
+      },
+      {
+        "url": "https://o48.mfcdn3.xyz/mf/12a3db61fa0f4f41a6ce794a81a7e1039035ad4255a7beb7541e2dfab23ccb812a5cd519486725eaff/h/p.jpg",
+        "width": 1013,
+        "height": 1600
+      },
+      {
+        "url": "https://o48.mfcdn3.xyz/mf/12a3db61fa0f4f41a6ce794a81a7e1039035ad4255a7beb6541e2dfab23ccb812a5cd519486725eaff/h/p.jpg",
+        "width": 1013,
+        "height": 1600
+      },
+      {
+        "url": "https://o48.mfcdn3.xyz/mf/12a3db61fa0f4f41a6ce794a81a7e1039035ad4255a7beb5541e2dfab23ccb812a5cd519486725eaff/h/p.jpg",
+        "width": 1013,
+        "height": 1600
+      },
+      {
+        "url": "https://o48.mfcdn3.xyz/mf/12a3db61fa0f4f41a6ce794a81a7e1039035ad4255a7beb4541e2dfab23ccb812a5cd519486725eaff/h/p.jpg",
+        "width": 1013,
+        "height": 1600
+      },
+      {
+        "url": "https://o48.mfcdn3.xyz/mf/12a3db61fa0f4f41a6ce794a81a7e1039035ad4255a7bebb541e2dfab23ccb812a5cd519486725eaff/h/p.jpg",
+        "width": 1013,
+        "height": 1600
+      },
+      {
+        "url": "https://o48.mfcdn3.xyz/mf/12a3db61fa0f4f41a6ce794a81a7e1039035ad4255a7beba541e2dfab23ccb812a5cd519486725eaff/h/p.jpg",
+        "width": 1013,
+        "height": 1600
+      },
+      {
+        "url": "https://o48.mfcdn3.xyz/mf/12a3db61fa0f4f41a6ce794a81a7e1039035ad4255a7bfb3541e2dfab23ccb812a5cd519486725eaff/h/p.jpg",
+        "width": 1013,
+        "height": 1600
+      },
+      {
+        "url": "https://o48.mfcdn3.xyz/mf/12a3db61fa0f4f41a6ce794a81a7e1039035ad4255a7bfb2541e2dfab23ccb812a5cd519486725eaff/h/p.jpg",
+        "width": 1013,
+        "height": 1600
+      },
+      {
+        "url": "https://o48.mfcdn3.xyz/mf/12a3db61fa0f4f41a6ce794a81a7e1039035ad4255a7bfb1541e2dfab23ccb812a5cd519486725eaff/h/p.jpg",
+        "width": 1013,
+        "height": 1600
+      },
+      {
+        "url": "https://o48.mfcdn3.xyz/mf/12a3db61fa0f4f41a6ce794a81a7e1039035ad4255a7bfb0541e2dfab23ccb812a5cd519486725eaff/h/p.jpg",
+        "width": 1013,
+        "height": 1600
+      },
+      {
+        "url": "https://o48.mfcdn3.xyz/mf/12a3db61fa0f4f41a6ce794a81a7e1039035ad4255a7bfb7541e2dfab23ccb812a5cd519486725eaff/h/p.jpg",
+        "width": 1013,
+        "height": 1600
+      },
+      {
+        "url": "https://o48.mfcdn3.xyz/mf/12a3db61fa0f4f41a6ce794a81a7e1039035ad4255a7bfb6541e2dfab23ccb812a5cd519486725eaff/h/p.jpg",
+        "width": 1013,
+        "height": 1600
+      },
+      {
+        "url": "https://o48.mfcdn3.xyz/mf/12a3db61fa0f4f41a6ce794a81a7e1039035ad4255a7bfb5541e2dfab23ccb812a5cd519486725eaff/h/p.jpg",
+        "width": 1013,
+        "height": 1600
+      },
+      {
+        "url": "https://o48.mfcdn3.xyz/mf/12a3db61fa0f4f41a6ce794a81a7e1039035ad4255a7bfb4541e2dfab23ccb812a5cd519486725eaff/h/p.jpg",
+        "width": 1013,
+        "height": 1600
+      },
+      {
+        "url": "https://o48.mfcdn3.xyz/mf/12a3db61fa0f4f41a6ce794a81a7e1039035ad4255a7bfbb541e2dfab23ccb812a5cd519486725eaff/h/p.jpg",
+        "width": 1013,
+        "height": 1600
+      },
+      {
+        "url": "https://o48.mfcdn3.xyz/mf/12a3db61fa0f4f41a6ce794a81a7e1039035ad4255a7bfba541e2dfab23ccb812a5cd519486725eaff/h/p.jpg",
+        "width": 1013,
+        "height": 1600
+      },
+      {
+        "url": "https://o48.mfcdn3.xyz/mf/12a3db61fa0f4f41a6ce794a81a7e1039035ad4255a7bcb3541e2dfab23ccb812a5cd519486725eaff/h/p.jpg",
+        "width": 2027,
+        "height": 1600
+      },
+      {
+        "url": "https://o48.mfcdn3.xyz/mf/12a3db61fa0f4f41a6ce794a81a7e1039035ad4255a7bcb2541e2dfab23ccb812a5cd519486725eaff/h/p.jpg",
+        "width": 2027,
+        "height": 1600
+      },
+      {
+        "url": "https://o48.mfcdn3.xyz/mf/12a3db61fa0f4f41a6ce794a81a7e1039035ad4255a7bcb1541e2dfab23ccb812a5cd519486725eaff/h/p.jpg",
+        "width": 1013,
+        "height": 1600
+      },
+      {
+        "url": "https://o48.mfcdn3.xyz/mf/12a3db61fa0f4f41a6ce794a81a7e1039035ad4255a7bcb0541e2dfab23ccb812a5cd519486725eaff/h/p.jpg",
+        "width": 1013,
+        "height": 1600
+      }
+    ],
+    "prev": {
+      "id": 1326872,
+      "number": 699,
+      "language": "en",
+      "url": "/title/92kk8-naruto/chapter/1326872"
+    },
+    "next": null
+  }
+}
