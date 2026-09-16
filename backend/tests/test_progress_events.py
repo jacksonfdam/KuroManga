@@ -11,13 +11,18 @@ import pytest
 from sqlalchemy import text
 
 from app.db import get_sessionmaker
-from app.enums import JobType, Provider
+from app.enums import JobType, Lane, Provider, types_for
 from app.handlers import progress_push, progress_write
 from app.handlers.base import JobContext
 from app.komga.client import KomgaBook
 from app.queue import repo
 
 pytestmark = pytest.mark.asyncio
+
+# Tests lease whatever they just enqueued, so they ask for both lanes. Stated
+# rather than defaulted: the production callers must each name a lane.
+EVERY_TYPE = [*types_for(Lane.FETCH), *types_for(Lane.DOWNLOAD)]
+
 
 
 class RecordingSource:
@@ -128,7 +133,7 @@ async def _write(series_id: int, chapter: int) -> None:
             dedupe_key=f"progress_write:{series_id}",
         )
         await session.commit()
-        job = await repo.lease(session)
+        job = await repo.lease(session, types=EVERY_TYPE)
         assert job is not None
         await progress_write.handle(JobContext(session=session, job=job))
         await repo.complete(session, job.id)
@@ -145,7 +150,7 @@ async def _push(series_id: int) -> None:
             dedupe_key=f"progress_push:{series_id}",
         )
         await session.commit()
-        job = await repo.lease(session)
+        job = await repo.lease(session, types=EVERY_TYPE)
         assert job is not None
         await progress_push.handle(JobContext(session=session, job=job))
         await repo.complete(session, job.id)

@@ -6,12 +6,17 @@ from sqlalchemy import text
 
 from app.api.main import app
 from app.db import get_sessionmaker
-from app.enums import JobType, Provider
+from app.enums import JobType, Lane, Provider, types_for
 from app.handlers import status_write
 from app.handlers.base import JobContext
 from app.queue import repo
 
 pytestmark = pytest.mark.asyncio
+
+# Tests lease whatever they just enqueued, so they ask for both lanes. Stated
+# rather than defaulted: the production callers must each name a lane.
+EVERY_TYPE = [*types_for(Lane.FETCH), *types_for(Lane.DOWNLOAD)]
+
 
 
 class RecordingSource:
@@ -149,7 +154,7 @@ async def test_a_click_that_lands_after_the_job_is_leased_still_reaches_the_prov
             dedupe_key="status_write:1",
         )
         await session.commit()
-        job = await repo.lease(session)
+        job = await repo.lease(session, types=EVERY_TYPE)
         assert job is not None
 
     written: list[tuple[str, str]] = []
@@ -216,7 +221,7 @@ async def test_the_written_status_is_the_one_the_library_shows(client, monkeypat
             dedupe_key="status_write:1",
         )
         await session.commit()
-        job = await repo.lease(session)
+        job = await repo.lease(session, types=EVERY_TYPE)
         assert job is not None
 
     written: list[tuple[str, str]] = []

@@ -7,7 +7,7 @@ from sqlalchemy import text
 
 from app.db import get_sessionmaker
 from app.discovery.seeds import Origin, Seed
-from app.enums import JobType, ListStatus, Provider
+from app.enums import JobType, Lane, ListStatus, Provider, types_for
 from app.handlers import suggest_build as build
 from app.handlers.base import JobContext
 from app.handlers.suggest_build import already_known, upsert_suggestion
@@ -15,6 +15,11 @@ from app.providers.anilist import parse_manga_meta
 from app.queue import repo
 
 pytestmark = pytest.mark.asyncio
+
+# Tests lease whatever they just enqueued, so they ask for both lanes. Stated
+# rather than defaulted: the production callers must each name a lane.
+EVERY_TYPE = [*types_for(Lane.FETCH), *types_for(Lane.DOWNLOAD)]
+
 
 ORIGIN = Origin(Provider.ANILIST, "21", "Vinland Saga", ListStatus.COMPLETED, 24, 24)
 SEED = Seed(Provider.ANILIST, "3000", "Vinland Saga", "SOURCE", ORIGIN, {"mal": "500"})
@@ -247,7 +252,7 @@ async def run_build(*, commit_at_end: bool = True) -> None:
     async with get_sessionmaker()() as session:
         await repo.enqueue(session, JobType.SUGGEST_BUILD, {})
         await session.commit()
-        job = await repo.lease(session)
+        job = await repo.lease(session, types=EVERY_TYPE)
         await session.commit()
         try:
             await build.handle(JobContext(session=session, job=job))

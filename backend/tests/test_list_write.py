@@ -7,13 +7,18 @@ import pytest
 from sqlalchemy import text
 
 from app.db import get_sessionmaker
-from app.enums import JobType
+from app.enums import JobType, Lane, types_for
 from app.handlers.base import JobContext, PermanentError
 from app.handlers.list_write import handle, pending_targets, record_result, targets_for
 from app.providers.tokens import NotConnected
 from app.queue import repo
 
 pytestmark = pytest.mark.asyncio
+
+# Tests lease whatever they just enqueued, so they ask for both lanes. Stated
+# rather than defaulted: the production callers must each name a lane.
+EVERY_TYPE = [*types_for(Lane.FETCH), *types_for(Lane.DOWNLOAD)]
+
 
 
 class Row:
@@ -77,7 +82,7 @@ async def lease_write_job(session, suggestion_id: int) -> repo.LeasedJob:
         session, JobType.LIST_WRITE, {"suggestion_id": suggestion_id, "status": "reading"}
     )
     await session.commit()
-    job = await repo.lease(session)
+    job = await repo.lease(session, types=EVERY_TYPE)
     await session.commit()
     return job
 

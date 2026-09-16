@@ -8,10 +8,14 @@ import pytest
 from sqlalchemy import text
 
 from app.db import get_sessionmaker
-from app.enums import JobType, Provider
+from app.enums import JobType, Lane, Provider, types_for
 from app.handlers import progress_write
 from app.handlers.base import JobContext, PermanentError
 from app.queue import repo
+
+# Tests lease whatever they just enqueued, so they ask for both lanes. Stated
+# rather than defaulted: the production callers must each name a lane.
+EVERY_TYPE = [*types_for(Lane.FETCH), *types_for(Lane.DOWNLOAD)]
 
 
 def test_forward_only_allows_a_higher_chapter():
@@ -107,7 +111,7 @@ async def _run(series_id: int, chapter: int) -> list[str]:
             dedupe_key=f"progress_write:{series_id}",
         )
         await session.commit()
-        job = await repo.lease(session)
+        job = await repo.lease(session, types=EVERY_TYPE)
         assert job is not None
         await progress_write.handle(JobContext(session=session, job=job))
         await session.commit()
@@ -185,7 +189,7 @@ async def test_the_job_pushes_the_newest_chapter_asked_for_not_the_one_it_was_qu
             dedupe_key=f"progress_write:{series_id}",
         )
         await session.commit()
-        job = await repo.lease(session)
+        job = await repo.lease(session, types=EVERY_TYPE)
         assert job is not None
         # The second click, landing while the job above holds its lease.
         await session.execute(

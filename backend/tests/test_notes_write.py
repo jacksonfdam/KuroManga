@@ -11,13 +11,18 @@ from sqlalchemy import text
 
 from app.api.main import app
 from app.db import get_sessionmaker
-from app.enums import JobType, Provider
+from app.enums import JobType, Lane, Provider, types_for
 from app.handlers import notes_write
 from app.handlers.base import JobContext
 from app.providers.anilist import NOTES_MUTATION
 from app.queue import repo
 
 pytestmark = pytest.mark.asyncio
+
+# Tests lease whatever they just enqueued, so they ask for both lanes. Stated
+# rather than defaulted: the production callers must each name a lane.
+EVERY_TYPE = [*types_for(Lane.FETCH), *types_for(Lane.DOWNLOAD)]
+
 
 
 class RecordingSource:
@@ -181,7 +186,7 @@ async def test_a_save_that_lands_after_the_job_is_leased_still_writes_the_second
             dedupe_key="notes_write:1",
         )
         await session.commit()
-        job = await repo.lease(session)
+        job = await repo.lease(session, types=EVERY_TYPE)
         assert job is not None
 
     written: list[tuple[str, str, list[str]]] = []
@@ -242,7 +247,7 @@ async def test_writing_the_note_updates_the_anilist_entry_s_stored_raw(monkeypat
             dedupe_key="notes_write:1",
         )
         await session.commit()
-        job = await repo.lease(session)
+        job = await repo.lease(session, types=EVERY_TYPE)
         assert job is not None
 
     monkeypatch.setattr(
@@ -304,7 +309,7 @@ async def test_writing_the_note_updates_the_mal_entry_s_stored_comments_and_tags
             dedupe_key="notes_write:1",
         )
         await session.commit()
-        job = await repo.lease(session)
+        job = await repo.lease(session, types=EVERY_TYPE)
         assert job is not None
 
     monkeypatch.setattr(
@@ -366,7 +371,7 @@ async def test_writing_the_note_lands_on_a_mal_entry_with_no_list_status_at_all(
             dedupe_key="notes_write:1",
         )
         await session.commit()
-        job = await repo.lease(session)
+        job = await repo.lease(session, types=EVERY_TYPE)
         assert job is not None
 
     monkeypatch.setattr(

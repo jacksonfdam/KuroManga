@@ -6,6 +6,7 @@ worker that dies leaves its job to be reclaimed instead of losing it.
 """
 
 import json
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -79,14 +80,23 @@ async def enqueue(
     return row[0] if row else None
 
 
-async def lease(session: AsyncSession, *, lease_seconds: int = 900) -> LeasedJob | None:
-    """Claim the highest-priority runnable job, or return None if there is none."""
+async def lease(
+    session: AsyncSession, *, types: Sequence[str], lease_seconds: int = 900
+) -> LeasedJob | None:
+    """Claim the highest-priority runnable job in this lane, or None.
+
+    `types` is required rather than defaulting to every type. A caller that
+    forgot it would silently restore the single queue this argument exists to
+    split, and that failure reads as a performance problem rather than as a
+    missing argument.
+    """
     result = await session.execute(
         text(
             """
             with claimed as (
                 select id from job
                  where state = 'pending' and run_after <= now()
+                   and type = any(cast(:types as text[]))
                  order by priority, created_at
                  for update skip locked
                  limit 1
@@ -101,7 +111,7 @@ async def lease(session: AsyncSession, *, lease_seconds: int = 900) -> LeasedJob
             returning job.id, job.type, job.payload, job.attempts, job.max_attempts, job.series_id
             """
         ),
-        {"lease_seconds": lease_seconds},
+        {"lease_seconds": lease_seconds, "types": list(types)},
     )
     row = result.first()
     if row is None:

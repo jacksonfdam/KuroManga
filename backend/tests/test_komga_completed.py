@@ -6,13 +6,18 @@ import pytest
 from sqlalchemy import text
 
 from app.db import get_sessionmaker
-from app.enums import JobType
+from app.enums import JobType, Lane, types_for
 from app.handlers import komga_scan
 from app.handlers.base import JobContext
 from app.handlers.komga_scan import completed_series, marked_books
 from app.queue import repo
 
 pytestmark = pytest.mark.asyncio
+
+# Tests lease whatever they just enqueued, so they ask for both lanes. Stated
+# rather than defaulted: the production callers must each name a lane.
+EVERY_TYPE = [*types_for(Lane.FETCH), *types_for(Lane.DOWNLOAD)]
+
 
 
 async def _series_with_status(status: str | None) -> int:
@@ -129,7 +134,7 @@ async def _run_scan(
     async with get_sessionmaker()() as session:
         await repo.enqueue(session, JobType.KOMGA_SCAN, {"series_id": series_id})
         await session.commit()
-        job = await repo.lease(session)
+        job = await repo.lease(session, types=EVERY_TYPE)
         await session.commit()
         await komga_scan.handle(JobContext(session=session, job=job))
         if commit_at_end:
