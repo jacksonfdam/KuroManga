@@ -182,9 +182,21 @@ free:
 3. **Delete the rows.** Cleanest list, destroys the record, and deleting queue history is something
    this pipeline does nowhere else.
 
-**Recommendation: (2),** as a small piece of Part B rather than a one-off cleanup. It is the only
-option that makes the Retry button tell the truth, and it generalises to every permanent failure
-rather than to these six.
+**Decided: (2).** A `permanent` boolean on `job`, set when a handler raises `PermanentError`, and
+`retry` refuses a job carrying it. It is the only option that makes the Retry button tell the truth,
+and it generalises to every permanent failure rather than to these six — the "no chapters in English"
+failure on series 228 has exactly the same character and is equally un-retryable today.
+
+Scope notes for the implementation:
+
+- The flag is set by the worker where `PermanentError` is already distinguished from a retryable
+  failure (`worker/runner.py`), not by each handler, so no handler has to remember it.
+- `retry` gains `and not permanent` to its `where` clause. The endpoint returns what it did rather
+  than silently doing nothing, so the interface can say why a button is refused.
+- The migration backfills nothing. Existing failed rows keep `permanent = false`, because the reason
+  a past job failed is not recoverable from its text, and guessing would mark retryable work
+  permanent. The six known rows are corrected by letting them fail once more under the new code.
+- The screen stops offering Retry on a permanent row and says the failure is final.
 
 ## Order of work
 
@@ -206,9 +218,11 @@ afterwards. Part C rides along with Part B, where the failure list is being rebu
 - **Screen:** each figure traced to the field that serves it. Anything that cannot be traced is
   removed rather than filled.
 
-## Open questions
+## Decisions taken
 
-1. Part C: is option (2), the `permanent` column, the one to build?
-2. Should `worker-download` default to a concurrency above 1? Higher parallelism is faster but
-   concentrates load on one source, and per-site rate limiting lives in the source layer rather than
-   in the lease.
+1. **Part C builds the `permanent` column**, as set out above.
+2. **Concurrency keeps today's behaviour.** `DOWNLOAD_CONCURRENCY` keeps both its key and its
+   current value, so downloads run exactly as parallel as they do now; `FETCH_CONCURRENCY` defaults
+   to the same number. Nothing about throughput changes — the lanes stop competing for one pool,
+   which is the entire point, and no new load is placed on any source. Tuning either is a later
+   decision with evidence behind it, not part of this change.
