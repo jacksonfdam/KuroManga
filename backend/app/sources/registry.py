@@ -92,6 +92,21 @@ async def reload(session: AsyncSession) -> None:
     install_registry(entries)
 
 
+def native_keys() -> frozenset[str]:
+    """Every native site this deployment can run.
+
+    Wider than NATIVE_SOURCES: MangaFire is built per reload because it needs a
+    setting, and asking NATIVE_SOURCES alone made the sources screen report it
+    as having no implementation - which would have stopped anyone enabling it.
+    """
+    return frozenset(NATIVE_SOURCES) | CONFIGURED_NATIVES
+
+
+# Native sites built per reload rather than at import, because they need
+# something only the database holds.
+CONFIGURED_NATIVES = frozenset({"mangafire"})
+
+
 async def _configured_natives(session: AsyncSession) -> dict[str, Source]:
     """Native sources that need something only the database holds.
 

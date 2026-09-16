@@ -205,3 +205,21 @@ async def test_the_catalogue_row_ships_disabled():
     assert row["has_pref"] is False
     # MIXED upstream: what the site carries is a fact about the site.
     assert row["nsfw"] is True
+
+
+async def test_the_sources_screen_knows_mangafire_is_implemented():
+    """It is built per reload because it needs a setting, so it is not in
+    NATIVE_SOURCES. Asking that dict alone made the screen report "no
+    implementation for this site" — which would have stopped anyone enabling
+    the source it had just shipped."""
+    from app.api.routes_sources import _reason
+    from app.sources import registry
+
+    assert "mangafire" in registry.native_keys()
+    row = {
+        "key": "mangafire",
+        "template": "native",
+        "hand_ported": True,
+        "disabled_reason": None,
+    }
+    assert _reason(row) is None
