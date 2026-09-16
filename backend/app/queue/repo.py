@@ -267,6 +267,68 @@ async def reclaim_orphaned_chapters(session: AsyncSession) -> int:
     return len(result.fetchall())
 
 
+async def retry_failed(session: AsyncSession) -> int:
+    """Retry every failure that retrying could help. Returns how many.
+
+    The permanent ones are skipped for the reason a single retry skips them:
+    nothing about a second attempt goes differently, and putting them back only
+    fills the failed list again a second later.
+    """
+    result = await session.execute(
+        text(
+            """
+            update job
+               set state = 'pending', attempts = 0, lease_until = null, last_error = null,
+                   run_after = now(), finished_at = null, priority = 0
+             where state = 'failed' and not permanent
+            returning id
+            """
+        )
+    )
+    return len(result.fetchall())
+
+
+async def promote_series(session: AsyncSession, series_id: int) -> int:
+    """Put a series' waiting work at the front. Returns how many jobs moved.
+
+    Priority is what the lease already orders by, and 0 is what a manual retry
+    uses to mean "run this next", so promoting borrows the same number rather
+    than inventing a second scale. Only pending rows move: a job a worker holds
+    is already running and has no queue position left to improve.
+    """
+    result = await session.execute(
+        text(
+            """
+            update job set priority = 0
+             where series_id = :series_id and state = 'pending'
+            returning id
+            """
+        ),
+        {"series_id": series_id},
+    )
+    return len(result.fetchall())
+
+
+async def cancel_series(session: AsyncSession, series_id: int) -> int:
+    """Drop a series' waiting work. Returns how many jobs went.
+
+    Deliberately only `pending`. Nothing can stop a job a worker is running —
+    there is no cancellation protocol, and deleting the row would strand the
+    chapter it is part-way through writing while the worker carried on.
+    """
+    result = await session.execute(
+        text(
+            """
+            delete from job
+             where series_id = :series_id and state = 'pending'
+            returning id
+            """
+        ),
+        {"series_id": series_id},
+    )
+    return len(result.fetchall())
+
+
 async def reclaim_expired(session: AsyncSession, *, types: Sequence[str]) -> int:
     """Return this lane's dead leases to the pending pool. Returns how many.
 
