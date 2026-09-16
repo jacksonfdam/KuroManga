@@ -15,10 +15,12 @@ from typing import Any
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app import settings_store
 from app.sources.asurascans import AsuraScansSource
 from app.sources.base import RegisteredSource, Source, install_registry
 from app.sources.comick import SITES, ComickSource
 from app.sources.mangadex import MangaDexSource
+from app.sources.mangafire.source import MangaFireSource
 from app.sources.mangageko import MangaGekoSource
 from app.sources.net import CatalogueRow
 from app.sources.templates import TemplateSource
@@ -35,6 +37,9 @@ logger = logging.getLogger(__name__)
 # site: the comick module serves weebcentral, and keying its row after the
 # service that fetches it instead of the site it serves broke every lookup that
 # goes the other way (0014).
+# Built once at import because none of them needs anything from the database.
+# MangaFire is the exception and is built per reload instead - see
+# `_configured_natives`.
 NATIVE_SOURCES: dict[str, Source] = {
     "mangadex": MangaDexSource(),
     "weebcentral": ComickSource(*SITES[0]),
@@ -62,6 +67,7 @@ async def reload(session: AsyncSession) -> None:
     settings - is simply absent from the result, which is what makes enabling
     a site in settings the same thing as registering it.
     """
+    natives = await _configured_natives(session)
     rows = (
         await session.execute(
             text(
@@ -78,7 +84,7 @@ async def reload(session: AsyncSession) -> None:
 
     entries: dict[str, RegisteredSource] = {}
     for row in rows:
-        source = _build(row)
+        source = _build(row, natives)
         if source is None:
             continue
         entries[source.site] = RegisteredSource(source=source, base_url=row["base_url"])
@@ -86,7 +92,20 @@ async def reload(session: AsyncSession) -> None:
     install_registry(entries)
 
 
-def _build(row: Any) -> Source | None:
+async def _configured_natives(session: AsyncSession) -> dict[str, Source]:
+    """Native sources that need something only the database holds.
+
+    MangaFire's API is behind a check a person clears in their own browser; the
+    cookie that produces lives in settings. Building it here rather than at
+    import is also what makes pasting a new cookie take effect on the next
+    reload instead of on the next deploy - `PUT /api/sources/{key}` already
+    reloads, so toggling the site is enough.
+    """
+    waf_pass = await settings_store.get(session, settings_store.MANGAFIRE_WAF_PASS)
+    return {"mangafire": MangaFireSource(waf_pass=waf_pass)}
+
+
+def _build(row: Any, natives: dict[str, Source] | None = None) -> Source | None:
     """One catalogue row as a Source, or None with a log line saying why not.
 
     Every refusal is a warning rather than a raise: reload runs at boot, and a
@@ -94,7 +113,7 @@ def _build(row: Any) -> Source | None:
     reason the API does not come up.
     """
     if row["template"] == "native":
-        source = NATIVE_SOURCES.get(row["key"])
+        source = (natives or {}).get(row["key"]) or NATIVE_SOURCES.get(row["key"])
         if source is None:
             logger.warning(
                 "site %s: template=native but no class is registered for that key, skipping",

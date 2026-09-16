@@ -390,6 +390,16 @@ class SiteClient:
         self._client.headers["User-Agent"] = clearance.user_agent
         self._clearance = clearance
 
+    def set_cookie(self, name: str, value: str) -> None:
+        """Hold a cookie for this site's whole session.
+
+        Sent per request instead, httpx deprecates it - and rightly, since what
+        it should do with the jar is ambiguous. A source that carries a session
+        a person established elsewhere (MangaFire's challenge, say) sets it once
+        here and lets the client own it.
+        """
+        self._client.cookies.set(name, value, domain=self._client.base_url.host)
+
     async def aclose(self) -> None:
         await self._client.aclose()
 
