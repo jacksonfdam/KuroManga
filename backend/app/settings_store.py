@@ -10,6 +10,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
+from app.enums import Lane
 
 CRON_LIST_SYNC = "cron_list_sync"
 CRON_CHAPTER_DISCOVER = "cron_chapter_discover"
@@ -107,12 +108,23 @@ def _fallback(key: str) -> str:
             return ""
 
 
-async def get(session: AsyncSession, key: str) -> str:
+async def stored(session: AsyncSession, key: str) -> str | None:
+    """The value someone set, or None when nothing has been.
+
+    `get` cannot answer this: it folds "never set" into the packaged default,
+    which is right for a reader and wrong for anything that has to tell a
+    deliberate choice from an absence.
+    """
     result = await session.execute(
         text("select value from setting where key = :key"), {"key": key}
     )
     row = result.first()
-    return row[0] if row else _fallback(key)
+    return row[0] if row else None
+
+
+async def get(session: AsyncSession, key: str) -> str:
+    raw = await stored(session, key)
+    return raw if raw is not None else _fallback(key)
 
 
 async def get_int(session: AsyncSession, key: str) -> int:
@@ -160,3 +172,25 @@ async def all_settings(session: AsyncSession) -> dict[str, str]:
         MANGAFIRE_WAF_PASS,
     ]
     return {key: stored.get(key, _fallback(key)) for key in keys}
+
+
+async def concurrency_for(session: AsyncSession, lane: Lane) -> int:
+    """How many jobs this lane may run at once.
+
+    An unset fetch_concurrency inherits the tuned download_concurrency rather
+    than the packaged default. Before the lanes there was one pool and it ran
+    at whatever download_concurrency had been set to; falling back to the
+    default would have cut those jobs from that number to three on the first
+    restart, which is a throughput change nobody asked for. Once fetch has a
+    number of its own, that number rules.
+    """
+    if lane is Lane.DOWNLOAD:
+        return await get_int(session, DOWNLOAD_CONCURRENCY)
+
+    raw = await stored(session, FETCH_CONCURRENCY)
+    if raw is not None:
+        try:
+            return int(raw)
+        except ValueError:
+            pass
+    return await get_int(session, DOWNLOAD_CONCURRENCY)
