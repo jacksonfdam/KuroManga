@@ -73,8 +73,8 @@ Both exist so nothing leaves over the network without a decision.
 2. **Downloading waits for an explicit range or for `series.auto_download`.** Confirming a mapping
    says what a series *is*, not that its backlog should be fetched.
 
-Discovery and Unmatched follow the same principle: a suggestion is approved by a person, and the
-Unmatched screen searches only when asked.
+Discover follows the same principle: a suggestion is approved by a person, and an unmatched anime
+is searched only when asked.
 
 **Do not remove a stop to make something more automatic.** They are the product, not friction in it.
 
@@ -96,6 +96,12 @@ source must take that semaphore.
 
 `frontend/src/` is a token layer, presentational primitives in `ui/`, one folder per screen in
 `features/`, and shared non-visual code in `lib/`.
+
+`GET /api/discover` is the one read model assembled from several sources rather than served from
+one: suggestions, the mapping review queue and unmatched anime, ordered by how close each is to
+done. It reads only. Adding, confirming and searching stay on the endpoints they already had —
+they create series, reach real MyAnimeList and AniList accounts and enqueue downloads, and
+rewriting the outward-facing half alongside the visible half would have bought nothing.
 
 Four rules, each of which cost time when broken:
 

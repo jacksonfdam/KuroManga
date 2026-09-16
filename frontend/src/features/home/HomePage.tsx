@@ -73,8 +73,6 @@ export function HomePage() {
 
       <PipelineHeader
         integrations={dashboard.integrations}
-        pendingMappings={dashboard.mappings.pending}
-        newSuggestions={dashboard.discovery.new}
         onForceScan={forceScan}
       />
 

@@ -836,3 +836,58 @@ async def test_clearing_failed_jobs_takes_every_one_of_them(client):
             )
         ).all()
     assert rows == []
+
+
+async def test_the_discover_feed_serves_items_and_counts(client):
+    async with get_sessionmaker()() as db:
+        await db.execute(
+            text(
+                """
+                insert into series (canonical_title, slug, needs_review, meta, created_at)
+                values ('Waiting On A Source', 'waiting-on-a-source', true, '{}'::jsonb, now())
+                """
+            )
+        )
+        await db.commit()
+
+    response = await client.get("/api/discover?limit=10&offset=0")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["total"] >= 1
+
+    item = next(i for i in body["items"] if i["title"] == "Waiting On A Source")
+    assert item["kind"] == "review"
+    assert item["needs"] == ["source"]
+
+
+async def test_the_discover_feed_pages_without_repeating_a_row(client):
+    async with get_sessionmaker()() as db:
+        # The feed draws on three tables and this file's fixture truncates only
+        # one of them. Paging is only deterministic if the other two are empty,
+        # so this test says so rather than hoping.
+        await db.execute(text("truncate suggestion, anime_entry restart identity cascade"))
+        for n in range(3):
+            await db.execute(
+                text(
+                    """
+                    insert into series (canonical_title, slug, needs_review, meta, created_at)
+                    values (:t, :s, true, '{}'::jsonb, now())
+                    """
+                ),
+                {"t": f"Series {n}", "s": f"series-{n}"},
+            )
+        await db.commit()
+
+    first = (await client.get("/api/discover?limit=2&offset=0")).json()
+    second = (await client.get("/api/discover?limit=2&offset=2")).json()
+
+    assert len(first["items"]) == 2
+    # Asserted on the rows this test made rather than the feed's total: the
+    # fixture here truncates series but not suggestion or anime_entry, so
+    # another test's row is legitimately in the feed and the total is not this
+    # test's to predict.
+    assert first["total"] == 3
+    seen = [i["title"] for i in first["items"] + second["items"]]
+    assert {"Series 0", "Series 1", "Series 2"} == set(seen)
+    assert {i["id"] for i in first["items"]}.isdisjoint({i["id"] for i in second["items"]})

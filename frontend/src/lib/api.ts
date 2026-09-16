@@ -192,6 +192,23 @@ export interface ReviewQueue {
   items: ReviewQueueItem[]
 }
 
+export interface DiscoverItem {
+  kind: 'suggestion' | 'review' | 'unmatched'
+  id: number
+  series_id: number | null
+  title: string
+  cover_url: string | null
+  /** Why this is in front of you: which anime it came from, or that it is on
+      your list with no source. */
+  why: string
+  /** Steps still owed, in the order they are owed: match, status, source. */
+  needs: string[]
+  candidates: { url: string; site: string; score: number; chapters?: number }[]
+  /** A source good enough to take without a decision. */
+  confident: boolean
+  candidate_count: number
+}
+
 export interface Job {
   id: number
   type: string
@@ -796,6 +813,10 @@ export const api = {
     }),
   clearFailedJobs: () =>
     request<{ ok: boolean; cleared: number }>('/api/jobs/failed', { method: 'DELETE' }),
+  discover: (limit: number, offset: number) =>
+    request<{ items: DiscoverItem[]; total: number; actionable: number }>(
+      `/api/discover?limit=${limit}&offset=${offset}`,
+    ),
   retryFailed: () =>
     request<{ ok: boolean; requeued: number }>('/api/jobs/retry-failed', { method: 'POST' }),
   promoteQueue: (seriesId: number) =>
