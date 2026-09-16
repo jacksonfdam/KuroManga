@@ -193,6 +193,84 @@ async def ensure_series_cover(ctx: JobContext, client, komga_series_id: str, ser
         await ctx.log(f"cover not set: {exc}", level="warning")
 
 
+# How far into a book to look for a real page. A credits banner or two is
+# ordinary; a book whose opening five pages are all landscape is one where the
+# signal has nothing to say, and guessing further in would pick a spread from
+# the middle of a chapter.
+OPENING_PAGES_CONSIDERED = 5
+
+
+def first_portrait_page(pages: list[dict]) -> int | None:
+    """The first page taller than it is wide, or None if the opening has none.
+
+    Scanlation releases often lead with the group's staff credits or a Discord
+    banner, and Komga takes page one as the book's thumbnail. Those banners are
+    landscape - 1920x1080 is typical - where the pages they precede are portrait,
+    around 650x933. That shape is the only thing separating them without looking
+    at the images, and it is reported by Komga for free.
+    """
+    for page in pages[:OPENING_PAGES_CONSIDERED]:
+        width, height = page.get("width"), page.get("height")
+        if isinstance(width, int) and isinstance(height, int) and height > width:
+            number = page.get("number")
+            return number if isinstance(number, int) else None
+    return None
+
+
+async def books_already_checked(session: AsyncSession, series_id: int) -> int:
+    result = await session.execute(
+        text("select coalesce((meta->>'book_covers_checked')::int, 0) from series where id = :id"),
+        {"id": series_id},
+    )
+    row = result.first()
+    return int(row[0]) if row else 0
+
+
+async def ensure_book_covers(ctx: JobContext, client, series_id: int, books) -> None:
+    """Give each book a thumbnail from its first real page.
+
+    Gated on the book count rather than run every time: a series with a hundred
+    and sixty books would otherwise cost two Komga calls apiece on every scan,
+    for artwork that has not changed. A new chapter raises the count and the
+    pass runs again for the books that arrived with it.
+    """
+    checked = await books_already_checked(ctx.session, series_id)
+    if len(books) <= checked:
+        return
+
+    fixed = 0
+    for book in books:
+        try:
+            if await client.book_thumbnails(book.id):
+                continue
+            page = first_portrait_page(await client.book_pages(book.id))
+            if page is None or page == 1:
+                # Komga already shows the first page, and it is the right one.
+                continue
+            image = await client.page_thumbnail(book.id, page)
+            thumbnail_id = await client.add_book_thumbnail(book.id, image)
+            if thumbnail_id:
+                await client.select_book_thumbnail(book.id, thumbnail_id)
+            fixed += 1
+        except Exception as exc:  # noqa: BLE001 - one book must not stop the rest
+            await ctx.log(f"cover for book {book.id} not set: {exc}", level="warning")
+
+    await ctx.session.execute(
+        text(
+            "update series set meta ="
+            # Cast, or to_jsonb has nothing to infer the parameter's type from
+            # and Postgres refuses it as polymorphic - the same shape as the
+            # null-parameter rule in CLAUDE.md.
+            " jsonb_set(coalesce(meta, '{}'::jsonb), '{book_covers_checked}',"
+            " to_jsonb(cast(:n as int)))"
+            " where id = :id"
+        ),
+        {"n": len(books), "id": series_id},
+    )
+    if fixed:
+        await ctx.log(f"{fixed} book covers taken from the first real page")
+
+
 @register(JobType.KOMGA_SCAN)
 async def handle(ctx: JobContext) -> None:
     settings = get_settings()
@@ -235,6 +313,8 @@ async def handle(ctx: JobContext) -> None:
     await ctx.session.commit()
 
     await ensure_series_cover(ctx, client, komga_series_id, series_id)
+    await ensure_book_covers(ctx, client, series_id, books)
+    await ctx.session.commit()
 
     suggestion_id = await completed_series(ctx.session, series_id)
     if suggestion_id is None:

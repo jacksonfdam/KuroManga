@@ -245,6 +245,48 @@ class KomgaClient:
         )
         response.raise_for_status()
 
+    async def book_pages(self, book_id: str) -> list[dict[str, Any]]:
+        """Every page of a book with its dimensions.
+
+        The dimensions are the point: a scanlation group's credits banner is
+        landscape where the pages it precedes are portrait, and that is the one
+        signal separating the two without looking at the images themselves.
+        """
+        response = await self._request("GET", f"{API}/books/{book_id}/pages")
+        response.raise_for_status()
+        payload = response.json()
+        return payload if isinstance(payload, list) else []
+
+    async def book_thumbnails(self, book_id: str) -> list[dict[str, Any]]:
+        response = await self._request("GET", f"{API}/books/{book_id}/thumbnails")
+        response.raise_for_status()
+        payload = response.json()
+        return payload if isinstance(payload, list) else []
+
+    async def page_thumbnail(self, book_id: str, page: int) -> bytes:
+        """Komga's own rendering of one page, so nothing here reads the archive."""
+        response = await self._request("GET", f"{API}/books/{book_id}/pages/{page}/thumbnail")
+        response.raise_for_status()
+        return response.content
+
+    async def add_book_thumbnail(
+        self, book_id: str, image: bytes, *, filename: str = "cover.jpg"
+    ) -> str | None:
+        response = await self._request(
+            "POST",
+            f"{API}/books/{book_id}/thumbnails",
+            files={"file": (filename, image)},
+        )
+        response.raise_for_status()
+        body = response.json() if response.content else None
+        return body.get("id") if isinstance(body, dict) else None
+
+    async def select_book_thumbnail(self, book_id: str, thumbnail_id: str) -> None:
+        response = await self._request(
+            "PUT", f"{API}/books/{book_id}/thumbnails/{thumbnail_id}/selected"
+        )
+        response.raise_for_status()
+
     async def set_read_progress(self, book_id: str, *, page: int, completed: bool) -> None:
         response = await self._request(
             "PATCH",
