@@ -115,6 +115,16 @@ A provider is not required to use OAuth. `uses_oauth` says which kind it is, and
 `static_credential()` lets a configured key answer before the token table is consulted. `writable`
 says whether anything may be written back to it.
 
+**`sources/` never imports from `downloader/`.** `ChapterUnavailable` lives in `sources/base.py` for
+that reason, and a handler maps it to `PermanentError`. The import went the wrong way once and was
+caught in review; it would have broken the day `downloader/runner.py` was deleted anyway.
+
+Most sources are generated rather than written: `site_catalogue` holds several hundred sites read
+out of the Tachiyomi extension repository, and a template class turns a row into a source. Porting a
+template brings its whole family. Hand-written ones are marked `native`, and their catalogue key is
+always the source's own `site` — keying a row after the service that fetches it instead cost a
+release and a migration to undo (`0014`).
+
 ### The interface
 
 `frontend/src/` is a token layer, presentational primitives in `ui/`, one folder per screen in

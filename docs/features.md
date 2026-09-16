@@ -134,9 +134,24 @@ container output.
 
 ### Settings
 
-Connect your lists and see when each token expires. Choose which sources to search, including a
-self-hosted one if you run it. Tune the pipeline: how many downloads run at once, how hard a
-single source may be hit, batch size, and the schedules.
+Connect your lists and see when each token expires. Tune the pipeline: how many downloads run at
+once, how hard a single source may be hit, batch size, and the schedules.
+
+**Sources** is a list of every site KuroManga knows how to read — several hundred of them, generated
+from the Tachiyomi extension repository. Nothing is searched until you switch it on, and a site that
+is on is a site the review screen will offer candidates from.
+
+A row that cannot be switched on says why, and the three reasons mean different things:
+
+| What it says | What it means |
+|---|---|
+| *not hand-ported* | The site's upstream definition carries behaviour the generator will not guess at. It is listed so you know it exists, not because it can run. |
+| *no implementation for the `<x>` template* | The site's family has not been ported to Python yet. Porting one template brings every site in that family with it. |
+| *no implementation for this site* | A site written by hand rather than generated, whose code is not in this build. |
+
+Two sources need something from you beyond a switch. A site behind Cloudflare needs FlareSolverr
+running, and MangaFire additionally raises a challenge only a person can clear — see
+[configuration](configuration.md).
 
 ## What it reads and writes
 
@@ -147,6 +162,7 @@ single source may be hit, batch size, and the schedules.
 | MangaBaka | Reads your library |
 | MangaDex | Searches for series and fetches chapters |
 | Comick | An optional second source, self-hosted, if you run one |
+| Any enabled source site | Searched for candidates, and fetched from once a mapping is confirmed |
 | Komga | Stores and serves the library; reports what you have read |
 
 ## Reading
