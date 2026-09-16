@@ -18,7 +18,7 @@ from app import settings_store
 from app.config import get_settings
 from app.downloader.cbz import write_cbz
 from app.downloader.comicinfo import ComicInfo
-from app.downloader.fetcher import fetch_pages
+from app.downloader.fetcher import fetch_chapter
 from app.downloader.limits import source_semaphore
 from app.downloader.paths import chapter_path
 from app.enums import JobType
@@ -207,36 +207,39 @@ async def handle(ctx: JobContext) -> None:
 
     await ctx.log(f"chapter {number}: listing pages from {row['source_site']}", pct=0)
 
+    # The page total now arrives with the first page rather than from a list
+    # this function holds, because listing moved into fetch_chapter so it can
+    # re-list when the address goes stale.
+    total = 0
+
+    async def report(done: int, of: int) -> None:
+        nonlocal total
+        total = of
+        # Renewed from inside the fetch, not only after it: a chapter of two
+        # hundred pages against a site that declared one request every ten
+        # seconds outlasts the fifteen minute lease on its own, and an expired
+        # lease hands the same chapter to a second worker. The first page is
+        # reported too, so a long chapter says how long it is before it starts.
+        if done != 1 and done % LEASE_RENEWAL_PAGES:
+            return
+        await ctx.log(f"chapter {number}: {done}/{of} pages", pct=10 + 80.0 * done / max(of, 1))
+        await ctx.session.commit()
+        await repo.renew_lease(ctx.session, ctx.job.id)
+
     async with semaphore:
         try:
-            pages = await source.list_pages(row["chapter_url"])
-            if not pages:
-                # Checked here as well as in each source: a source that answers
-                # 200 with nothing in it is a shape every one of them can grow,
-                # and the cost of missing it is an archive holding only
-                # ComicInfo.xml, marked downloaded.
-                raise ChapterUnavailable(f"{row['source_site']} listed no pages for {number}")
+            # fetch_chapter lists and fetches together so it can ask for the
+            # list again when a page 404s - the at-home address rotates, and a
+            # list that resolved seconds ago can name pages its host no longer
+            # serves (#169).
+            page_bytes = await fetch_chapter(
+                source, row["chapter_url"], client, on_page=report
+            )
         except ChapterUnavailable as exc:
             await ctx.session.execute(
                 text("update chapter set state = 'skipped' where id = :id"), {"id": chapter_id}
             )
             raise PermanentError(str(exc)) from exc
-
-        total = len(pages)
-        await ctx.log(f"chapter {number}: 0/{total} pages", pct=10)
-
-        async def report(done: int, of: int) -> None:
-            # Renewed from inside the fetch, not only after it: a chapter of
-            # two hundred pages against a site that declared one request every
-            # ten seconds outlasts the fifteen minute lease on its own, and an
-            # expired lease hands the same chapter to a second worker.
-            if done % LEASE_RENEWAL_PAGES:
-                return
-            await ctx.log(f"chapter {number}: {done}/{of} pages", pct=10 + 80.0 * done / max(of, 1))
-            await ctx.session.commit()
-            await repo.renew_lease(ctx.session, ctx.job.id)
-
-        page_bytes = await fetch_pages(client, pages, on_page=report)
         # A long batch depends on the lease being renewed as it goes; a single
         # chapter rarely runs long enough to need it, but the archive write and
         # place below are still ahead of us, so renew here rather than assume.

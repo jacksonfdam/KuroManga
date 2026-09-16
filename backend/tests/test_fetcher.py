@@ -293,3 +293,85 @@ async def test_a_long_fetch_reports_each_page_as_it_lands():
         assert {total for _, total in seen} == {5}
     finally:
         stub.close()
+
+
+class _Relisting:
+    """A source whose page list goes stale once, the way at-home addresses do."""
+
+    def __init__(self, stale: list[PageRef], fresh: list[PageRef]) -> None:
+        self._lists = [stale, fresh]
+        self.calls = 0
+
+    async def list_pages(self, chapter_url: str, *, language: str = "en") -> list[PageRef]:
+        self.calls += 1
+        return self._lists[min(self.calls - 1, len(self._lists) - 1)]
+
+
+async def test_a_page_that_404s_makes_the_list_be_asked_for_again():
+    """A 404 on a page the list named seconds ago is the address going out of
+    date, not the chapter being gone. It failed a whole batch of eighteen
+    chapters on one page before this."""
+    from app.downloader.fetcher import fetch_chapter
+
+    def router(path, headers):
+        if path.startswith("/stale"):
+            return 404, "text/plain", b"gone"
+        return 200, "image/jpeg", JPEG
+
+    stub = Stub(router)
+    try:
+        client = _client(stub, key="relists")
+        source = _Relisting(
+            stale=[PageRef(url="/stale-1.jpg"), PageRef(url="/fresh-2.jpg")],
+            fresh=[PageRef(url="/fresh-1.jpg"), PageRef(url="/fresh-2.jpg")],
+        )
+
+        pages = await fetch_chapter(source, "https://site.test/chapter/1", client)
+
+        assert len(pages) == 2
+        assert source.calls == 2
+    finally:
+        stub.close()
+
+
+async def test_the_list_is_asked_for_only_once_more():
+    """If a fresh list 404s the same way the page really is missing, and asking
+    again in a loop would spend the rate limit discovering that repeatedly."""
+    import httpx as _httpx
+
+    from app.downloader.fetcher import fetch_chapter
+
+    def router(path, headers):
+        return 404, "text/plain", b"gone"
+
+    stub = Stub(router)
+    try:
+        client = _client(stub, key="relists-once")
+        source = _Relisting(stale=[PageRef(url="/a.jpg")], fresh=[PageRef(url="/a.jpg")])
+
+        with pytest.raises(_httpx.HTTPStatusError):
+            await fetch_chapter(source, "https://site.test/chapter/1", client)
+
+        assert source.calls == 2
+    finally:
+        stub.close()
+
+
+async def test_a_failure_that_is_not_a_missing_page_does_not_re_list():
+    """A page served as HTML is an answer, not a stale address."""
+    from app.downloader.fetcher import PageFetchError, fetch_chapter
+
+    def router(path, headers):
+        return 200, "text/html", HTML_ERROR_PAGE
+
+    stub = Stub(router)
+    try:
+        client = _client(stub, key="no-relist")
+        source = _Relisting(stale=[PageRef(url="/a.jpg")], fresh=[PageRef(url="/a.jpg")])
+
+        with pytest.raises(PageFetchError):
+            await fetch_chapter(source, "https://site.test/chapter/1", client)
+
+        assert source.calls == 1
+    finally:
+        stub.close()
