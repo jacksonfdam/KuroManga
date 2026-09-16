@@ -240,7 +240,10 @@ export function ReviewPage({ onResolved }: { onResolved: () => void }) {
                       [...new Set([...current.series.english, ...current.series.romaji])]
                         .filter(Boolean)
                         .map((title) => (
-                          <span key={title} className="truncate">
+                          // Same reason as the candidate card: these variants
+                          // differ in their tails, so a single truncated line
+                          // shows the reader the half they already agree on.
+                          <span key={title} className="line-clamp-2">
                             {title}
                           </span>
                         ))}
