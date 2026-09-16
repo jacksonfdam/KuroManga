@@ -17,6 +17,7 @@ whether to use it, and is not written for this audience.
 | [`providers.md`](providers.md) | Before touching a third-party integration. Verified contracts and their traps |
 | [`configuration.md`](configuration.md) | Setting the project up, or explaining a variable |
 | [`features.md`](features.md) | What the product does, screen by screen. User-facing |
+| [`mcp.md`](mcp.md) | Driving the pipeline from an assistant. Tools, bounds and the trust boundary |
 
 `CLAUDE.md` at the root is the short form: commands, the architecture in outline, and the failures
 worth remembering. It is loaded automatically and should stay short. These documents are where the
