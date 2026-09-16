@@ -113,6 +113,38 @@ def cross_references(series: dict[str, Any]) -> dict[str, str]:
     return found
 
 
+def _credits(value: Any) -> str | None:
+    """A credit list as ComicInfo states one: names separated by commas."""
+    names = [str(name).strip() for name in value or [] if name]
+    return ", ".join(names) or None
+
+
+def genre_labels(value: Any) -> list[str]:
+    """MangaBaka files genres in snake case (`award_winning`, `dark_fantasy`).
+
+    Title casing them is what makes one vocabulary out of the three: the other
+    providers already answer in prose, and Komga groups on the string it reads.
+    """
+    return [str(genre).replace("_", " ").title() for genre in value or [] if genre]
+
+
+def comic_metadata(row: dict[str, Any]) -> dict[str, Any]:
+    """The archive-facing fields of one library row, in ComicInfo's vocabulary.
+
+    MangaBaka is the only provider here that separates authors from artists,
+    which is what finally fills `Penciller`: MyAnimeList and AniList state a
+    single credit list and leave the art credit to be guessed.
+    """
+    series = row.get("Series") or {}
+    return {
+        "summary": series.get("description") or None,
+        "writer": _credits(series.get("authors")),
+        "penciller": _credits(series.get("artists")),
+        "genres": genre_labels(series.get("genres")),
+        "year": series.get("year"),
+    }
+
+
 def parse_library(payload: dict[str, Any]) -> list[ListEntryDTO]:
     """Pure parser for one page, so the response shape is pinned by a fixture."""
     entries: list[ListEntryDTO] = []
