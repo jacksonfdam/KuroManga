@@ -7,12 +7,14 @@ is what Komga ends up serving.
 """
 
 import asyncio
+import logging
 from collections.abc import Awaitable, Callable
+from typing import Any
 
 import httpx
 
 from app.downloader.cbz import page_extension
-from app.sources.base import PageRef
+from app.sources.base import ChapterUnavailable, PageRef
 from app.sources.net import SiteClient
 
 # Bounds concurrent GETs against one host within one chapter. These are small
@@ -20,6 +22,8 @@ from app.sources.net import SiteClient
 # leave - this number only exists to stop a sixty-page chapter opening sixty
 # sockets at once. Not a setting: #95 wires the handlers and can promote it
 # if a real site ever needs a different value.
+logger = logging.getLogger(__name__)
+
 HOST_CONCURRENCY_LIMIT = 4
 
 # 5xx and timeouts retry; everything else (decision 5, #93) does not. Three
@@ -142,3 +146,53 @@ def _verify_image(page: PageRef, response: httpx.Response) -> bytes:
             f"got {data[:32]!r}"
         ) from exc
     return data
+
+
+class PageListStale(RuntimeError):
+    """A page the list named is gone, so the list itself is suspect.
+
+    Distinct from `PageFetchError`, which is about *what* came back. This is
+    about *when*: MangaDex hands out per-chapter base URLs on hosts that rotate,
+    so a list that resolved a moment ago can name pages a host no longer serves.
+    The answer is to ask for the list again, not to fail the chapter.
+    """
+
+
+async def fetch_chapter(
+    source: Any,
+    chapter_url: str,
+    client: SiteClient,
+    *,
+    language: str = "en",
+    on_page: Callable[[int, int], Awaitable[None]] | None = None,
+) -> list[bytes]:
+    """List a chapter's pages and fetch them, re-listing once if they go stale.
+
+    A 404 on a page whose list resolved seconds earlier is not the source
+    saying the chapter is gone - it is the address going out of date underneath
+    us. It cost eighteen chapters of a real series, failing the whole batch on
+    one page (#169).
+
+    Once, not in a loop: if a fresh list 404s the same way, the page really is
+    missing and pretending otherwise would spend the rate limit discovering it
+    repeatedly.
+    """
+    pages = await source.list_pages(chapter_url, language=language)
+    if not pages:
+        raise ChapterUnavailable(f"no pages listed for {chapter_url}")
+
+    try:
+        return await fetch_pages(client, pages, on_page=on_page)
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code not in (404, 410):
+            raise
+        logger.info(
+            "page list for %s went stale (%s), asking for it again",
+            chapter_url,
+            exc.response.status_code,
+        )
+
+    pages = await source.list_pages(chapter_url, language=language)
+    if not pages:
+        raise ChapterUnavailable(f"no pages listed for {chapter_url}")
+    return await fetch_pages(client, pages, on_page=on_page)

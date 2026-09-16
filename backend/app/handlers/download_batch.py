@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app import settings_store
 from app.config import get_settings
 from app.downloader.cbz import write_cbz
-from app.downloader.fetcher import fetch_pages
+from app.downloader.fetcher import fetch_chapter
 from app.downloader.limits import source_semaphore
 from app.downloader.paths import chapter_path
 from app.enums import JobType
@@ -128,7 +128,13 @@ async def handle(ctx: JobContext) -> None:
                 await ctx.session.commit()
                 continue
 
+            # The page count arrives with the pages now, because listing moved
+            # into fetch_chapter so it can re-list a stale address.
+            counted = 0
+
             async def keep_lease(done: int, total_pages: int, number=number) -> None:
+                nonlocal counted
+                counted = total_pages
                 # A chapter can outlast the lease on its own: two hundred pages
                 # against a site that declared one request every ten seconds is
                 # longer than the fifteen minutes this job was granted, and an
@@ -140,14 +146,13 @@ async def handle(ctx: JobContext) -> None:
                     await ctx.session.commit()
 
             try:
-                pages = await source.list_pages(row["chapter_url"])
-                if not pages:
-                    # See download_chapter: an empty list is the source saying
-                    # no, whether or not it thought to say so itself.
-                    raise ChapterUnavailable(
-                        f"{first['source_site']} listed no pages for {number}"
-                    )
-                page_bytes = await fetch_pages(client, pages, on_page=keep_lease)
+                # Listing and fetching together, so a page that 404s can ask for
+                # the list again: the at-home address rotates, and this is what
+                # cost eighteen chapters of one series - a single stale page
+                # failed the whole batch (#169).
+                page_bytes = await fetch_chapter(
+                    source, row["chapter_url"], client, on_page=keep_lease
+                )
             except ChapterUnavailable as exc:
                 # Decision (#95): one chapter the source refuses skips that
                 # chapter, not the whole batch - per-chapter listing means a
@@ -175,7 +180,7 @@ async def handle(ctx: JobContext) -> None:
             # enough - even a slow chapter finishes in well under the 15 minute
             # lease this job was granted.
             await ctx.log(
-                f"chapter {number}: {len(page_bytes)}/{len(pages)} pages "
+                f"chapter {number}: {len(page_bytes)}/{counted} pages "
                 f"({index}/{total} chapters)",
                 pct=100.0 * index / total,
             )
