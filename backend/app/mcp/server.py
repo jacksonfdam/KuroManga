@@ -73,4 +73,29 @@ def build(api: KuroMangaApi | None = None) -> MCPServer:
         """Queue counts, worker state and recent failures with their error."""
         return await _guard(tools.jobs_status(client, failures))
 
+    @server.tool()
+    async def confirm_mapping(series_id: int, source_url: str) -> dict[str, Any]:
+        """Confirm the source URL for a series. Use a source_url from review_queue."""
+        return await _guard(tools.confirm_mapping(client, series_id, source_url))
+
+    @server.tool()
+    async def download_chapters(
+        series_id: int, from_chapter: float, to_chapter: float | None = None
+    ) -> dict[str, Any]:
+        """Queue chapters for one series, from from_chapter onwards.
+
+        At most 50 chapters per call. For a whole backlog use set_follow.
+        """
+        return await _guard(tools.download_chapters(client, series_id, from_chapter, to_chapter))
+
+    @server.tool()
+    async def set_follow(series_id: int, enabled: bool) -> dict[str, Any]:
+        """Turn automatic downloading on or off. On queues everything missing."""
+        return await _guard(tools.set_follow(client, series_id, enabled))
+
+    @server.tool()
+    async def sync_lists(provider: str) -> dict[str, Any]:
+        """Sync one list provider. Call with a wrong name to be told the valid ones."""
+        return await _guard(tools.sync_lists(client, provider))
+
     return server

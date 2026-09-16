@@ -186,3 +186,75 @@ async def jobs_status(
         "failures",
     )
 
+
+
+async def confirm_mapping(api: KuroMangaApi, series_id: int, source_url: str) -> dict[str, Any]:
+    """Confirm which source URL a series is, which releases it into the pipeline."""
+    answer = await api.post(f"/api/series/{series_id}/mapping", {"source_url": source_url})
+    return {"ok": True, "job_id": answer["job_id"]}
+
+
+async def download_chapters(
+    api: KuroMangaApi, series_id: int, from_chapter: float, to_chapter: float | None = None
+) -> dict[str, Any]:
+    """Queue a bounded range of chapters for one series.
+
+    Both bounds are always sent. The endpoint reads a null bound as "every
+    missing chapter", so an argument this tool failed to state would queue a
+    whole backlog on a model's guess; a whole backlog is reachable through
+    set_follow instead, which is the opt-in already visible in the Library.
+    """
+    start = float(from_chapter)
+    ceiling = start + MAX_CHAPTER_SPAN
+    end = ceiling if to_chapter is None else float(to_chapter)
+    if end < start:
+        return error("bad_range", "to_chapter is below from_chapter")
+
+    capped = end > ceiling
+    end = min(end, ceiling)
+    answer = await api.post(
+        f"/api/series/{series_id}/download", {"from_chapter": start, "to_chapter": end}
+    )
+    result = {
+        "ok": True,
+        "queued": answer["queued"],
+        "from_chapter": start,
+        "to_chapter": end,
+        "capped": capped,
+    }
+    if capped:
+        result["note"] = (
+            f"at most {MAX_CHAPTER_SPAN} chapters per call; "
+            "call again from the next number, or use set_follow for the whole backlog"
+        )
+    return result
+
+
+async def set_follow(api: KuroMangaApi, series_id: int, enabled: bool) -> dict[str, Any]:
+    """Turn automatic downloading on or off for one series.
+
+    On queues whatever is already missing, which is the deliberate way to fetch a
+    whole backlog.
+    """
+    answer = await api.post(f"/api/series/{series_id}/auto-download", {"enabled": enabled})
+    return {"ok": True, "auto_download": answer["auto_download"], "queued": answer["queued"]}
+
+
+async def sync_lists(api: KuroMangaApi, provider: str) -> dict[str, Any]:
+    """Trigger a list sync for one provider.
+
+    The valid providers are read from the API rather than stated in this tool's
+    schema: a hardcoded pair would start refusing a real provider the day a third
+    one is added, and the refusal would read as a model error rather than a stale
+    list.
+    """
+    settings = await api.get("/api/settings")
+    providers = sorted(settings["providers"])
+    if provider not in providers:
+        return error(
+            "unknown_provider",
+            f"provider must be one of {', '.join(providers)}",
+            providers=providers,
+        )
+    answer = await api.post(f"/api/sync/{provider}")
+    return {"ok": True, "job_id": answer["job_id"]}
