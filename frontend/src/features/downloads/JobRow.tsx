@@ -102,10 +102,20 @@ export function JobRow({
             </p>
             {job.last_error && <p className="truncate text-body-sm text-error">{job.last_error.slice(0, 300)}</p>}
           </div>
-          {onRetry && (
-            <Button variant="surface" size="sm" icon="sync" onClick={onRetry}>
-              Retry
-            </Button>
+          {/* No button on a failure a second attempt cannot change — a
+              progress write to a series no writable list holds, or a chapter
+              the source carries in no language we asked for. Offering one and
+              failing a second later is how this read as a passing glitch. */}
+          {job.permanent ? (
+            <span className="font-mono text-label-sm text-outline">
+              Final — retrying would fail the same way
+            </span>
+          ) : (
+            onRetry && (
+              <Button variant="surface" size="sm" icon="sync" onClick={onRetry}>
+                Retry
+              </Button>
+            )
           )}
         </div>
       )}

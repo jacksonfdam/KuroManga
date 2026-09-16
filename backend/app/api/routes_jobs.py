@@ -2,7 +2,7 @@
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -19,6 +19,7 @@ Session = Annotated[AsyncSession, Depends(db_session)]
 # a job looks like, and the Home card would stop matching the Downloads screen.
 JOB_COLUMNS = """
 select j.id, j.type, j.state, j.priority, j.attempts, j.max_attempts, j.last_error,
+       j.permanent,
        j.created_at, j.started_at, j.finished_at, j.payload, j.series_id,
        s.canonical_title, s.slug,
        c.number as chapter_number, c.title as chapter_title,
@@ -49,6 +50,9 @@ def job_row(row: Any) -> dict[str, Any]:
         "attempts": row.attempts,
         "max_attempts": row.max_attempts,
         "last_error": row.last_error,
+        # Whether retrying could ever help. The screen offers no button
+        # when it could not, rather than one that fails a second later.
+        "permanent": row.permanent,
         "series_id": row.series_id,
         "series_title": row.canonical_title,
         "chapter_number": float(row.chapter_number) if row.chapter_number else None,
@@ -100,7 +104,15 @@ async def job_events(job_id: int, session: Session) -> list[dict[str, Any]]:
 
 @router.post("/jobs/{job_id}/retry")
 async def retry_job(job_id: int, session: Session) -> dict[str, Any]:
-    await repo.retry(session, job_id)
+    requeued = await repo.retry(session, job_id)
+    if not requeued:
+        # A permanent failure, or a job that is not finished at all. Saying so
+        # beats returning ok on a request that changed nothing.
+        await session.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="this job cannot be retried: nothing about it would go differently",
+        )
     await session.execute(
         text(
             """

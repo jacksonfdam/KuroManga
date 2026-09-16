@@ -174,11 +174,11 @@ async def fail(session: AsyncSession, job_id: int, error: str, *, permanent: boo
                 """
                 update job
                    set state = 'failed', finished_at = now(), lease_until = null,
-                       last_error = :error
+                       last_error = :error, permanent = :permanent
                  where id = :job_id
                 """
             ),
-            {"job_id": job_id, "error": error[:4000]},
+            {"job_id": job_id, "error": error[:4000], "permanent": permanent},
         )
         return True
 
@@ -200,19 +200,28 @@ async def fail(session: AsyncSession, job_id: int, error: str, *, permanent: boo
     return False
 
 
-async def retry(session: AsyncSession, job_id: int) -> None:
-    """Manual retry from the interface: clear the attempt ladder and run now."""
-    await session.execute(
+async def retry(session: AsyncSession, job_id: int) -> bool:
+    """Manual retry from the interface: clear the ladder and run now.
+
+    Returns whether anything was requeued. A permanently failed job is refused:
+    retrying a progress write to a series no writable list holds, or a chapter
+    the source carries in no language we asked for, fails again a second later.
+    Saying so lets the caller explain the refusal instead of appearing to do
+    nothing.
+    """
+    result = await session.execute(
         text(
             """
             update job
                set state = 'pending', attempts = 0, lease_until = null, last_error = null,
                    run_after = now(), finished_at = null, priority = 0
-             where id = :job_id and state in ('failed', 'done')
+             where id = :job_id and state in ('failed', 'done') and not permanent
+            returning id
             """
         ),
         {"job_id": job_id},
     )
+    return result.first() is not None
 
 
 async def reclaim_orphaned_chapters(session: AsyncSession) -> int:

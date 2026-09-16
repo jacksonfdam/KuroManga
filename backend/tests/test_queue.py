@@ -268,3 +268,73 @@ async def test_reclaim_leaves_the_other_lane_s_leases_alone():
         reclaimed = await repo.reclaim_expired(db, types=types_for(Lane.DOWNLOAD))
         await db.commit()
     assert reclaimed == 1
+
+
+async def test_a_permanent_failure_is_recorded_as_one():
+    """PermanentError already skips the ladder; the row has to say so too.
+
+    Without it the interface offers Retry on a failure that cannot succeed —
+    a progress write to a series no writable list holds fails again a second
+    after the button is pressed.
+    """
+    async with await session() as db:
+        job_id = await repo.enqueue(db, JobType.PROGRESS_WRITE, {"series_id": 1})
+        await db.commit()
+    assert job_id is not None
+
+    async with await session() as db:
+        retired = await repo.fail(db, job_id, "series 1 has no connected list entry", permanent=True)
+        await db.commit()
+    assert retired is True
+
+    async with await session() as db:
+        row = (
+            await db.execute(text("select state, permanent from job where id = :id"), {"id": job_id})
+        ).one()
+    assert row.state == "failed"
+    assert row.permanent is True
+
+
+async def test_retry_refuses_a_permanent_failure():
+    async with await session() as db:
+        job_id = await repo.enqueue(db, JobType.PROGRESS_WRITE, {"series_id": 1})
+        await db.commit()
+
+    async with await session() as db:
+        await repo.fail(db, job_id, "no connected list entry", permanent=True)
+        await db.commit()
+
+    async with await session() as db:
+        requeued = await repo.retry(db, job_id)
+        await db.commit()
+
+    assert requeued is False, "retry resurrected a job that cannot succeed"
+
+    async with await session() as db:
+        state = (
+            await db.execute(text("select state from job where id = :id"), {"id": job_id})
+        ).scalar_one()
+    assert state == "failed"
+
+
+async def test_retry_still_takes_an_ordinary_failure():
+    async with await session() as db:
+        job_id = await repo.enqueue(db, JobType.LIST_SYNC, {"provider": "mal"})
+        await db.commit()
+
+    async with await session() as db:
+        await repo.fail(db, job_id, "the network wobbled", permanent=True)
+        await db.execute(text("update job set permanent = false where id = :id"), {"id": job_id})
+        await db.commit()
+
+    async with await session() as db:
+        requeued = await repo.retry(db, job_id)
+        await db.commit()
+
+    assert requeued is True
+
+    async with await session() as db:
+        state = (
+            await db.execute(text("select state from job where id = :id"), {"id": job_id})
+        ).scalar_one()
+    assert state == "pending"
