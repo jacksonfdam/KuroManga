@@ -9,11 +9,11 @@ from app.discovery.feed import DiscoverItem, Need, rank_of, sort_key
 
 
 def item(**kw) -> DiscoverItem:
-    base = dict(
-        kind="suggestion", id=1, series_id=None, title="A work", cover_url=None,
-        why="", needs=[Need.SOURCE], candidates=[], confident=False,
-        rank_score=0.0, candidate_count=0, finished=False,
-    )
+    base = {
+        "kind": "suggestion", "id": 1, "series_id": None, "title": "A work",
+        "cover_url": None, "why": "", "needs": [Need.SOURCE], "candidates": [],
+        "confident": False, "rank_score": 0.0, "candidate_count": 0, "finished": False,
+    }
     base.update(kw)
     return DiscoverItem(**base)
 

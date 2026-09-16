@@ -9,6 +9,7 @@ from sse_starlette.sse import EventSourceResponse
 from app.api import (
     routes_auth,
     routes_dashboard,
+    routes_discover,
     routes_discovery,
     routes_health,
     routes_jobs,
@@ -43,6 +44,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="KuroManga", lifespan=lifespan)
 app.include_router(routes_series.router)
 app.include_router(routes_discovery.router)
+app.include_router(routes_discover.router)
 app.include_router(routes_jobs.router)
 app.include_router(routes_settings.router)
 app.include_router(routes_auth.router)
