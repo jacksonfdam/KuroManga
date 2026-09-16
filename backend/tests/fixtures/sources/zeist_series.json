@@ -1,0 +1,610 @@
+{
+ "version": "1.0",
+ "encoding": "UTF-8",
+ "feed": {
+  "xmlns": "http://www.w3.org/2005/Atom",
+  "xmlns$openSearch": "http://a9.com/-/spec/opensearchrss/1.0/",
+  "xmlns$blogger": "http://schemas.google.com/blogger/2008",
+  "xmlns$georss": "http://www.georss.org/georss",
+  "xmlns$gd": "http://schemas.google.com/g/2005",
+  "xmlns$thr": "http://purl.org/syndication/thread/1.0",
+  "id": {
+   "$t": "tag:blogger.com,1999:blog-1543468338431184357"
+  },
+  "updated": {
+   "$t": "2026-09-16T06:47:55.172+07:00"
+  },
+  "category": [
+   {
+    "term": "Chapter"
+   },
+   {
+    "term": "Gantz"
+   },
+   {
+    "term": "Stone Ocean"
+   },
+   {
+    "term": "Detektif Conan"
+   },
+   {
+    "term": "Jojo part 8"
+   },
+   {
+    "term": "SBR"
+   },
+   {
+    "term": "Opm One"
+   },
+   {
+    "term": "Gamaran"
+   },
+   {
+    "term": "Project"
+   },
+   {
+    "term": "Zero Tea Time"
+   },
+   {
+    "term": "Jojolands"
+   },
+   {
+    "term": "Jojo Part7"
+   },
+   {
+    "term": "Manga"
+   },
+   {
+    "term": "Series"
+   },
+   {
+    "term": "wps"
+   },
+   {
+    "term": "Action"
+   },
+   {
+    "term": "Adventure"
+   },
+   {
+    "term": "Completed"
+   },
+   {
+    "term": "Supernatural"
+   },
+   {
+    "term": "Hannin no Hanzawa san"
+   },
+   {
+    "term": "JJL"
+   },
+   {
+    "term": "Seinen"
+   },
+   {
+    "term": "Shounen"
+   },
+   {
+    "term": "Comedy"
+   },
+   {
+    "term": "Drama"
+   },
+   {
+    "term": "JJLC"
+   },
+   {
+    "term": "Mystery"
+   },
+   {
+    "term": "Update"
+   },
+   {
+    "term": "CDDH"
+   },
+   {
+    "term": "Ongoing"
+   },
+   {
+    "term": "Youzitsu OSD"
+   },
+   {
+    "term": "Horror"
+   },
+   {
+    "term": "Historical"
+   },
+   {
+    "term": "Sci-Fi"
+   },
+   {
+    "term": "Slice of Life"
+   },
+   {
+    "term": "Super Power"
+   },
+   {
+    "term": "7.00"
+   },
+   {
+    "term": "7.24"
+   },
+   {
+    "term": "7.72"
+   },
+   {
+    "term": "8.83"
+   },
+   {
+    "term": "Gore"
+   },
+   {
+    "term": "Martial Arts"
+   },
+   {
+    "term": "Parody"
+   },
+   {
+    "term": "Police"
+   },
+   {
+    "term": "Psychological"
+   },
+   {
+    "term": "School Life"
+   },
+   {
+    "term": "Score 7.41"
+   },
+   {
+    "term": "Score 8.28"
+   },
+   {
+    "term": "Score 8.47"
+   },
+   {
+    "term": "Score 8.67"
+   },
+   {
+    "term": "Score 9.26"
+   },
+   {
+    "term": "Survival"
+   }
+  ],
+  "title": {
+   "type": "text",
+   "$t": "Shiyura Sub"
+  },
+  "subtitle": {
+   "type": "html",
+   "$t": ""
+  },
+  "link": [
+   {
+    "rel": "http://schemas.google.com/g/2005#feed",
+    "type": "application/atom+xml",
+    "href": "https://shiyurasub.blogspot.com/feeds/posts/default"
+   },
+   {
+    "rel": "self",
+    "type": "application/atom+xml",
+    "href": "https://www.blogger.com/feeds/1543468338431184357/posts/default/-/Series?alt=json&max-results=3"
+   },
+   {
+    "rel": "alternate",
+    "type": "text/html",
+    "href": "https://shiyurasub.blogspot.com/search/label/Series"
+   },
+   {
+    "rel": "hub",
+    "href": "http://pubsubhubbub.appspot.com/"
+   },
+   {
+    "rel": "next",
+    "type": "application/atom+xml",
+    "href": "https://www.blogger.com/feeds/1543468338431184357/posts/default/-/Series/-/Series?alt=json&start-index=4&max-results=3"
+   }
+  ],
+  "author": [
+   {
+    "name": {
+     "$t": "Unknown"
+    },
+    "email": {
+     "$t": "noreply@blogger.com"
+    },
+    "gd$image": {
+     "rel": "http://schemas.google.com/g/2005#thumbnail",
+     "width": "16",
+     "height": "16",
+     "src": "https://img1.blogblog.com/img/b16-rounded.gif"
+    }
+   }
+  ],
+  "generator": {
+   "version": "7.00",
+   "uri": "http://www.blogger.com",
+   "$t": "Blogger"
+  },
+  "openSearch$totalResults": {
+   "$t": "14"
+  },
+  "openSearch$startIndex": {
+   "$t": "1"
+  },
+  "openSearch$itemsPerPage": {
+   "$t": "3"
+  },
+  "entry": [
+   {
+    "id": {
+     "$t": "tag:blogger.com,1999:blog-1543468338431184357.post-9090047154142023494"
+    },
+    "published": {
+     "$t": "2026-07-25T13:07:05.746+07:00"
+    },
+    "updated": {
+     "$t": "2026-07-25T13:07:05.775+07:00"
+    },
+    "category": [
+     {
+      "scheme": "http://www.blogger.com/atom/ns#",
+      "term": "Adventure"
+     },
+     {
+      "scheme": "http://www.blogger.com/atom/ns#",
+      "term": "Comedy"
+     },
+     {
+      "scheme": "http://www.blogger.com/atom/ns#",
+      "term": "Detektif Conan"
+     },
+     {
+      "scheme": "http://www.blogger.com/atom/ns#",
+      "term": "Manga"
+     },
+     {
+      "scheme": "http://www.blogger.com/atom/ns#",
+      "term": "Mystery"
+     },
+     {
+      "scheme": "http://www.blogger.com/atom/ns#",
+      "term": "Ongoing"
+     },
+     {
+      "scheme": "http://www.blogger.com/atom/ns#",
+      "term": "Police"
+     },
+     {
+      "scheme": "http://www.blogger.com/atom/ns#",
+      "term": "Project"
+     },
+     {
+      "scheme": "http://www.blogger.com/atom/ns#",
+      "term": "Score 8.28"
+     },
+     {
+      "scheme": "http://www.blogger.com/atom/ns#",
+      "term": "Series"
+     },
+     {
+      "scheme": "http://www.blogger.com/atom/ns#",
+      "term": "Shounen"
+     },
+     {
+      "scheme": "http://www.blogger.com/atom/ns#",
+      "term": "Update"
+     }
+    ],
+    "title": {
+     "type": "text",
+     "$t": "Detektif Conan"
+    },
+    "content": {
+     "type": "html",
+     "$t": "<span></span><a href=\"https://shiyurasub.blogspot.com/2021/10/detektif-conan.html#more\"></a>"
+    },
+    "link": [
+     {
+      "rel": "replies",
+      "type": "application/atom+xml",
+      "href": "https://shiyurasub.blogspot.com/feeds/9090047154142023494/comments/default",
+      "title": "Posting Komentar"
+     },
+     {
+      "rel": "replies",
+      "type": "text/html",
+      "href": "https://shiyurasub.blogspot.com/2021/10/detektif-conan.html#comment-form",
+      "title": "37 Komentar"
+     },
+     {
+      "rel": "edit",
+      "type": "application/atom+xml",
+      "href": "https://www.blogger.com/feeds/1543468338431184357/posts/default/9090047154142023494"
+     },
+     {
+      "rel": "self",
+      "type": "application/atom+xml",
+      "href": "https://www.blogger.com/feeds/1543468338431184357/posts/default/9090047154142023494"
+     },
+     {
+      "rel": "alternate",
+      "type": "text/html",
+      "href": "https://shiyurasub.blogspot.com/2021/10/detektif-conan.html",
+      "title": "Detektif Conan"
+     }
+    ],
+    "author": [
+     {
+      "name": {
+       "$t": "Unknown"
+      },
+      "email": {
+       "$t": "noreply@blogger.com"
+      },
+      "gd$image": {
+       "rel": "http://schemas.google.com/g/2005#thumbnail",
+       "width": "16",
+       "height": "16",
+       "src": "https://img1.blogblog.com/img/b16-rounded.gif"
+      }
+     }
+    ],
+    "media$thumbnail": {
+     "xmlns$media": "http://search.yahoo.com/mrss/",
+     "url": "https://blogger.googleusercontent.com/img/a/AVvXsEiCr5Vj_zFyYHBEwpQhhz_2igR3c3l9IUakMUZpFLZsnkgV6FdX3igb6oldn1Sni-j7KEy1S29eKqv1MT77U2CVLtKGX9VqL-X7xIk47b8AxoiVnRksCe7ZQwpqeYVQFlCsi4CcPGl5ph0lCfhGzqBK0K6i2jPdwIV91-C8X14zyoSAhbmfy-n3Rk_gmQ=s72-c",
+     "height": "72",
+     "width": "72"
+    },
+    "thr$total": {
+     "$t": "37"
+    }
+   },
+   {
+    "id": {
+     "$t": "tag:blogger.com,1999:blog-1543468338431184357.post-4368629824598404253"
+    },
+    "published": {
+     "$t": "2026-04-19T01:58:37.644+07:00"
+    },
+    "updated": {
+     "$t": "2026-04-19T01:58:50.264+07:00"
+    },
+    "category": [
+     {
+      "scheme": "http://www.blogger.com/atom/ns#",
+      "term": "Action"
+     },
+     {
+      "scheme": "http://www.blogger.com/atom/ns#",
+      "term": "Adventure"
+     },
+     {
+      "scheme": "http://www.blogger.com/atom/ns#",
+      "term": "Drama"
+     },
+     {
+      "scheme": "http://www.blogger.com/atom/ns#",
+      "term": "Jojolands"
+     },
+     {
+      "scheme": "http://www.blogger.com/atom/ns#",
+      "term": "Manga"
+     },
+     {
+      "scheme": "http://www.blogger.com/atom/ns#",
+      "term": "Project"
+     },
+     {
+      "scheme": "http://www.blogger.com/atom/ns#",
+      "term": "Seinen"
+     },
+     {
+      "scheme": "http://www.blogger.com/atom/ns#",
+      "term": "Series"
+     },
+     {
+      "scheme": "http://www.blogger.com/atom/ns#",
+      "term": "Supernatural"
+     },
+     {
+      "scheme": "http://www.blogger.com/atom/ns#",
+      "term": "Update"
+     }
+    ],
+    "title": {
+     "type": "text",
+     "$t": "Jojolands"
+    },
+    "content": {
+     "type": "html",
+     "$t": "<span></span><a href=\"https://shiyurasub.blogspot.com/2023/02/jojolands.html#more\"></a>"
+    },
+    "link": [
+     {
+      "rel": "replies",
+      "type": "application/atom+xml",
+      "href": "https://shiyurasub.blogspot.com/feeds/4368629824598404253/comments/default",
+      "title": "Posting Komentar"
+     },
+     {
+      "rel": "replies",
+      "type": "text/html",
+      "href": "https://shiyurasub.blogspot.com/2023/02/jojolands.html#comment-form",
+      "title": "17 Komentar"
+     },
+     {
+      "rel": "edit",
+      "type": "application/atom+xml",
+      "href": "https://www.blogger.com/feeds/1543468338431184357/posts/default/4368629824598404253"
+     },
+     {
+      "rel": "self",
+      "type": "application/atom+xml",
+      "href": "https://www.blogger.com/feeds/1543468338431184357/posts/default/4368629824598404253"
+     },
+     {
+      "rel": "alternate",
+      "type": "text/html",
+      "href": "https://shiyurasub.blogspot.com/2023/02/jojolands.html",
+      "title": "Jojolands"
+     }
+    ],
+    "author": [
+     {
+      "name": {
+       "$t": "Unknown"
+      },
+      "email": {
+       "$t": "noreply@blogger.com"
+      },
+      "gd$image": {
+       "rel": "http://schemas.google.com/g/2005#thumbnail",
+       "width": "16",
+       "height": "16",
+       "src": "https://img1.blogblog.com/img/b16-rounded.gif"
+      }
+     }
+    ],
+    "media$thumbnail": {
+     "xmlns$media": "http://search.yahoo.com/mrss/",
+     "url": "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEjIhKj7zC-VD94_7Zz1WmuDGT-dBE6Mep6RrGnsmy1jT5jK-dbsXWJDnXyS1OEVWGFLR6cawIXvA1j9zoxjYOcCXml1606VVeN9nnRVsLy4lboFXQj5-IofyQz4J_vHzTMOsyBqEoxgk5FldSAXPMp2mSXjFGJCWOzCocS_Q79qqtIdwvL0kSQRa3mKaw/s72-c/01.jpg",
+     "height": "72",
+     "width": "72"
+    },
+    "thr$total": {
+     "$t": "17"
+    }
+   },
+   {
+    "id": {
+     "$t": "tag:blogger.com,1999:blog-1543468338431184357.post-7781417309835775777"
+    },
+    "published": {
+     "$t": "2026-03-02T05:05:00.000+07:00"
+    },
+    "updated": {
+     "$t": "2026-03-02T05:05:16.641+07:00"
+    },
+    "category": [
+     {
+      "scheme": "http://www.blogger.com/atom/ns#",
+      "term": "Action"
+     },
+     {
+      "scheme": "http://www.blogger.com/atom/ns#",
+      "term": "Completed"
+     },
+     {
+      "scheme": "http://www.blogger.com/atom/ns#",
+      "term": "Drama"
+     },
+     {
+      "scheme": "http://www.blogger.com/atom/ns#",
+      "term": "Gantz"
+     },
+     {
+      "scheme": "http://www.blogger.com/atom/ns#",
+      "term": "Gore"
+     },
+     {
+      "scheme": "http://www.blogger.com/atom/ns#",
+      "term": "Horror"
+     },
+     {
+      "scheme": "http://www.blogger.com/atom/ns#",
+      "term": "Manga"
+     },
+     {
+      "scheme": "http://www.blogger.com/atom/ns#",
+      "term": "Project"
+     },
+     {
+      "scheme": "http://www.blogger.com/atom/ns#",
+      "term": "Psychological"
+     },
+     {
+      "scheme": "http://www.blogger.com/atom/ns#",
+      "term": "Sci-Fi"
+     },
+     {
+      "scheme": "http://www.blogger.com/atom/ns#",
+      "term": "Series"
+     },
+     {
+      "scheme": "http://www.blogger.com/atom/ns#",
+      "term": "Supernatural"
+     },
+     {
+      "scheme": "http://www.blogger.com/atom/ns#",
+      "term": "Survival"
+     }
+    ],
+    "title": {
+     "type": "text",
+     "$t": "Gantz"
+    },
+    "content": {
+     "type": "html",
+     "$t": "<span></span><a href=\"https://shiyurasub.blogspot.com/2022/11/gantz.html#more\"></a>"
+    },
+    "link": [
+     {
+      "rel": "replies",
+      "type": "application/atom+xml",
+      "href": "https://shiyurasub.blogspot.com/feeds/7781417309835775777/comments/default",
+      "title": "Posting Komentar"
+     },
+     {
+      "rel": "replies",
+      "type": "text/html",
+      "href": "https://shiyurasub.blogspot.com/2022/11/gantz.html#comment-form",
+      "title": "9 Komentar"
+     },
+     {
+      "rel": "edit",
+      "type": "application/atom+xml",
+      "href": "https://www.blogger.com/feeds/1543468338431184357/posts/default/7781417309835775777"
+     },
+     {
+      "rel": "self",
+      "type": "application/atom+xml",
+      "href": "https://www.blogger.com/feeds/1543468338431184357/posts/default/7781417309835775777"
+     },
+     {
+      "rel": "alternate",
+      "type": "text/html",
+      "href": "https://shiyurasub.blogspot.com/2022/11/gantz.html",
+      "title": "Gantz"
+     }
+    ],
+    "author": [
+     {
+      "name": {
+       "$t": "Unknown"
+      },
+      "email": {
+       "$t": "noreply@blogger.com"
+      },
+      "gd$image": {
+       "rel": "http://schemas.google.com/g/2005#thumbnail",
+       "width": "16",
+       "height": "16",
+       "src": "https://img1.blogblog.com/img/b16-rounded.gif"
+      }
+     }
+    ],
+    "media$thumbnail": {
+     "xmlns$media": "http://search.yahoo.com/mrss/",
+     "url": "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEhYwv2917pxNoDEMEWjUZxpCBhA39pPLZfln6U77TYLPUhsmivKO5s_Icmjf9U1JN4tA0P9DHHOrPBxBmmkddGI8J_ZzB9y1fYqAhk7y-65QkRflEdDqyqc8PVSldt79hkQjotxA-pLcp4pDKSNePaq77lpdp_TNai1J8E-jflCADlwL6YNEt5NX82L4Q/s72-c/01.jpg",
+     "height": "72",
+     "width": "72"
+    },
+    "thr$total": {
+     "$t": "9"
+    }
+   }
+  ]
+ }
+}

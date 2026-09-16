@@ -1,0 +1,322 @@
+{
+ "version": "1.0",
+ "encoding": "UTF-8",
+ "feed": {
+  "xmlns": "http://www.w3.org/2005/Atom",
+  "xmlns$openSearch": "http://a9.com/-/spec/opensearchrss/1.0/",
+  "xmlns$blogger": "http://schemas.google.com/blogger/2008",
+  "xmlns$georss": "http://www.georss.org/georss",
+  "xmlns$gd": "http://schemas.google.com/g/2005",
+  "xmlns$thr": "http://purl.org/syndication/thread/1.0",
+  "id": {
+   "$t": "tag:blogger.com,1999:blog-1543468338431184357"
+  },
+  "updated": {
+   "$t": "2026-09-16T06:47:55.172+07:00"
+  },
+  "category": [
+   {
+    "term": "Chapter"
+   },
+   {
+    "term": "Gantz"
+   },
+   {
+    "term": "Stone Ocean"
+   },
+   {
+    "term": "Detektif Conan"
+   },
+   {
+    "term": "Jojo part 8"
+   },
+   {
+    "term": "SBR"
+   },
+   {
+    "term": "Opm One"
+   },
+   {
+    "term": "Gamaran"
+   },
+   {
+    "term": "Project"
+   },
+   {
+    "term": "Zero Tea Time"
+   },
+   {
+    "term": "Jojolands"
+   },
+   {
+    "term": "Jojo Part7"
+   },
+   {
+    "term": "Manga"
+   },
+   {
+    "term": "Series"
+   },
+   {
+    "term": "wps"
+   },
+   {
+    "term": "Action"
+   },
+   {
+    "term": "Adventure"
+   },
+   {
+    "term": "Completed"
+   },
+   {
+    "term": "Supernatural"
+   },
+   {
+    "term": "Hannin no Hanzawa san"
+   },
+   {
+    "term": "JJL"
+   },
+   {
+    "term": "Seinen"
+   },
+   {
+    "term": "Shounen"
+   },
+   {
+    "term": "Comedy"
+   },
+   {
+    "term": "Drama"
+   },
+   {
+    "term": "JJLC"
+   },
+   {
+    "term": "Mystery"
+   },
+   {
+    "term": "Update"
+   },
+   {
+    "term": "CDDH"
+   },
+   {
+    "term": "Ongoing"
+   },
+   {
+    "term": "Youzitsu OSD"
+   },
+   {
+    "term": "Horror"
+   },
+   {
+    "term": "Historical"
+   },
+   {
+    "term": "Sci-Fi"
+   },
+   {
+    "term": "Slice of Life"
+   },
+   {
+    "term": "Super Power"
+   },
+   {
+    "term": "7.00"
+   },
+   {
+    "term": "7.24"
+   },
+   {
+    "term": "7.72"
+   },
+   {
+    "term": "8.83"
+   },
+   {
+    "term": "Gore"
+   },
+   {
+    "term": "Martial Arts"
+   },
+   {
+    "term": "Parody"
+   },
+   {
+    "term": "Police"
+   },
+   {
+    "term": "Psychological"
+   },
+   {
+    "term": "School Life"
+   },
+   {
+    "term": "Score 7.41"
+   },
+   {
+    "term": "Score 8.28"
+   },
+   {
+    "term": "Score 8.47"
+   },
+   {
+    "term": "Score 8.67"
+   },
+   {
+    "term": "Score 9.26"
+   },
+   {
+    "term": "Survival"
+   }
+  ],
+  "title": {
+   "type": "text",
+   "$t": "Shiyura Sub"
+  },
+  "subtitle": {
+   "type": "html",
+   "$t": ""
+  },
+  "link": [
+   {
+    "rel": "http://schemas.google.com/g/2005#feed",
+    "type": "application/atom+xml",
+    "href": "https://shiyurasub.blogspot.com/feeds/posts/default"
+   },
+   {
+    "rel": "self",
+    "type": "application/atom+xml",
+    "href": "https://www.blogger.com/feeds/1543468338431184357/posts/default?alt=json&path=%2F2026%2F07%2Fchapter-1166.html"
+   },
+   {
+    "rel": "alternate",
+    "type": "text/html",
+    "href": "https://shiyurasub.blogspot.com/"
+   },
+   {
+    "rel": "hub",
+    "href": "http://pubsubhubbub.appspot.com/"
+   }
+  ],
+  "author": [
+   {
+    "name": {
+     "$t": "Unknown"
+    },
+    "email": {
+     "$t": "noreply@blogger.com"
+    },
+    "gd$image": {
+     "rel": "http://schemas.google.com/g/2005#thumbnail",
+     "width": "16",
+     "height": "16",
+     "src": "https://img1.blogblog.com/img/b16-rounded.gif"
+    }
+   }
+  ],
+  "generator": {
+   "version": "7.00",
+   "uri": "http://www.blogger.com",
+   "$t": "Blogger"
+  },
+  "openSearch$startIndex": {
+   "$t": "1"
+  },
+  "openSearch$itemsPerPage": {
+   "$t": "25"
+  },
+  "entry": [
+   {
+    "id": {
+     "$t": "tag:blogger.com,1999:blog-1543468338431184357.post-693905191397444257"
+    },
+    "published": {
+     "$t": "2026-07-25T13:06:59.488+07:00"
+    },
+    "updated": {
+     "$t": "2026-07-25T13:07:29.797+07:00"
+    },
+    "category": [
+     {
+      "scheme": "http://www.blogger.com/atom/ns#",
+      "term": "Chapter"
+     },
+     {
+      "scheme": "http://www.blogger.com/atom/ns#",
+      "term": "Detektif Conan"
+     },
+     {
+      "scheme": "http://www.blogger.com/atom/ns#",
+      "term": "Project"
+     }
+    ],
+    "title": {
+     "type": "text",
+     "$t": "Chapter 1166"
+    },
+    "content": {
+     "type": "html",
+     "$t": "<div class=\"separator\" style=\"clear: both;\"><a href=\"https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEhHIVXZOFtxoP0Xby-zM46TkEwLHAphM6shKLGb1CwvE8YVj_mJjUkolOo1m9ErFUuZQFtI0d1WBkP_NLvppcyMyY_-_HGwnAlFmFhiS6c3inS7HoekXxwpT07RCFBnvkHsxSUkxxFfVXj8KMFnD7kNQ3lPcO1HHaPVScD0fpEQiLXrPHFsScZ4rxipq0y1/s1600/01.jpg\" style=\"display: block; padding: 1em 0; text-align: center; \"><img alt=\"\" border=\"0\" data-original-height=\"4800\" data-original-width=\"3344\" src=\"https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEhHIVXZOFtxoP0Xby-zM46TkEwLHAphM6shKLGb1CwvE8YVj_mJjUkolOo1m9ErFUuZQFtI0d1WBkP_NLvppcyMyY_-_HGwnAlFmFhiS6c3inS7HoekXxwpT07RCFBnvkHsxSUkxxFfVXj8KMFnD7kNQ3lPcO1HHaPVScD0fpEQiLXrPHFsScZ4rxipq0y1/s1600/01.jpg\"/></a></div><div class=\"separator\" style=\"clear: both;\"><a href=\"https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgcuDznRjSddDkBwBFaJr0FVurPt7UxDVANWulzi28MO0RE32qfZ2O8O_t9G0r7gtSfgcdY6vLqEJmcbjSQWlcfkNk2lRR33PlX8krQ5JJvPo2OpeGDmPrQ_eJbMFnGUHEKxZyNJQQ3WJb7_40AEKqZRcemVzHUnVE6hV0pwGUfEWVuT9I17QQVwtm3RrPN/s1600/02.jpg\" style=\"display: block; padding: 1em 0; text-align: center; \"><img alt=\"\" border=\"0\" data-original-height=\"4800\" data-original-width=\"3344\" src=\"https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgcuDznRjSddDkBwBFaJr0FVurPt7UxDVANWulzi28MO0RE32qfZ2O8O_t9G0r7gtSfgcdY6vLqEJmcbjSQWlcfkNk2lRR33PlX8krQ5JJvPo2OpeGDmPrQ_eJbMFnGUHEKxZyNJQQ3WJb7_40AEKqZRcemVzHUnVE6hV0pwGUfEWVuT9I17QQVwtm3RrPN/s1600/02.jpg\"/></a></div><div class=\"separator\" style=\"clear: both;\"><a href=\"https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEg-UQ5dZY991L17WgUxe4Dr92bN1ePUpxU8OZKMHwDm9O_jT0hLXNExQxJYUE4sywDckOdS7JtQHF1g4MLYKkoAEeWcQHbdtQPE1g5qkMG4DQlGNplxcH4CBcq7v4hMvlH8b6TvXSVWZEsiGMFzxBIty1upjGpyl-Ja9oR0tWZJjIUHI9hUHyzomtp85lxE/s1600/03.jpg\" style=\"display: block; padding: 1em 0; text-align: center; \"><img alt=\"\" border=\"0\" data-original-height=\"4800\" data-original-width=\"3344\" src=\"https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEg-UQ5dZY991L17WgUxe4Dr92bN1ePUpxU8OZKMHwDm9O_jT0hLXNExQxJYUE4sywDckOdS7JtQHF1g4MLYKkoAEeWcQHbdtQPE1g5qkMG4DQlGNplxcH4CBcq7v4hMvlH8b6TvXSVWZEsiGMFzxBIty1upjGpyl-Ja9oR0tWZJjIUHI9hUHyzomtp85lxE/s1600/03.jpg\"/></a></div><div class=\"separator\" style=\"clear: both;\"><a href=\"https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgJ2OIlqmPJogCiKMCn5ltcBKZR63O41G2IfJOZUWPDx4QeTcnCDMksqRkXw1Fm7LyjFfb0N-0U6OUi8ID1nMsZw5NLINTG5bvKs1uiggn9RvFrEHb7lgYZJMyG5mhWHmNRgksjuNoVnvmpnewK9huUF5MK1c6VheV4Btj8Ji-Me4BYlncNYlZGRjXtegdT/s1600/04.jpg\" style=\"display: block; padding: 1em 0; text-align: center; \"><img alt=\"\" border=\"0\" data-original-height=\"4800\" data-original-width=\"3344\" src=\"https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgJ2OIlqmPJogCiKMCn5ltcBKZR63O41G2IfJOZUWPDx4QeTcnCDMksqRkXw1Fm7LyjFfb0N-0U6OUi8ID1nMsZw5NLINTG5bvKs1uiggn9RvFrEHb7lgYZJMyG5mhWHmNRgksjuNoVnvmpnewK9huUF5MK1c6VheV4Btj8Ji-Me4BYlncNYlZGRjXtegdT/s1600/04.jpg\"/></a></div><div class=\"separator\" style=\"clear: both;\"><a href=\"https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEh3hxoERD20xR2xiXVvczsW6nNR2CseAgwF8RN8gslcdu-pdPuSVpk-UVI2wY2waD3yOjaq-YlAvxicRVfZjSB7dZ1_wBTlJP6rd9v8KIhulJkFYtzwpgqMVCmMWyqdwAS7hfbuV-eMLJLa92Pfb3kthC9RFI7aNqSs-j03NnoDr7MzbWOmZbPGUipMD6ig/s1600/05.jpg\" style=\"display: block; padding: 1em 0; text-align: center; \"><img alt=\"\" border=\"0\" data-original-height=\"4800\" data-original-width=\"3344\" src=\"https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEh3hxoERD20xR2xiXVvczsW6nNR2CseAgwF8RN8gslcdu-pdPuSVpk-UVI2wY2waD3yOjaq-YlAvxicRVfZjSB7dZ1_wBTlJP6rd9v8KIhulJkFYtzwpgqMVCmMWyqdwAS7hfbuV-eMLJLa92Pfb3kthC9RFI7aNqSs-j03NnoDr7MzbWOmZbPGUipMD6ig/s1600/05.jpg\"/></a></div><div class=\"separator\" style=\"clear: both;\"><a href=\"https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEiQOlay5YhDluzdQ_Ux81fNZhrmDNhh8gGXuS1ttRUjTaRm_nD1psgQQ9SfoR0FJ6QZgj-KOGuTLtL20JP8756tvkKUt_ttokU6P2NN0-ZKvFN0B5teeIK9EMXYqNnIObidk7ltUxN_6HhN-AtzdFbewleymVzDOSIsTcJKuAou6vV2eJRQdZyz8VB2LFPi/s1600/06.jpg\" style=\"display: block; padding: 1em 0; text-align: center; \"><img alt=\"\" border=\"0\" data-original-height=\"4800\" data-original-width=\"3344\" src=\"https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEiQOlay5YhDluzdQ_Ux81fNZhrmDNhh8gGXuS1ttRUjTaRm_nD1psgQQ9SfoR0FJ6QZgj-KOGuTLtL20JP8756tvkKUt_ttokU6P2NN0-ZKvFN0B5teeIK9EMXYqNnIObidk7ltUxN_6HhN-AtzdFbewleymVzDOSIsTcJKuAou6vV2eJRQdZyz8VB2LFPi/s1600/06.jpg\"/></a></div><div class=\"separator\" style=\"clear: both;\"><a href=\"https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEjEHjnsRmZV8jHu7fEcKBKdI84zlCyHYVHG0xebbJFu4IrYOi8jWZA3db-S7OD3E8ir4Gow3oNfTr27JE350evG9UGJ2q6a0xjI8JlS64rPaK01PIH447fFNimc7K-SnydRWtC6-j1Sn1sXeT43Co9EXXGwNEN59qEzxieI49GpUowzsfgIpvkIGBnb0JTr/s1600/07.jpg\" style=\"display: block; padding: 1em 0; text-align: center; \"><img alt=\"\" border=\"0\" data-original-height=\"4800\" data-original-width=\"3344\" src=\"https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEjEHjnsRmZV8jHu7fEcKBKdI84zlCyHYVHG0xebbJFu4IrYOi8jWZA3db-S7OD3E8ir4Gow3oNfTr27JE350evG9UGJ2q6a0xjI8JlS64rPaK01PIH447fFNimc7K-SnydRWtC6-j1Sn1sXeT43Co9EXXGwNEN59qEzxieI49GpUowzsfgIpvkIGBnb0JTr/s1600/07.jpg\"/></a></div><div class=\"separator\" style=\"clear: both;\"><a href=\"https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgQkziBmCR2UlJDXjdR3EUx_aXSGF_dS3y5RzngaR2xAfQL6vLIIHuJQwFP7joLa3T-mzIrf95jXHXxY4HrnY0bs3OB3R_UBOMULI-5zHoEAwZFro1T9jdAtGM3z7ak_RWbabaL8eM7RtkI1QnFvWyBQNgrWKFAISxDfGzVnj9QW5lmCgP4seDE3bW60bhO/s1600/08.jpg\" style=\"display: block; padding: 1em 0; text-align: center; \"><img alt=\"\" border=\"0\" data-original-height=\"4800\" data-original-width=\"3344\" src=\"https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgQkziBmCR2UlJDXjdR3EUx_aXSGF_dS3y5RzngaR2xAfQL6vLIIHuJQwFP7joLa3T-mzIrf95jXHXxY4HrnY0bs3OB3R_UBOMULI-5zHoEAwZFro1T9jdAtGM3z7ak_RWbabaL8eM7RtkI1QnFvWyBQNgrWKFAISxDfGzVnj9QW5lmCgP4seDE3bW60bhO/s1600/08.jpg\"/></a></div><div class=\"separator\" style=\"clear: both;\"><a href=\"https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEiT7cEEWrur16PlcjgB5WUmcbVjKtIuS-nqn3Wzq2am9QpQnJvoA5NlJRFWsS5Gu2Dda4SihMrqogFzsHiioMpP9I7tmJYwxHkfaXzzO38LjevhK_oY8sA-9V3nh6batExD9WOWEAtYNB3GsmmmkFZAOgrNOyFjhZ6ltqBbohiBzCjJV5JVtQR1VKehSq2w/s1600/09.jpg\" style=\"display: block; padding: 1em 0; text-align: center; \"><img alt=\"\" border=\"0\" data-original-height=\"4800\" data-original-width=\"3344\" src=\"https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEiT7cEEWrur16PlcjgB5WUmcbVjKtIuS-nqn3Wzq2am9QpQnJvoA5NlJRFWsS5Gu2Dda4SihMrqogFzsHiioMpP9I7tmJYwxHkfaXzzO38LjevhK_oY8sA-9V3nh6batExD9WOWEAtYNB3GsmmmkFZAOgrNOyFjhZ6ltqBbohiBzCjJV5JVtQR1VKehSq2w/s1600/09.jpg\"/></a></div><div class=\"separator\" style=\"clear: both;\"><a href=\"https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgQJkea0sDLzTq044nux0u0GUQd9Lwa8GUujdvuu-GlSdMFkQzicXQ1RK-ud0AhljltlWBZAQInUBplwxeXlnWzJkqTYConGNLgZMlh7MV5HzbavB0O4OilSNdrl2k4DSZQxkycMyR82kzRATrdhqv56w88xrPRcLPPJmzLyBX_ICMXBfdPgD0RgjA44pt-/s1600/10.jpg\" style=\"display: block; padding: 1em 0; text-align: center; \"><img alt=\"\" border=\"0\" data-original-height=\"4800\" data-original-width=\"3344\" src=\"https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgQJkea0sDLzTq044nux0u0GUQd9Lwa8GUujdvuu-GlSdMFkQzicXQ1RK-ud0AhljltlWBZAQInUBplwxeXlnWzJkqTYConGNLgZMlh7MV5HzbavB0O4OilSNdrl2k4DSZQxkycMyR82kzRATrdhqv56w88xrPRcLPPJmzLyBX_ICMXBfdPgD0RgjA44pt-/s1600/10.jpg\"/></a></div><div class=\"separator\" style=\"clear: both;\"><a href=\"https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEhYmyAHtP6WM-87FxH6p5BRDH3jMaLeQLzUyBbzoqChyphenhyphenbM2y5O1FGVUqWESGPi2LncKbME_pIKm7-jmqhg4i2L31XwrENogd32uUSQyYwZ4NUlNgZXoH1qKn308Hm2dIPRSWbzA3FYCa4Adh9oE7mC8twv62D4NNSepWtvfEhyRTzdVzCtBP7H0c6T68YSq/s1600/11.jpg\" style=\"display: block; padding: 1em 0; text-align: center; \"><img alt=\"\" border=\"0\" data-original-height=\"4800\" data-original-width=\"3344\" src=\"https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEhYmyAHtP6WM-87FxH6p5BRDH3jMaLeQLzUyBbzoqChyphenhyphenbM2y5O1FGVUqWESGPi2LncKbME_pIKm7-jmqhg4i2L31XwrENogd32uUSQyYwZ4NUlNgZXoH1qKn308Hm2dIPRSWbzA3FYCa4Adh9oE7mC8twv62D4NNSepWtvfEhyRTzdVzCtBP7H0c6T68YSq/s1600/11.jpg\"/></a></div><div class=\"separator\" style=\"clear: both;\"><a href=\"https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEg43fxEKfRHVqFTPhE_sRRdF8-8EY5xMvThseaRWReA9wU0TaDuyFpDi9IiIGvPUbNYy6EOE626JFub8ZCIozGSILapni3zd6c4c7QoNI7o9ZXfVFF0CuVThSPFzpdr3Y3y-kpCSS9msEmvGJ7Y6tCWkYuaRuvBpsV6sDxQopKVJ_pruhxNPjgarIQAJJCZ/s1600/12.jpg\" style=\"display: block; padding: 1em 0; text-align: center; \"><img alt=\"\" border=\"0\" data-original-height=\"4800\" data-original-width=\"3344\" src=\"https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEg43fxEKfRHVqFTPhE_sRRdF8-8EY5xMvThseaRWReA9wU0TaDuyFpDi9IiIGvPUbNYy6EOE626JFub8ZCIozGSILapni3zd6c4c7QoNI7o9ZXfVFF0CuVThSPFzpdr3Y3y-kpCSS9msEmvGJ7Y6tCWkYuaRuvBpsV6sDxQopKVJ_pruhxNPjgarIQAJJCZ/s1600/12.jpg\"/></a></div><div class=\"separator\" style=\"clear: both;\"><a href=\"https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEjaTZVpzZmOvWjmdSygrjE-mDaU7eDTXUp8WFAXKdnwzLORmrMoUt2cgcR-Q34XLa5akF54qDI3-bl5qqBIFyfn4Hn4rTusxOG3R7K7_nWnuLSrviGzPKywkHq9sJYLkNCqPZkCBQtTzmzR_WC2X7FNCsBpGcPvbBMEGCRz0oNyAZ6CclSpYOnkj-WzGJtF/s1600/13.jpg\" style=\"display: block; padding: 1em 0; text-align: center; \"><img alt=\"\" border=\"0\" data-original-height=\"4800\" data-original-width=\"3344\" src=\"https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEjaTZVpzZmOvWjmdSygrjE-mDaU7eDTXUp8WFAXKdnwzLORmrMoUt2cgcR-Q34XLa5akF54qDI3-bl5qqBIFyfn4Hn4rTusxOG3R7K7_nWnuLSrviGzPKywkHq9sJYLkNCqPZkCBQtTzmzR_WC2X7FNCsBpGcPvbBMEGCRz0oNyAZ6CclSpYOnkj-WzGJtF/s1600/13.jpg\"/></a></div><div class=\"separator\" style=\"clear: both;\"><a href=\"https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEho_IRWCKkG2PFIUiRKDc5eNWBphKxEqWqtNMBJTFS0oVAZpy064och2WucMJ7U4oU-O-LkxQ8G9c6FOP605UZGgreboFWnSs1of4ZRolxHQn3Ewf3cIePd3Pxzt0htRjRTaFEYzorO5eDPhr2cyWxEYHEhDjtxfxs3VirtAfVGjXZn7PlBE4JBPhyphenhyphen6QKR1/s1600/14.jpg\" style=\"display: block; padding: 1em 0; text-align: center; \"><img alt=\"\" border=\"0\" data-original-height=\"4800\" data-original-width=\"3344\" src=\"https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEho_IRWCKkG2PFIUiRKDc5eNWBphKxEqWqtNMBJTFS0oVAZpy064och2WucMJ7U4oU-O-LkxQ8G9c6FOP605UZGgreboFWnSs1of4ZRolxHQn3Ewf3cIePd3Pxzt0htRjRTaFEYzorO5eDPhr2cyWxEYHEhDjtxfxs3VirtAfVGjXZn7PlBE4JBPhyphenhyphen6QKR1/s1600/14.jpg\"/></a></div><div class=\"separator\" style=\"clear: both;\"><a href=\"https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgW_rONtkgjC5PeYAjtAvzeF8pnXDdn3MtupoRH7WRkPGjwkAvvA9xscJEfnOGiVE_erIG8np1h2xi0jqI_Ow7Ck6xbDvWPjeQ2ZIX5LyCIUqdariSA4Z5Jmzf_lXW-TpoA-ZMapPrgjc-GYwnvQyYikABpMcDc0bg6gJOMtVfhemhPxpZ8eARfNsIofR08/s1600/15.jpg\" style=\"display: block; padding: 1em 0; text-align: center; \"><img alt=\"\" border=\"0\" data-original-height=\"4800\" data-original-width=\"3344\" src=\"https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgW_rONtkgjC5PeYAjtAvzeF8pnXDdn3MtupoRH7WRkPGjwkAvvA9xscJEfnOGiVE_erIG8np1h2xi0jqI_Ow7Ck6xbDvWPjeQ2ZIX5LyCIUqdariSA4Z5Jmzf_lXW-TpoA-ZMapPrgjc-GYwnvQyYikABpMcDc0bg6gJOMtVfhemhPxpZ8eARfNsIofR08/s1600/15.jpg\"/></a></div><div class=\"separator\" style=\"clear: both;\"><a href=\"https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgPT__Rsy0Cq8qtEBo-IsohqbQKteP9RmfHPLHdYSYsTkFZpXQShHAtMMsSvTuCgTr5NxBRin-2X-E-H4NyvIuBNWhUle3DsBwX6fIa0jvh1BDxWIj1wPZj3nXBiP91w8gqoMstU6EVVktgnYNWRZSB73lFge7dAStMLPSsMg-EaS5iv2lOmdVecnlXrmzM/s1600/16.jpg\" style=\"display: block; padding: 1em 0; text-align: center; \"><img alt=\"\" border=\"0\" data-original-height=\"4800\" data-original-width=\"3344\" src=\"https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgPT__Rsy0Cq8qtEBo-IsohqbQKteP9RmfHPLHdYSYsTkFZpXQShHAtMMsSvTuCgTr5NxBRin-2X-E-H4NyvIuBNWhUle3DsBwX6fIa0jvh1BDxWIj1wPZj3nXBiP91w8gqoMstU6EVVktgnYNWRZSB73lFge7dAStMLPSsMg-EaS5iv2lOmdVecnlXrmzM/s1600/16.jpg\"/></a></div><div class=\"separator\" style=\"clear: both;\"><a href=\"https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgAdkkIBEed4gEx0zIJKv3mQp0q9-HbUAoFc8XNQnu91MreoL_2xH2KwxRnHrr_Aj1Q5c5ya-7pnxgbjitwA37Iz2Bwll5jLbqtYV9ed-qoL9TgLGKPLB0Ks5I4epJ_sR3HyHgfG_h-6_-RQv6Q2Orrub8KbYmk1fMewiUEno9Mk0UDnWxkSupYD2kW4HK6/s1600/17.jpg\" style=\"display: block; padding: 1em 0; text-align: center; \"><img alt=\"\" border=\"0\" data-original-height=\"1024\" data-original-width=\"1280\" src=\"https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgAdkkIBEed4gEx0zIJKv3mQp0q9-HbUAoFc8XNQnu91MreoL_2xH2KwxRnHrr_Aj1Q5c5ya-7pnxgbjitwA37Iz2Bwll5jLbqtYV9ed-qoL9TgLGKPLB0Ks5I4epJ_sR3HyHgfG_h-6_-RQv6Q2Orrub8KbYmk1fMewiUEno9Mk0UDnWxkSupYD2kW4HK6/s1600/17.jpg\"/></a></div>"
+    },
+    "link": [
+     {
+      "rel": "replies",
+      "type": "application/atom+xml",
+      "href": "https://shiyurasub.blogspot.com/feeds/693905191397444257/comments/default",
+      "title": "Posting Komentar"
+     },
+     {
+      "rel": "replies",
+      "type": "text/html",
+      "href": "https://shiyurasub.blogspot.com/2026/07/chapter-1166.html#comment-form",
+      "title": "2 Komentar"
+     },
+     {
+      "rel": "edit",
+      "type": "application/atom+xml",
+      "href": "https://www.blogger.com/feeds/1543468338431184357/posts/default/693905191397444257"
+     },
+     {
+      "rel": "self",
+      "type": "application/atom+xml",
+      "href": "https://www.blogger.com/feeds/1543468338431184357/posts/default/693905191397444257"
+     },
+     {
+      "rel": "alternate",
+      "type": "text/html",
+      "href": "https://shiyurasub.blogspot.com/2026/07/chapter-1166.html",
+      "title": "Chapter 1166"
+     }
+    ],
+    "author": [
+     {
+      "name": {
+       "$t": "Unknown"
+      },
+      "email": {
+       "$t": "noreply@blogger.com"
+      },
+      "gd$image": {
+       "rel": "http://schemas.google.com/g/2005#thumbnail",
+       "width": "16",
+       "height": "16",
+       "src": "https://img1.blogblog.com/img/b16-rounded.gif"
+      }
+     }
+    ],
+    "media$thumbnail": {
+     "xmlns$media": "http://search.yahoo.com/mrss/",
+     "url": "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEhHIVXZOFtxoP0Xby-zM46TkEwLHAphM6shKLGb1CwvE8YVj_mJjUkolOo1m9ErFUuZQFtI0d1WBkP_NLvppcyMyY_-_HGwnAlFmFhiS6c3inS7HoekXxwpT07RCFBnvkHsxSUkxxFfVXj8KMFnD7kNQ3lPcO1HHaPVScD0fpEQiLXrPHFsScZ4rxipq0y1/s72-c/01.jpg",
+     "height": "72",
+     "width": "72"
+    },
+    "thr$total": {
+     "$t": "2"
+    }
+   }
+  ]
+ }
+}
