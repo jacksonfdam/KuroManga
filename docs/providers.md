@@ -111,6 +111,21 @@ integer column fails at bind time, far from the parser that let it through.
 The key carries **full account access**, not scoped to the library. It is a stronger credential than
 anything else here.
 
+## What a source is
+
+A source answers three questions and nothing else: which manga match a title, which chapters exist
+at a URL, and which pages a chapter has. Fetching those pages, verifying they are images and writing
+the archive is the downloader's job.
+
+Most sources are not written by hand. `site_catalogue` holds several hundred sites generated from
+the Tachiyomi extension repository, and a template class turns a catalogue row into a working source
+— porting one template brings its whole family. A handful are hand-written classes instead, marked
+`native`, for sites whose behaviour no template covers.
+
+The registry is built at boot from `site_catalogue` joined against the sites you enabled, so turning
+a site on in Settings is the same act as registering it. A site nobody enabled is listed and searched
+by nothing.
+
 ## MangaDex
 
 `backend/app/sources/mangadex.py` · anonymous by default
@@ -119,6 +134,18 @@ anything else here.
 |---|---|
 | Search | `GET /manga?title=` |
 | Chapters | `GET /manga/{id}/feed`, paged |
+| Pages | `GET /at-home/server/{chapter}` |
+
+**The at-home address is short-lived and per chapter**, so it is never cached: every call re-asks and
+gets one good for the fetch about to use it. A page that 404s means the address went stale rather
+than the chapter being gone, and the list is requested once more before the chapter is failed.
+
+**A chapter MangaDex does not host answers 200 with no pages** — `externalUrl` names the reader it
+lives in instead. Read as a successful listing that produced an archive containing nothing but
+`ComicInfo.xml`, so an empty page list is now a refusal at every layer.
+
+**The API is rate limited to the stricter of its documented limits**, 40 requests a minute, which is
+what `/at-home/server/` allows. A download batch calls it once per chapter.
 
 **Authentication makes things slower.** MangaDex caches anonymous responses and not authenticated
 ones, and their documentation asks you not to authenticate unless an endpoint needs it. Sign in only

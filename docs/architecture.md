@@ -52,6 +52,11 @@ backend/app/
 **The four edges — `providers/`, `sources/`, `downloader/`, `komga/` — are pure.** They take
 arguments, return values, and never touch the database. Only `handlers/` writes.
 
+That boundary is what makes the source layer testable at all. A source answers three questions —
+which manga match a title, which chapters exist, which pages a chapter has — and the downloader
+fetches those pages, verifies each one is really an image, and writes the archive. Both are Python
+end to end; there is no external binary in the path.
+
 That is not style. It is what lets those four be tested against recorded fixtures with no network and
 no Postgres, which is most of the suite. A database call inside a provider breaks that and will be
 rejected in review.

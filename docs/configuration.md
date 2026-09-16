@@ -61,6 +61,20 @@ configuration and restarts in a loop.
 
 Both this and the batch size can be changed later in Settings without editing `.env`.
 
+Downloading is Python end to end — pages are fetched, verified to be images, and written into a CBZ
+by this application. There is no external downloader binary and no `downloader_binary` setting; if
+you are reading an older `.env`, that line does nothing.
+
+### Settings that are not environment variables
+
+These live in the database and are edited in Settings, because they change without a redeploy.
+
+| Setting | What it does |
+|---|---|
+| Komga address | Where Komga answers **in a browser**, used to link a chapter into its reader. Not the address the worker uses — that one names a container and means nothing outside the compose network. Empty by default, and the series screen offers no reader links while it is. |
+| MangaFire `waf_pass` | Usually unnecessary. The site sits behind Cloudflare, which FlareSolverr clears on its own. Fill this in only if the site raises its own challenge, which a person clears in a browser before copying the cookie here. |
+| Sources | Which of the catalogued sites are searched. See [features](features.md#settings). |
+
 ### Komga
 
 | Variable | What it does |
