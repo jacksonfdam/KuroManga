@@ -25,6 +25,19 @@ the pipeline can reach sites the tool did not cover. The credit stands for the w
 **[comick-source-api](https://github.com/GooglyBlox/comick-source-api)** — GooglyBlox. A self-hosted
 source API, optionally run as an additional search and download source.
 
+**[tachiyomi-extensions](https://github.com/yuzono/tachiyomi-extensions)** — Apache License 2.0,
+copyright Javier Tomás. Source code of extensions for Komikku, Mihon and their forks, itself merging
+from the Keiyoushi repository. KuroManga's source layer is derived from it and says so here because
+Apache 2.0 asks that it does.
+
+What was taken is the knowledge rather than the code. The catalogue — which sites exist, and which
+template each one follows — comes from that repository, and the templates in
+`backend/app/sources/templates/` are Python reimplementations of the shapes those extensions
+describe: how a Madara site answers a search, where a MangaThemesia chapter list hangs. Several
+details in them were learned from live sites instead, and the comments say which. None of it would
+exist without the extension authors having mapped these sites first, and there are hundreds of them
+beyond the one name a licence file can carry.
+
 ### The data
 
 These services are read over their public APIs, under their own terms.
