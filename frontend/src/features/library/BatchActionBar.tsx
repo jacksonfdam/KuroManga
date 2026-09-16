@@ -26,11 +26,15 @@ export function BatchActionBar({
   count,
   busy,
   onApply,
+  onRemove,
   onCancel,
 }: {
   count: number
   busy: boolean
   onApply: (status: ListStatus) => Promise<void>
+  /** Opens the confirmation. The bar states the intent; the page owns the
+      question and the call, because destroying things is not a bar's job. */
+  onRemove: () => void
   onCancel: () => void
 }) {
   // No default. The design pre-selects one, but a bar that arrives with a
@@ -127,6 +131,14 @@ export function BatchActionBar({
               <span>
                 {busy ? 'Queueing…' : status ? `Apply & sync (${count})` : 'Pick a status'}
               </span>
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={onRemove}
+              className="rounded-xl bg-surface-container px-3 py-2 font-mono text-label-sm text-error transition-colors hover:bg-error/[0.12] disabled:opacity-60"
+            >
+              Remove
             </button>
             <button
               type="button"

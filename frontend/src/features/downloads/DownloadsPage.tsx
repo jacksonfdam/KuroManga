@@ -1,4 +1,15 @@
-import { Badge, Button, EmptyState, ErrorState, NoticeBar, SegmentedControl, Skeleton } from '../../ui'
+import {
+  Badge,
+  Button,
+  ConfirmDialog,
+  EmptyState,
+  ErrorState,
+  NoticeBar,
+  SegmentedControl,
+  Skeleton,
+} from '../../ui'
+import { useState } from 'react'
+
 import { JobRow } from './JobRow'
 import { QueueGroupRow } from './QueueGroup'
 import { useDownloads, type Grouping } from './useDownloads'
@@ -15,7 +26,10 @@ const GROUPINGS: { value: Grouping; icon: 'grid' | 'list'; label: string }[] = [
 // vocabulary format.ts's STATUS_TONE already assigns to reading, completed,
 // planning and dropped — done, running, pending and failed sit in the same
 // emotional register as those four.
+type Asking = { kind: 'clear' } | { kind: 'cancel'; seriesId: number; title: string } | null
+
 export function DownloadsPage() {
+  const [asking, setAsking] = useState<Asking>(null)
   const {
     jobs,
     pendingBySeries,
@@ -24,6 +38,7 @@ export function DownloadsPage() {
     grouping,
     setGrouping,
     retryFailed,
+    clearFailed,
     promote,
     cancel,
     counts,
@@ -74,6 +89,7 @@ export function DownloadsPage() {
   // A permanent failure is not retryable, so a button offering to retry them
   // all would be offering nothing on a list made only of those.
   const retryable = failed.filter((job) => !job.permanent)
+  const hopeless = failed.filter((job) => job.permanent)
 
   return (
     <div className="flex flex-col gap-space-xl">
@@ -125,11 +141,20 @@ export function DownloadsPage() {
       <section className="flex flex-col gap-space-md">
         <div className="flex flex-wrap items-center justify-between gap-space-sm">
           <h2 className="text-headline-md font-extrabold tracking-tight text-on-surface">Failed</h2>
-          {retryable.length > 0 && (
-            <Button variant="surface" size="sm" icon="sync" onClick={retryFailed}>
-              Retry all {retryable.length}
-            </Button>
-          )}
+          <div className="flex flex-wrap gap-space-sm">
+            {retryable.length > 0 && (
+              <Button variant="surface" size="sm" icon="sync" onClick={retryFailed}>
+                Retry all {retryable.length}
+              </Button>
+            )}
+            {/* Only the ones a retry cannot help. Clearing an ordinary failure
+                would throw away work the user is still owed. */}
+            {hopeless.length > 0 && (
+              <Button variant="ghost" size="sm" onClick={() => setAsking({ kind: 'clear' })}>
+                Clear {hopeless.length} final
+              </Button>
+            )}
+          </div>
         </div>
         {failed.length === 0 ? (
           <p className="rounded-xl bg-surface-container-low px-space-md py-space-md text-body-sm text-on-surface-variant">
@@ -183,7 +208,12 @@ export function DownloadsPage() {
                   onCancel={
                     group.seriesId === null
                       ? null
-                      : () => cancel(group.seriesId as number, group.title)
+                      : () =>
+                          setAsking({
+                            kind: 'cancel',
+                            seriesId: group.seriesId as number,
+                            title: group.title,
+                          })
                   }
                   renderJob={(job) => (
                     <JobRow
@@ -215,6 +245,40 @@ export function DownloadsPage() {
           </div>
         )}
       </section>
+
+      {asking?.kind === 'clear' && (
+        <ConfirmDialog
+          title={`Clear ${hopeless.length} final ${hopeless.length === 1 ? 'failure' : 'failures'}?`}
+          consequences={[
+            'These are failures a retry cannot change.',
+            'Failures that can still be retried are left alone.',
+            'The work itself is not lost — only the record of it failing.',
+          ]}
+          confirmLabel="Clear"
+          onConfirm={() => {
+            clearFailed()
+            setAsking(null)
+          }}
+          onCancel={() => setAsking(null)}
+        />
+      )}
+
+      {asking?.kind === 'cancel' && (
+        <ConfirmDialog
+          title={`Cancel waiting work for ${asking.title}?`}
+          consequences={[
+            'Its queued jobs are dropped.',
+            'Anything already running finishes — nothing can stop a chapter mid-write.',
+            'Chapters already downloaded are untouched.',
+          ]}
+          confirmLabel="Cancel waiting"
+          onConfirm={() => {
+            cancel(asking.seriesId, asking.title)
+            setAsking(null)
+          }}
+          onCancel={() => setAsking(null)}
+        />
+      )}
     </div>
   )
 }
