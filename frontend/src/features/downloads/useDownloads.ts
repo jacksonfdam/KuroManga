@@ -24,7 +24,7 @@ interface Queue {
 export function useDownloads() {
   const [openJob, setOpenJob] = useState<number | null>(null)
   const [events, setEvents] = useState<JobEvent[]>([])
-  const { notice, reportFailure } = useNotice()
+  const { notice, report, reportFailure } = useNotice()
 
   const load = useCallback(async (): Promise<Queue> => {
     const [jobs, counts] = await Promise.all([api.jobs(), api.jobCounts()])
@@ -64,9 +64,18 @@ export function useDownloads() {
 
   const retry = useCallback(
     (id: number) => {
-      api.retry(id).then(reload).catch(reportFailure)
+      api
+        .retry(id)
+        .then((result) => {
+          // Not an error, and not silence either: an equivalent job is already
+          // waiting, so the work will happen and the row simply does not move.
+          // Saying nothing here reads as a button that did nothing.
+          if (!result.retried) report('That work is already queued — this job stays as it is.')
+          return reload()
+        })
+        .catch(reportFailure)
     },
-    [reload, reportFailure],
+    [reload, report, reportFailure],
   )
 
   return {

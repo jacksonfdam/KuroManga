@@ -781,7 +781,11 @@ export const api = {
   jobs: (state?: string) => request<Job[]>(`/api/jobs${state ? `?state=${state}` : ''}`),
   jobCounts: () => request<Record<string, number>>('/api/jobs/counts'),
   jobEvents: (id: number) => request<JobEvent[]>(`/api/jobs/${id}/events`),
-  retry: (id: number) => request<{ ok: boolean }>(`/api/jobs/${id}/retry`, { method: 'POST' }),
+  retry: (id: number) =>
+    request<{ ok: boolean; retried: boolean; reason: string | null }>(
+      `/api/jobs/${id}/retry`,
+      { method: 'POST' },
+    ),
   sync: (provider: string) =>
     request<{ ok: boolean }>(`/api/sync/${provider}`, { method: 'POST' }),
   settings: () => request<SettingsPayload>('/api/settings'),

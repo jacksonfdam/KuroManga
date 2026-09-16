@@ -106,9 +106,15 @@ async def job_events(job_id: int, session: Session) -> list[dict[str, Any]]:
 async def retry_job(job_id: int, session: Session) -> dict[str, Any]:
     requeued = await repo.retry(session, job_id)
     if not requeued:
+        await session.rollback()
+        # Two refusals with the same shape and opposite meanings. An equivalent
+        # job already waiting means the work *is* going to happen, so answering
+        # 409 would report a problem the reader does not have - and this one
+        # used to be a 500, from the unique index it would have violated.
+        if await repo.already_queued(session, job_id):
+            return {"ok": True, "retried": False, "reason": "already queued"}
         # A permanent failure, or a job that is not finished at all. Saying so
         # beats returning ok on a request that changed nothing.
-        await session.rollback()
         raise HTTPException(
             status_code=409,
             detail="this job cannot be retried: nothing about it would go differently",
@@ -124,7 +130,7 @@ async def retry_job(job_id: int, session: Session) -> dict[str, Any]:
         {"job_id": job_id},
     )
     await session.commit()
-    return {"ok": True}
+    return {"ok": True, "retried": True, "reason": None}
 
 
 @router.post("/sync/{provider}")

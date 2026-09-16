@@ -200,6 +200,33 @@ async def fail(session: AsyncSession, job_id: int, error: str, *, permanent: boo
     return False
 
 
+async def already_queued(session: AsyncSession, job_id: int) -> bool:
+    """Whether an equivalent job is already waiting to run.
+
+    `ix_job_dedupe` is unique over (type, dedupe_key) for pending and leased
+    rows, so putting this one back would violate it - which is how retry used
+    to answer "Internal Server Error". Two failed jobs sharing a key is
+    ordinary: the ladder gives up on one, the cron enqueues the work again, and
+    two rows now describe the same job.
+    """
+    result = await session.execute(
+        text(
+            """
+            select 1
+              from job failed
+              join job queued
+                on queued.type = failed.type
+               and queued.dedupe_key = failed.dedupe_key
+               and queued.state in ('pending', 'leased')
+             where failed.id = :job_id and failed.dedupe_key is not null
+             limit 1
+            """
+        ),
+        {"job_id": job_id},
+    )
+    return result.first() is not None
+
+
 async def retry(session: AsyncSession, job_id: int) -> bool:
     """Manual retry from the interface: clear the ladder and run now.
 
@@ -208,6 +235,10 @@ async def retry(session: AsyncSession, job_id: int) -> bool:
     the source carries in no language we asked for, fails again a second later.
     Saying so lets the caller explain the refusal instead of appearing to do
     nothing.
+
+    A job whose work is already queued is refused too, and for a different
+    reason - see `already_queued`. That one is not a refusal the reader needs
+    to act on, so the caller tells the two apart before reporting.
     """
     result = await session.execute(
         text(
@@ -216,6 +247,13 @@ async def retry(session: AsyncSession, job_id: int) -> bool:
                set state = 'pending', attempts = 0, lease_until = null, last_error = null,
                    run_after = now(), finished_at = null, priority = 0
              where id = :job_id and state in ('failed', 'done') and not permanent
+               and not exists (
+                   select 1 from job queued
+                    where queued.state in ('pending', 'leased')
+                      and queued.type = job.type
+                      and queued.dedupe_key is not null
+                      and queued.dedupe_key = job.dedupe_key
+               )
             returning id
             """
         ),
