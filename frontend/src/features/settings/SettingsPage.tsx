@@ -212,6 +212,39 @@ export function SettingsPage() {
               </p>
             </div>
           </SourceCard>
+          <SourceCard
+            icon="lock"
+            title="MangaFire"
+            subtitle="Needs a challenge you solve yourself"
+            tone={draft.mangafire_waf_pass ? 'ok' : 'neutral'}
+            statusLabel={draft.mangafire_waf_pass ? 'Cookie set' : 'Cookie not set'}
+          >
+            {/* The site gates its API behind an image puzzle its own app solves
+                in a browser. Nothing here solves it: a person does, in their
+                browser, and pastes what that produced. */}
+            <div className="flex flex-col gap-space-xs">
+              <label htmlFor="mangafire-waf" className="text-body-sm text-on-surface-variant">
+                waf_pass cookie
+              </label>
+              <input
+                id="mangafire-waf"
+                name="mangafire_waf_pass"
+                type="text"
+                spellCheck={false}
+                autoComplete="off"
+                placeholder="paste the cookie value"
+                value={draft.mangafire_waf_pass ?? ''}
+                onChange={(event) => setField('mangafire_waf_pass', event.target.value)}
+                className="w-full rounded-lg bg-surface-container-lowest px-space-md py-space-sm font-mono text-label-md text-tertiary shadow-inner focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+              <p className="text-body-sm text-on-surface-variant">
+                Open mangafire.to in your browser, let its check complete, then copy the
+                <code className="mx-1 font-mono text-primary">waf_pass</code>
+                cookie here. It expires, and when it does the source stops answering until you
+                paste a fresh one.
+              </p>
+            </div>
+          </SourceCard>
         </div>
       </section>
 
