@@ -111,6 +111,14 @@ integer column fails at bind time, far from the parser that let it through.
 The key carries **full account access**, not scoped to the library. It is a stronger credential than
 anything else here.
 
+It is also the only provider that states **authors and artists separately**, which is what fills
+`Penciller` in `ComicInfo.xml`; MyAnimeList and AniList answer with one credit list and leave the art
+credit to be guessed. Its genres come from a single snake-case vocabulary (`dark_fantasy`,
+`award_winning`), title-cased on the way into the archive. Where a series is on more than one list,
+`build_comicinfo` therefore reads the MangaBaka entry first, field by field, and the other providers
+fill whatever it left empty — a series nobody has in their MangaBaka library is tagged exactly as
+before.
+
 ## What a source is
 
 A source answers three questions and nothing else: which manga match a title, which chapters exist
