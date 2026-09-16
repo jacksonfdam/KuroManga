@@ -762,3 +762,20 @@ async def test_cancelling_a_series_leaves_a_running_job_alone(client):
         )
     assert waiting not in rows
     assert rows[running] == "leased"
+
+
+async def test_a_job_row_says_which_lane_owns_it(client):
+    """The screen groups by lane, and lane membership is the backend's to know.
+
+    A second copy of the mapping in the interface is one that drifts the next
+    time a job type is added.
+    """
+    series_id = await _a_series("which-lane")
+    await _a_job("download_batch", series_id, "pending")
+    await _a_job("progress_push", series_id, "pending")
+
+    rows = (await client.get("/api/jobs")).json()
+    lanes = {row["type"]: row["lane"] for row in rows}
+
+    assert lanes["download_batch"] == "download"
+    assert lanes["progress_push"] == "fetch"
