@@ -1,0 +1,54 @@
+{
+  "items": [
+    {
+      "id": 1326884,
+      "number": 700,
+      "name": "Uzumaki Naruto!!",
+      "language": "en",
+      "type": "unofficial",
+      "createdAt": 1676684509
+    },
+    {
+      "id": 1326872,
+      "number": 699,
+      "name": "Unison Sign",
+      "language": "en",
+      "type": "unofficial",
+      "createdAt": 1676684490
+    },
+    {
+      "id": 1326867,
+      "number": 698,
+      "name": "Naruto and Sasuke, Part 5",
+      "language": "en",
+      "type": "unofficial",
+      "createdAt": 1676684475
+    },
+    {
+      "id": 1326862,
+      "number": 697,
+      "name": "Naruto and Sasuke, Part 4",
+      "language": "en",
+      "type": "unofficial",
+      "createdAt": 1676684460
+    },
+    {
+      "id": 1326854,
+      "number": 696,
+      "name": "Naruto and Sasuke, Part 3",
+      "language": "en",
+      "type": "unofficial",
+      "createdAt": 1676684445
+    }
+  ],
+  "meta": {
+    "total": 704,
+    "perPage": 5,
+    "page": 1,
+    "lastPage": 141,
+    "from": 1,
+    "to": 5,
+    "hasNext": true,
+    "hasPrev": false
+  }
+}
