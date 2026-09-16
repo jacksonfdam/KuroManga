@@ -25,6 +25,7 @@ from app.sources.mangageko import MangaGekoSource
 from app.sources.net import CatalogueRow
 from app.sources.templates import TemplateSource
 from app.sources.templates.iken import IkenSource
+from app.sources.templates.keyoapp import KeyoappSource
 from app.sources.templates.madara import MadaraSource
 from app.sources.templates.madaralegacy import MadaraLegacySource
 from app.sources.templates.mangathemesia import MangaThemesiaSource
@@ -57,6 +58,7 @@ TEMPLATE_CLASSES: dict[str, type[TemplateSource]] = {
     "madara": MadaraSource,
     "madaralegacy": MadaraLegacySource,
     "zeistmanga": ZeistMangaSource,
+    "keyoapp": KeyoappSource,
 }
 
 
