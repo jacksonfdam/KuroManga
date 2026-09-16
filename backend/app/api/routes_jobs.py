@@ -106,6 +106,18 @@ async def job_events(job_id: int, session: Session) -> list[dict[str, Any]]:
     ]
 
 
+@router.delete("/jobs/failed")
+async def clear_failed_jobs(session: Session) -> dict[str, Any]:
+    """Clear the failures nothing can carry on from.
+
+    Permanent ones only: an ordinary failure is work still owed, and Retry all
+    is what that list is for.
+    """
+    cleared = await repo.clear_permanent_failures(session)
+    await session.commit()
+    return {"ok": True, "cleared": cleared}
+
+
 @router.post("/jobs/retry-failed")
 async def retry_failed_jobs(session: Session) -> dict[str, Any]:
     """Retry every failure worth retrying, and say how many that was.

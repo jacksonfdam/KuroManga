@@ -19,6 +19,7 @@ from app.handlers.media_enrich import is_stale
 from app.handlers.progress_write import forward_only
 from app.providers import get_source
 from app.queue import repo
+from app.series_removal import remove_series
 from app.sources import source_for_url
 
 router = APIRouter(prefix="/api/series", tags=["series"])
@@ -649,6 +650,22 @@ def chapter_ceiling(total_chapters: int | None, known: int | None) -> int | None
     """
     candidates = [value for value in (total_chapters, known) if value]
     return max(candidates) if candidates else None
+
+
+class RemoveIn(BaseModel):
+    ids: list[int]
+
+
+@router.delete("")
+async def remove_series_endpoint(body: RemoveIn, session: Session) -> dict[str, Any]:
+    """Remove one or many series, and remember that they were removed.
+
+    A selection is one decision, so the body takes a list and the single case
+    is a list of one rather than a second endpoint that drifts from this one.
+    """
+    removed = await remove_series(session, body.ids)
+    await session.commit()
+    return {"ok": True, "removed": removed}
 
 
 @router.post("/{series_id}/queue/top")

@@ -779,3 +779,56 @@ async def test_a_job_row_says_which_lane_owns_it(client):
 
     assert lanes["download_batch"] == "download"
     assert lanes["progress_push"] == "fetch"
+
+
+async def test_removing_a_series_over_http(client):
+    series_id = await _a_series("remove-over-http")
+    async with get_sessionmaker()() as db:
+        await db.execute(
+            text(
+                """
+                insert into list_entry (provider, provider_media_id, series_id, synonyms,
+                                        status, user_progress_chapter, raw, updated_at)
+                values ('mal', 'http-1', :sid, '[]'::jsonb, 'plan_to_read', 0, '{}'::jsonb, now())
+                """
+            ),
+            {"sid": series_id},
+        )
+        await db.commit()
+
+    response = await client.request("DELETE", "/api/series", json={"ids": [series_id]})
+
+    assert response.status_code == 200
+    assert response.json() == {"ok": True, "removed": 1}
+
+    async with get_sessionmaker()() as db:
+        assert (
+            await db.execute(text("select count(*) from series where id = :i"), {"i": series_id})
+        ).scalar_one() == 0
+        # The tombstone is what stops the next sync putting it straight back.
+        assert (
+            await db.execute(text("select count(*) from removed_entry"))
+        ).scalar_one() == 1
+
+
+async def test_clearing_failed_jobs_takes_only_the_permanent_ones(client):
+    series_id = await _a_series("clear-failed")
+    ordinary = await _a_job("list_sync", series_id, "failed")
+    hopeless = await _a_job("progress_write", series_id, "failed", permanent=True)
+
+    response = await client.request("DELETE", "/api/jobs/failed")
+
+    assert response.status_code == 200
+    assert response.json() == {"ok": True, "cleared": 1}
+
+    async with get_sessionmaker()() as db:
+        rows = dict(
+            (
+                await db.execute(
+                    text("select id, state from job where id in (:a, :b)"),
+                    {"a": ordinary, "b": hopeless},
+                )
+            ).all()
+        )
+    assert rows[ordinary] == "failed", "an ordinary failure was thrown away"
+    assert hopeless not in rows
