@@ -40,8 +40,8 @@ the worker can scale independently.
 ```
 backend/app/
   providers/   list providers: MyAnimeList, AniList, MangaBaka
-  sources/     chapter sources: MangaDex, Comick
-  downloader/  the binary subprocess, CBZ writing, ComicInfo
+  sources/     chapter sources, and the registry built from the site catalogue
+  downloader/  page fetching, CBZ writing, ComicInfo
   komga/       the library server client and bootstrap
   queue/       enqueue, lease, complete, fail, notify
   handlers/    one per job type; stitches the above together

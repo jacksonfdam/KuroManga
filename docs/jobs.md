@@ -97,13 +97,25 @@ whole backlog would hold one lease for hours and fail all or nothing. Size is th
 Partial results are kept and the remainder requeued as a smaller batch, so nothing downloads twice.
 A chapter the source will not serve ends up isolated in ever-smaller batches until it is `skipped`.
 
-Progress is reported as **archives written over batch total**, not the tool's own percentage, which
-restarts with every chapter and says nothing about the batch.
+Progress is reported as **pages fetched within the current chapter, and chapters within the batch** —
+`chapter 13: 30/30 pages (2/20 chapters)`. It used to count the archives on disk, because the tool
+that wrote them reported a percentage that restarted with every chapter and said nothing about the
+batch. The page list now says how many pages a chapter has before the first one is fetched, so there
+is nothing left on disk that the handler does not already know.
+
+The job lease is renewed from inside that count, every twenty pages. Renewing once per chapter is not
+enough: two hundred pages against a site that declared one request every ten seconds outlasts the
+fifteen-minute lease on its own, and an expired lease hands the same batch to a second worker.
 
 ### `download_chapter`
 **Payload** `{chapter_id}` · **Enqueues** `komga_scan`
 
 One chapter. Retained for a manual single retry; the pipeline uses `download_batch`.
+
+Both handlers take the same path: resolve the source from the registry by the chapter's own URL, list
+its pages, fetch them through the site's client, write the archive, place it, mark it. A chapter the
+source will not serve raises `ChapterUnavailable` and is `skipped` rather than retried — in a batch
+that skips the one chapter, not the other nineteen.
 
 ### `komga_scan`
 **Payload** `{series_id}` · **Enqueues** nothing
