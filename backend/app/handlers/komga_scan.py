@@ -7,6 +7,7 @@ discovery trust Komga instead of the filesystem.
 
 import asyncio
 import json
+import statistics
 
 import httpx
 from sqlalchemy import text
@@ -164,6 +165,29 @@ async def cover_url_for(session: AsyncSession, series_id: int) -> str | None:
     return row[0] if row else None
 
 
+async def fetch_series_artwork(ctx: JobContext, series_id: int) -> bytes | None:
+    """The provider's cover for this series, downloaded once.
+
+    Shared by the series thumbnail and the book fallback so the rule about what
+    counts as an image is written in one place.
+    """
+    url = await cover_url_for(ctx.session, series_id)
+    if url is None:
+        return None
+
+    async with httpx.AsyncClient(timeout=30, follow_redirects=True) as http:
+        response = await http.get(url)
+        response.raise_for_status()
+
+    # The same rule the page fetcher learned: a CDN answering a hotlinked or
+    # rate-limited request with 200 text/html would otherwise be stored as
+    # artwork and look like working code.
+    if not response.headers.get("content-type", "").startswith("image/"):
+        await ctx.log(f"cover at {url} is not an image, left alone", level="warning")
+        return None
+    return response.content
+
+
 async def ensure_series_cover(ctx: JobContext, client, komga_series_id: str, series_id: int) -> None:
     """Give Komga the provider's cover, once.
 
@@ -182,22 +206,11 @@ async def ensure_series_cover(ctx: JobContext, client, komga_series_id: str, ser
             # lives, for an image that has not changed.
             return
 
-        url = await cover_url_for(ctx.session, series_id)
-        if url is None:
+        artwork = await fetch_series_artwork(ctx, series_id)
+        if artwork is None:
             return
 
-        async with httpx.AsyncClient(timeout=30, follow_redirects=True) as http:
-            response = await http.get(url)
-            response.raise_for_status()
-
-        # The same rule the page fetcher learned: a CDN answering a hotlinked
-        # or rate-limited request with 200 text/html would otherwise be stored
-        # as this series' cover and look like working code.
-        if not response.headers.get("content-type", "").startswith("image/"):
-            await ctx.log(f"cover at {url} is not an image, left alone", level="warning")
-            return
-
-        thumbnail_id = await client.add_series_thumbnail(komga_series_id, response.content)
+        thumbnail_id = await client.add_series_thumbnail(komga_series_id, artwork)
         if thumbnail_id:
             await client.select_series_thumbnail(komga_series_id, thumbnail_id)
         await ctx.log("cover set from the provider artwork")
@@ -210,6 +223,25 @@ async def ensure_series_cover(ctx: JobContext, client, komga_series_id: str, ser
 # signal has nothing to say, and guessing further in would pick a spread from
 # the middle of a chapter.
 OPENING_PAGES_CONSIDERED = 5
+
+
+# Above this, a release is a webtoon long strip rather than a page. It matters
+# because those scanlators composite their warning onto the top of the first
+# strip instead of shipping it as its own page - measured across this library,
+# strip releases sit at 6.5 and ordinary pages at 1.4 to 2.5, so nothing sits
+# near the line.
+LONG_STRIP_RATIO = 3.0
+
+
+def is_long_strip(pages: list[dict]) -> bool:
+    ratios = [
+        page["height"] / page["width"]
+        for page in pages
+        if isinstance(page.get("width"), int)
+        and isinstance(page.get("height"), int)
+        and page["width"] > 0
+    ]
+    return bool(ratios) and statistics.median(ratios) > LONG_STRIP_RATIO
 
 
 def first_portrait_page(pages: list[dict]) -> int | None:
@@ -250,20 +282,44 @@ async def ensure_book_covers(ctx: JobContext, client, series_id: int, books) -> 
     if len(books) <= checked:
         return
 
-    fixed = 0
+    from_page = 0
+    from_series = 0
+    artwork: bytes | None = None
+    artwork_tried = False
+
     for book in books:
         try:
             if has_uploaded_artwork(await client.book_thumbnails(book.id)):
                 continue
-            page = first_portrait_page(await client.book_pages(book.id))
-            if page is None or page == 1:
+
+            pages = await client.book_pages(book.id)
+            # A long strip has no page to choose: the front matter is composited
+            # onto the top of the first strip rather than shipped separately, so
+            # every page carries it or none does.
+            page = None if is_long_strip(pages) else first_portrait_page(pages)
+
+            if page == 1:
                 # Komga already shows the first page, and it is the right one.
                 continue
-            image = await client.page_thumbnail(book.id, page)
+
+            if page is not None:
+                image = await client.page_thumbnail(book.id, page)
+                from_page += 1
+            else:
+                # Nothing in this book can be judged, so the series' own cover
+                # beats a warning banner. Downloaded at most once per scan, and
+                # only if some book actually needs it.
+                if not artwork_tried:
+                    artwork = await fetch_series_artwork(ctx, series_id)
+                    artwork_tried = True
+                if artwork is None:
+                    continue
+                image = artwork
+                from_series += 1
+
             thumbnail_id = await client.add_book_thumbnail(book.id, image)
             if thumbnail_id:
                 await client.select_book_thumbnail(book.id, thumbnail_id)
-            fixed += 1
         except Exception as exc:  # noqa: BLE001 - one book must not stop the rest
             await ctx.log(f"cover for book {book.id} not set: {exc}", level="warning")
 
@@ -279,8 +335,10 @@ async def ensure_book_covers(ctx: JobContext, client, series_id: int, books) -> 
         ),
         {"n": len(books), "id": series_id},
     )
-    if fixed:
-        await ctx.log(f"{fixed} book covers taken from the first real page")
+    if from_page:
+        await ctx.log(f"{from_page} book covers taken from the first real page")
+    if from_series:
+        await ctx.log(f"{from_series} book covers taken from the series artwork")
 
 
 @register(JobType.KOMGA_SCAN)

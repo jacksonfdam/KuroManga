@@ -193,3 +193,100 @@ async def test_a_new_chapter_makes_the_pass_run_again():
         await komga_scan.ensure_book_covers(ctx, client, series_id, [Book("b1"), Book("b2")])
 
     assert ("b2", 2) in client.uploaded
+
+
+STRIP = [{"number": n, "width": 900, "height": 5500} for n in range(1, 6)]
+PAGES = [{"number": n, "width": 650, "height": 933} for n in range(1, 6)]
+COVER = b"\xff\xd8\xffseries-cover"
+
+
+def _http(monkeypatch, content=COVER, content_type="image/jpeg") -> None:
+    # The real class is captured before the patch: komga_scan.httpx is the httpx
+    # module itself, so a factory calling httpx.AsyncClient would re-enter its
+    # own patch and recurse.
+    import httpx
+
+    real = httpx.AsyncClient
+
+    def factory(*args, **kwargs):
+        return real(
+            transport=httpx.MockTransport(
+                lambda request: httpx.Response(
+                    200, content=content, headers={"Content-Type": content_type}
+                )
+            )
+        )
+
+    monkeypatch.setattr(komga_scan.httpx, "AsyncClient", factory)
+
+
+async def _series_with_cover(session) -> int:
+    series_id = await _series(session)
+    await session.execute(
+        text(
+            "insert into list_entry (series_id, provider, provider_media_id, synonyms,"
+            " status, user_progress_chapter, raw, cover_url)"
+            " values (:sid, 'anilist', 'a-1', '[]'::jsonb, 'reading', 0, '{}'::jsonb,"
+            " 'https://cdn/cover.jpg')"
+        ),
+        {"sid": series_id},
+    )
+    await session.commit()
+    return series_id
+
+
+def test_a_webtoon_release_is_recognised_as_a_long_strip():
+    # Measured across this library: strip releases sit at 6.5 and ordinary
+    # pages at 1.4 to 2.5, so nothing sits near the line.
+    assert komga_scan.is_long_strip(STRIP) is True
+    assert komga_scan.is_long_strip(PAGES) is False
+
+
+async def test_a_long_strip_book_falls_back_to_the_series_artwork(monkeypatch):
+    client = FakeKomga(pages={"b1": STRIP})
+    _http(monkeypatch)
+    async with get_sessionmaker()() as session:
+        series_id = await _series_with_cover(session)
+        ctx = await _context(session, series_id)
+
+        await komga_scan.ensure_book_covers(ctx, client, series_id, [Book("b1")])
+
+    # Its warning is composited onto the first strip, so no page choice helps -
+    # the series' own cover beats a banner.
+    assert client.uploaded == []
+    assert client.selected == ["thumb-b1"]
+
+
+async def test_the_series_artwork_is_downloaded_once_for_the_whole_scan(monkeypatch):
+    calls = {"n": 0}
+    real_fetch = komga_scan.fetch_series_artwork
+
+    async def counting(ctx, series_id):
+        calls["n"] += 1
+        return await real_fetch(ctx, series_id)
+
+    monkeypatch.setattr(komga_scan, "fetch_series_artwork", counting)
+    client = FakeKomga(pages={f"b{n}": STRIP for n in range(1, 5)})
+    _http(monkeypatch)
+    async with get_sessionmaker()() as session:
+        series_id = await _series_with_cover(session)
+        ctx = await _context(session, series_id)
+
+        await komga_scan.ensure_book_covers(
+            ctx, client, series_id, [Book(f"b{n}") for n in range(1, 5)]
+        )
+
+    assert calls["n"] == 1
+    assert len(client.selected) == 4
+
+
+async def test_a_long_strip_series_with_no_artwork_is_left_alone(monkeypatch):
+    client = FakeKomga(pages={"b1": STRIP})
+    _http(monkeypatch)
+    async with get_sessionmaker()() as session:
+        series_id = await _series(session)  # no list entry, so no cover anywhere
+        ctx = await _context(session, series_id)
+
+        await komga_scan.ensure_book_covers(ctx, client, series_id, [Book("b1")])
+
+    assert client.selected == []
