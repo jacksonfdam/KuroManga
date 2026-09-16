@@ -844,7 +844,7 @@
       "_reason": "override fun parseGenres present"
     },
     "rate_limit": null,
-    "version": "5",
+    "version": "6",
     "hand_ported": false
   },
   {
@@ -1842,10 +1842,11 @@
     "lang": "en",
     "nsfw": true,
     "overrides": {
+      "mangaSubString": "comic",
       "_reason": "override fun imageFromElement present"
     },
     "rate_limit": null,
-    "version": "3",
+    "version": "4",
     "hand_ported": false
   },
   {
@@ -7315,21 +7316,6 @@
     },
     "rate_limit": null,
     "version": "0",
-    "hand_ported": false
-  },
-  {
-    "key": "tr.mangawt",
-    "name": "MangaWT",
-    "template": "madaralegacy",
-    "base_url": "https://mangawt.com",
-    "lang": "tr",
-    "nsfw": false,
-    "overrides": {
-      "useNewChapterEndpoint": true,
-      "_reason": "override val dateFormat is not a literal"
-    },
-    "rate_limit": null,
-    "version": "3",
     "hand_ported": false
   },
   {
