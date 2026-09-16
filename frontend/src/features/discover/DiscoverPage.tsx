@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useOutletContext } from 'react-router-dom'
 
 import { Button, EmptyState, ErrorState, NoticeBar, Skeleton } from '../../ui'
 import type { DiscoverItem } from '../../lib/api'
@@ -19,6 +20,10 @@ export function DiscoverPage() {
   const { items, total, actionable, loaded, error, reload, notice, dismiss, offset, setOffset } =
     useDiscover()
   const [openItem, setOpenItem] = useState<DiscoverItem | null>(null)
+  // Answering an item changes the nav badge, and dismissing one enqueues no
+  // job — so without this the count beside Discover stays stale until
+  // something unrelated fires a job event.
+  const refreshShell = useOutletContext<() => void>()
 
   if (!loaded && error) {
     return <ErrorState title="Couldn't load Discover" detail={error} onRetry={reload} />
@@ -94,10 +99,12 @@ export function DiscoverPage() {
               onDone={() => {
                 setOpenItem(null)
                 void reload()
+                refreshShell()
               }}
               onDismiss={() => {
                 dismiss(openItem)
                 setOpenItem(null)
+                refreshShell()
               }}
               onClose={() => setOpenItem(null)}
             />
