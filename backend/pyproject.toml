@@ -21,6 +21,12 @@ dev = [
     "pytest>=8.3",
     "pytest-asyncio>=0.24",
     "ruff>=0.7",
+    "mcp>=2.2",
+]
+# The MCP server is spawned by a model's client, not by Compose, so the SDK is
+# an extra rather than a runtime dependency of the api and worker images.
+mcp = [
+    "mcp>=2.2",
 ]
 
 [tool.setuptools.packages.find]
