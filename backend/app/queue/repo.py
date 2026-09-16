@@ -311,14 +311,42 @@ async def retry_failed(session: AsyncSession) -> int:
     The permanent ones are skipped for the reason a single retry skips them:
     nothing about a second attempt goes differently, and putting them back only
     fills the failed list again a second later.
+
+    Two more have to be skipped, and both are the dedupe index rather than a
+    policy. `ix_job_dedupe` is unique on (type, dedupe_key) while a job is
+    pending or leased, so a batch cannot requeue several failures sharing one
+    key, and cannot requeue a failure whose twin is already waiting. The live
+    queue held both shapes at once — five progress_write failures for one
+    series — and requeueing them together raised rather than returned.
+
+    So: one row per key, and only where nothing is already holding it. A key
+    left behind is not lost, because the row that was requeued does the same
+    work, and a key already waiting is work that is going to happen anyway.
     """
     result = await session.execute(
         text(
             """
+            with candidates as (
+                select distinct on (type, coalesce(dedupe_key, id::text))
+                       id, type, dedupe_key
+                  from job
+                 where state = 'failed' and not permanent
+                 order by type, coalesce(dedupe_key, id::text), id
+            )
             update job
                set state = 'pending', attempts = 0, lease_until = null, last_error = null,
                    run_after = now(), finished_at = null, priority = 0
-             where state = 'failed' and not permanent
+             where id in (
+                 select c.id
+                   from candidates c
+                  where c.dedupe_key is null
+                     or not exists (
+                         select 1 from job other
+                          where other.type = c.type
+                            and other.dedupe_key = c.dedupe_key
+                            and other.state in ('pending', 'leased')
+                     )
+             )
             returning id
             """
         )

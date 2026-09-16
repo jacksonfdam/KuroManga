@@ -466,3 +466,70 @@ async def test_cancelling_a_series_drops_only_its_waiting_work():
     assert pending not in rows, "the waiting job survived"
     assert rows[other] == "pending", "another series was cancelled"
     assert rows[running] == "leased", "a running job was deleted"
+
+
+async def test_retry_failed_does_not_collide_on_the_dedupe_index():
+    """Five failures sharing one dedupe key cannot all become pending.
+
+    ix_job_dedupe is unique on (type, dedupe_key) while a job is pending or
+    leased, so requeueing a batch that shares a key raises rather than
+    returning. The live queue held exactly this: five progress_write failures
+    for one series, all keyed progress_write:<id>.
+    """
+    series_id = await _series("dedupe-storm")
+    async with await session() as db:
+        for _ in range(3):
+            await db.execute(
+                text(
+                    """
+                    insert into job (type, payload, state, priority, attempts, max_attempts,
+                                     series_id, dedupe_key, permanent, created_at)
+                    values ('progress_write', '{}'::jsonb, 'failed', 100, 1, 3,
+                            :series_id, :key, false, now())
+                    """
+                ),
+                {"series_id": series_id, "key": f"progress_write:{series_id}"},
+            )
+        await db.commit()
+
+    async with await session() as db:
+        requeued = await repo.retry_failed(db)
+        await db.commit()
+
+    assert requeued == 1, "more than one job per dedupe key was requeued"
+
+    async with await session() as db:
+        pending = (
+            await db.execute(
+                text("select count(*) from job where series_id = :s and state = 'pending'"),
+                {"s": series_id},
+            )
+        ).scalar_one()
+    assert pending == 1
+
+
+async def test_retry_failed_skips_a_key_already_waiting():
+    """An equivalent job already queued means the work will happen. Requeueing
+    the failed twin would violate the same index."""
+    series_id = await _series("already-waiting")
+    async with await session() as db:
+        await db.execute(
+            text(
+                """
+                insert into job (type, payload, state, priority, attempts, max_attempts,
+                                 series_id, dedupe_key, permanent, created_at)
+                values ('progress_write', '{}'::jsonb, 'pending', 100, 0, 3,
+                        :series_id, :key, false, now()),
+                       ('progress_write', '{}'::jsonb, 'failed', 100, 1, 3,
+                        :series_id, :key, false, now())
+                """
+            ),
+            {"series_id": series_id, "key": f"progress_write:{series_id}"},
+        )
+        await db.commit()
+
+    async with await session() as db:
+        requeued = await repo.retry_failed(db)
+        await db.commit()
+
+    assert requeued == 0
