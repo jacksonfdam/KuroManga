@@ -651,6 +651,26 @@ def chapter_ceiling(total_chapters: int | None, known: int | None) -> int | None
     return max(candidates) if candidates else None
 
 
+@router.post("/{series_id}/queue/top")
+async def promote_queue(series_id: int, session: Session) -> dict[str, Any]:
+    """Put this series' waiting work at the front of the queue."""
+    moved = await repo.promote_series(session, series_id)
+    await session.commit()
+    return {"ok": True, "moved": moved}
+
+
+@router.delete("/{series_id}/queue")
+async def cancel_queue(series_id: int, session: Session) -> dict[str, Any]:
+    """Drop this series' waiting work.
+
+    A job a worker is already running is left alone: nothing can stop one, and
+    deleting the row would strand the chapter it is part-way through writing.
+    """
+    dropped = await repo.cancel_series(session, series_id)
+    await session.commit()
+    return {"ok": True, "dropped": dropped}
+
+
 @router.post("/{series_id}/progress")
 async def set_progress(series_id: int, body: ProgressIn, session: Session) -> dict[str, Any]:
     """The forward-only guard is enforced here too, not only in the handler.

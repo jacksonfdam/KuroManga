@@ -664,3 +664,101 @@ async def test_series_detail_carries_the_reading_pace_setting(client):
     body = (await client.get("/api/series/1")).json()
     # The default in settings_store, because nothing has set the key.
     assert body["reading_minutes_per_chapter"] == 8
+
+
+async def _a_series(slug: str) -> int:
+    async with get_sessionmaker()() as db:
+        series_id = (
+            await db.execute(
+                text(
+                    """
+                    insert into series (canonical_title, slug, needs_review, meta, created_at)
+                    values (:t, :s, false, '{}'::jsonb, now()) returning id
+                    """
+                ),
+                {"t": slug, "s": slug},
+            )
+        ).scalar_one()
+        await db.commit()
+    return int(series_id)
+
+
+async def _a_job(job_type: str, series_id: int, state: str, permanent: bool = False) -> int:
+    async with get_sessionmaker()() as db:
+        job_id = (
+            await db.execute(
+                text(
+                    """
+                    insert into job (type, payload, state, priority, attempts, max_attempts,
+                                     series_id, permanent, created_at)
+                    values (:type, '{}'::jsonb, :state, 100, 0, 3, :series_id, :permanent, now())
+                    returning id
+                    """
+                ),
+                {"type": job_type, "state": state, "series_id": series_id, "permanent": permanent},
+            )
+        ).scalar_one()
+        await db.commit()
+    return int(job_id)
+
+
+async def test_retry_failed_endpoint_skips_what_cannot_succeed(client):
+    series_id = await _a_series("retry-all")
+    ordinary = await _a_job("list_sync", series_id, "failed")
+    hopeless = await _a_job("progress_write", series_id, "failed", permanent=True)
+
+    response = await client.post("/api/jobs/retry-failed")
+
+    assert response.status_code == 200
+    assert response.json() == {"ok": True, "requeued": 1}
+
+    async with get_sessionmaker()() as db:
+        states = dict(
+            (
+                await db.execute(
+                    text("select id, state from job where id in (:a, :b)"),
+                    {"a": ordinary, "b": hopeless},
+                )
+            ).all()
+        )
+    assert states[ordinary] == "pending"
+    assert states[hopeless] == "failed"
+
+
+async def test_moving_a_series_to_the_top_of_the_queue(client):
+    series_id = await _a_series("to-the-top")
+    job_id = await _a_job("download_batch", series_id, "pending")
+
+    response = await client.post(f"/api/series/{series_id}/queue/top")
+
+    assert response.status_code == 200
+    assert response.json() == {"ok": True, "moved": 1}
+
+    async with get_sessionmaker()() as db:
+        priority = (
+            await db.execute(text("select priority from job where id = :id"), {"id": job_id})
+        ).scalar_one()
+    assert priority == 0
+
+
+async def test_cancelling_a_series_leaves_a_running_job_alone(client):
+    series_id = await _a_series("cancel-me")
+    waiting = await _a_job("download_batch", series_id, "pending")
+    running = await _a_job("download_batch", series_id, "leased")
+
+    response = await client.request("DELETE", f"/api/series/{series_id}/queue")
+
+    assert response.status_code == 200
+    assert response.json() == {"ok": True, "dropped": 1}
+
+    async with get_sessionmaker()() as db:
+        rows = dict(
+            (
+                await db.execute(
+                    text("select id, state from job where id in (:a, :b)"),
+                    {"a": waiting, "b": running},
+                )
+            ).all()
+        )
+    assert waiting not in rows
+    assert rows[running] == "leased"
