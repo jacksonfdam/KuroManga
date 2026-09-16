@@ -8,6 +8,7 @@ discovery trust Komga instead of the filesystem.
 import asyncio
 import json
 
+import httpx
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -128,6 +129,70 @@ async def record_marked_books(
     )
 
 
+async def cover_url_for(session: AsyncSession, series_id: int) -> str | None:
+    """The artwork to give Komga for this series.
+
+    A series can carry an entry per provider, each with its own cover, so the
+    order is stated rather than left to however the rows come back - otherwise
+    which cover a library shows depends on insertion order and changes under
+    the user for no reason they can see.
+    """
+    result = await session.execute(
+        text(
+            """
+            select cover_url from list_entry
+             where series_id = :id and cover_url is not null and cover_url <> ''
+             order by provider, id
+             limit 1
+            """
+        ),
+        {"id": series_id},
+    )
+    row = result.first()
+    return row[0] if row else None
+
+
+async def ensure_series_cover(ctx: JobContext, client, komga_series_id: str, series_id: int) -> None:
+    """Give Komga the provider's cover, once.
+
+    Without this Komga falls back to the first page of the first book, which
+    for a scanlated release is the group's credits page or a donation banner
+    rather than the cover.
+
+    Everything here is best effort. Reconciling the library is this job's real
+    work and it has already been committed by the time this runs; a provider
+    CDN being briefly unreachable is not a reason to retry a scan.
+    """
+    try:
+        if await client.series_thumbnails(komga_series_id):
+            # Komga keeps every thumbnail it is given. Uploading on each scan
+            # would pile up copies and make the job slower the longer a library
+            # lives, for an image that has not changed.
+            return
+
+        url = await cover_url_for(ctx.session, series_id)
+        if url is None:
+            return
+
+        async with httpx.AsyncClient(timeout=30, follow_redirects=True) as http:
+            response = await http.get(url)
+            response.raise_for_status()
+
+        # The same rule the page fetcher learned: a CDN answering a hotlinked
+        # or rate-limited request with 200 text/html would otherwise be stored
+        # as this series' cover and look like working code.
+        if not response.headers.get("content-type", "").startswith("image/"):
+            await ctx.log(f"cover at {url} is not an image, left alone", level="warning")
+            return
+
+        thumbnail_id = await client.add_series_thumbnail(komga_series_id, response.content)
+        if thumbnail_id:
+            await client.select_series_thumbnail(komga_series_id, thumbnail_id)
+        await ctx.log("cover set from the provider artwork")
+    except Exception as exc:  # noqa: BLE001 - decoration must not fail the scan
+        await ctx.log(f"cover not set: {exc}", level="warning")
+
+
 @register(JobType.KOMGA_SCAN)
 async def handle(ctx: JobContext) -> None:
     settings = get_settings()
@@ -168,6 +233,8 @@ async def handle(ctx: JobContext) -> None:
     # The book ids are what progress_push reads; a later failure against Komga
     # must not roll them back and leave the series without them forever.
     await ctx.session.commit()
+
+    await ensure_series_cover(ctx, client, komga_series_id, series_id)
 
     suggestion_id = await completed_series(ctx.session, series_id)
     if suggestion_id is None:

@@ -208,6 +208,43 @@ class KomgaClient:
         response.raise_for_status()
         return parse_books(response.json())
 
+    async def series_thumbnails(self, series_id: str) -> list[dict[str, Any]]:
+        """What artwork Komga already holds for a series.
+
+        Asked before uploading rather than tracked on our side: Komga is the
+        record of what it has, and a thumbnail deleted there should be
+        replaceable without anything here being told about it.
+        """
+        response = await self._request("GET", f"{API}/series/{series_id}/thumbnails")
+        response.raise_for_status()
+        payload = response.json()
+        return payload if isinstance(payload, list) else []
+
+    async def add_series_thumbnail(
+        self, series_id: str, image: bytes, *, filename: str = "cover.jpg"
+    ) -> str | None:
+        """Upload artwork for a series and return the id Komga gave it.
+
+        Takes bytes rather than a URL on purpose - komga/ is pure at its edges
+        and never fetches from the internet, so whoever has the cover hands it
+        over already downloaded.
+        """
+        response = await self._request(
+            "POST",
+            f"{API}/series/{series_id}/thumbnails",
+            files={"file": (filename, image)},
+        )
+        response.raise_for_status()
+        body = response.json() if response.content else None
+        return body.get("id") if isinstance(body, dict) else None
+
+    async def select_series_thumbnail(self, series_id: str, thumbnail_id: str) -> None:
+        """Make one of a series' thumbnails the one Komga shows."""
+        response = await self._request(
+            "PUT", f"{API}/series/{series_id}/thumbnails/{thumbnail_id}/selected"
+        )
+        response.raise_for_status()
+
     async def set_read_progress(self, book_id: str, *, page: int, completed: bool) -> None:
         response = await self._request(
             "PATCH",

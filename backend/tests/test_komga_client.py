@@ -145,3 +145,50 @@ async def test_a_missing_library_is_created_with_the_configured_root():
         client = KomgaClient("http://komga", api_key="k", client=http_client)
         assert await client.ensure_library("Manga", "/manga") == "lib-new"
     assert body["root"] == "/manga"
+
+
+def _thumbnail_stub(seen: dict) -> httpx.MockTransport:
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["method"] = request.method
+        seen["path"] = request.url.path
+        seen["body"] = request.content
+        if request.method == "GET":
+            return httpx.Response(200, json=[])
+        if request.method == "POST":
+            return httpx.Response(200, json={"id": "thumb-1", "selected": True})
+        return httpx.Response(204)
+
+    return httpx.MockTransport(handler)
+
+
+async def test_a_series_with_no_artwork_reports_none():
+    seen: dict = {}
+    async with httpx.AsyncClient(transport=_thumbnail_stub(seen)) as http_client:
+        client = KomgaClient("http://komga", api_key="k", client=http_client)
+        assert await client.series_thumbnails("s1") == []
+    assert seen["path"] == "/api/v1/series/s1/thumbnails"
+
+
+async def test_uploading_artwork_sends_it_as_a_file_and_returns_its_id():
+    seen: dict = {}
+    async with httpx.AsyncClient(transport=_thumbnail_stub(seen)) as http_client:
+        client = KomgaClient("http://komga", api_key="k", client=http_client)
+        thumb = await client.add_series_thumbnail("s1", b"\xff\xd8\xffimage", filename="cover.jpg")
+
+    assert thumb == "thumb-1"
+    assert seen["method"] == "POST"
+    assert seen["path"] == "/api/v1/series/s1/thumbnails"
+    # Komga takes multipart with a "file" part; sent as a JSON body it answers
+    # 400 and the cover silently never appears.
+    assert b'name="file"' in seen["body"]
+    assert b"\xff\xd8\xffimage" in seen["body"]
+
+
+async def test_selecting_artwork_targets_the_thumbnail():
+    seen: dict = {}
+    async with httpx.AsyncClient(transport=_thumbnail_stub(seen)) as http_client:
+        client = KomgaClient("http://komga", api_key="k", client=http_client)
+        await client.select_series_thumbnail("s1", "thumb-1")
+
+    assert seen["method"] == "PUT"
+    assert seen["path"] == "/api/v1/series/s1/thumbnails/thumb-1/selected"
