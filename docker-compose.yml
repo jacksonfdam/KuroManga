@@ -67,6 +67,11 @@ services:
       ANILIST_CLIENT_ID: ${ANILIST_CLIENT_ID:-}
       ANILIST_CLIENT_SECRET: ${ANILIST_CLIENT_SECRET:-}
       MANGABAKA_TOKEN: ${MANGABAKA_TOKEN:-}
+      # Kept in step with x-worker-env by hand, because this service lists its
+      # environment rather than sharing that anchor. The API only resolves a
+      # source from a URL today and never fetches, so a missing solver URL was
+      # invisible - which is exactly how the two lists drift apart.
+      FLARESOLVERR_URL: ${FLARESOLVERR_URL:-}
       MANGADEX_CLIENT_ID: ${MANGADEX_CLIENT_ID:-}
       MANGADEX_CLIENT_SECRET: ${MANGADEX_CLIENT_SECRET:-}
       MANGADEX_USERNAME: ${MANGADEX_USERNAME:-}
