@@ -26,6 +26,7 @@ from app.sources.templates.iken import IkenSource
 from app.sources.templates.madara import MadaraSource
 from app.sources.templates.madaralegacy import MadaraLegacySource
 from app.sources.templates.mangathemesia import MangaThemesiaSource
+from app.sources.templates.zeistmanga import ZeistMangaSource
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +51,7 @@ TEMPLATE_CLASSES: dict[str, type[TemplateSource]] = {
     "iken": IkenSource,
     "madara": MadaraSource,
     "madaralegacy": MadaraLegacySource,
+    "zeistmanga": ZeistMangaSource,
 }
 
 
