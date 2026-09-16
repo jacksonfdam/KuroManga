@@ -102,6 +102,18 @@ async def job_events(job_id: int, session: Session) -> list[dict[str, Any]]:
     ]
 
 
+@router.post("/jobs/retry-failed")
+async def retry_failed_jobs(session: Session) -> dict[str, Any]:
+    """Retry every failure worth retrying, and say how many that was.
+
+    The permanent ones are skipped, so pressing this does not refill the failed
+    list with the same rows a second later.
+    """
+    requeued = await repo.retry_failed(session)
+    await session.commit()
+    return {"ok": True, "requeued": requeued}
+
+
 @router.post("/jobs/{job_id}/retry")
 async def retry_job(job_id: int, session: Session) -> dict[str, Any]:
     requeued = await repo.retry(session, job_id)

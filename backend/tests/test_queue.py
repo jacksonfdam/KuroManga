@@ -35,6 +35,32 @@ async def session():
     return get_sessionmaker()()
 
 
+async def _series(slug: str) -> int:
+    """A real series row: job.series_id is a foreign key, so a job cannot point
+    at an id nobody created.
+
+    Idempotent, because this module truncates only `job` and `job_event` — the
+    series it makes outlive the run, and a second pass would collide on the
+    unique slug rather than reuse the row.
+    """
+    async with await session() as db:
+        series_id = (
+            await db.execute(
+                text(
+                    """
+                    insert into series (canonical_title, slug, needs_review, meta, created_at)
+                    values (:title, :slug, false, '{}'::jsonb, now())
+                    on conflict (slug) do update set canonical_title = excluded.canonical_title
+                    returning id
+                    """
+                ),
+                {"title": slug, "slug": slug},
+            )
+        ).scalar_one()
+        await db.commit()
+    return int(series_id)
+
+
 async def test_enqueue_returns_the_new_job_id():
     async with await session() as db:
         job_id = await repo.enqueue(db, JobType.LIST_SYNC, {"provider": "mal"})
@@ -338,3 +364,105 @@ async def test_retry_still_takes_an_ordinary_failure():
             await db.execute(text("select state from job where id = :id"), {"id": job_id})
         ).scalar_one()
     assert state == "pending"
+
+
+async def test_retry_failed_requeues_what_it_can_and_counts_it():
+    """The screen's "retry everything" button, which must not resurrect the
+    failures that cannot succeed."""
+    async with await session() as db:
+        ordinary = await repo.enqueue(db, JobType.LIST_SYNC, {"provider": "mal"})
+        hopeless = await repo.enqueue(db, JobType.PROGRESS_WRITE, {"series_id": 1})
+        await db.commit()
+
+    async with await session() as db:
+        await repo.fail(db, ordinary, "the network wobbled")
+        await db.execute(
+            text("update job set state = 'failed', permanent = false where id = :id"),
+            {"id": ordinary},
+        )
+        await repo.fail(db, hopeless, "no connected list entry", permanent=True)
+        await db.commit()
+
+    async with await session() as db:
+        requeued = await repo.retry_failed(db)
+        await db.commit()
+
+    assert requeued == 1, "a permanent failure was retried"
+
+    async with await session() as db:
+        states = dict(
+            (
+                await db.execute(
+                    text("select id, state from job where id in (:a, :b)"),
+                    {"a": ordinary, "b": hopeless},
+                )
+            ).all()
+        )
+    assert states[ordinary] == "pending"
+    assert states[hopeless] == "failed"
+
+
+async def test_a_series_can_be_moved_to_the_front_of_the_queue():
+    ahead = await _series("queued-ahead")
+    promoted = await _series("queued-promoted")
+
+    async with await session() as db:
+        first = await repo.enqueue(
+            db, JobType.DOWNLOAD_BATCH, {"series_id": ahead}, series_id=ahead
+        )
+        mine = await repo.enqueue(
+            db, JobType.DOWNLOAD_BATCH, {"series_id": promoted}, series_id=promoted
+        )
+        await db.commit()
+
+    async with await session() as db:
+        moved = await repo.promote_series(db, promoted)
+        await db.commit()
+    assert moved == 1
+
+    from app.enums import Lane, types_for
+
+    async with await session() as db:
+        job = await repo.lease(db, types=types_for(Lane.DOWNLOAD))
+        await db.commit()
+
+    assert job is not None
+    assert job.id == mine, "the promoted series did not go first"
+    assert first != mine
+
+
+async def test_cancelling_a_series_drops_only_its_waiting_work():
+    """A leased job is left alone: nothing can stop one mid-flight, and
+    deleting the row would strand the chapter it is writing."""
+    mine = await _series("cancel-mine")
+    theirs = await _series("cancel-theirs")
+
+    async with await session() as db:
+        pending = await repo.enqueue(
+            db, JobType.DOWNLOAD_BATCH, {"series_id": mine}, series_id=mine
+        )
+        other = await repo.enqueue(
+            db, JobType.DOWNLOAD_BATCH, {"series_id": theirs}, series_id=theirs
+        )
+        running = await repo.enqueue(
+            db, JobType.CHAPTER_DISCOVER, {"series_id": mine}, series_id=mine
+        )
+        await db.execute(
+            text("update job set state = 'leased' where id = :id"), {"id": running}
+        )
+        await db.commit()
+
+    async with await session() as db:
+        dropped = await repo.cancel_series(db, mine)
+        await db.commit()
+
+    assert dropped == 1
+
+    async with await session() as db:
+        rows = dict(
+            (await db.execute(text("select id, state from job where id in (:a, :b, :c)"),
+                              {"a": pending, "b": other, "c": running})).all()
+        )
+    assert pending not in rows, "the waiting job survived"
+    assert rows[other] == "pending", "another series was cancelled"
+    assert rows[running] == "leased", "a running job was deleted"
