@@ -94,11 +94,21 @@ worker-download:   # LANE=download
 
 Both run `image: kuromanga:local`, as `api`, `worker` and `bootstrap` already do.
 
-The library volume, `PUID`/`PGID` and `verify_library_mount` belong to `worker-download` alone: it
-is the only process that writes archives. The fetch lane does not mount the library and does not run
-the mount check, which also removes a second place for the worktree-relative-path failure to bite.
+Write access belongs to `worker-download` alone — the library volume read-write, plus `PUID`/`PGID`
+— because it is the only process that writes archives.
 
-`komga_scan` is a fetch-lane job and only reads Komga's API, so it needs no mount either.
+The fetch lane still **mounts the library read-only**, and this is a correction to an earlier draft
+of this document. `chapter_discover` is a fetch-lane job and contains `reconcile_with_disk`, the
+fallback that marks what is already on disk when Komga cannot answer. Take the mount away and that
+fallback finds an absent path and reports nothing on disk: no crash, no error, a series that merely
+looks undownloaded. `api` already mounts `/manga:ro` for its own reasons, so the read-only form has
+precedent in the file.
+
+`komga_scan` genuinely needs no mount: it passes `str(library_path)` to Komga's API as the
+identifier of the library root, which is a value rather than a directory.
+
+`verify_library_mount` therefore runs in **both** lanes. A wrong mount is as silently wrong for a
+reader as for a writer, and that check is what catches the worktree-relative-path mistake.
 
 ### What this costs
 

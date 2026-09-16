@@ -468,19 +468,11 @@ and at the end:
         scheduler.shutdown(wait=False)
 ```
 
-- [ ] **Step 4: Guard the mount check and pass the lane to the loops**
+- [ ] **Step 4: Pass the lane to the loops**
 
-`verify_library_mount()` is the first line of `main()`. Make it conditional:
-
-```python
-    # Only the download lane writes archives, so only it needs the library. The
-    # fetch lane not mounting it also removes a second place for the
-    # worktree-relative-path failure to appear.
-    if lane is Lane.DOWNLOAD:
-        await verify_library_mount()
-```
-
-This means the lane has to be resolved before that call — move the `LANE` block to the top of `main()`, above it.
+Leave `verify_library_mount()` exactly where it is, unconditional. Both lanes mount the library —
+the fetch lane read-only, for `chapter_discover`'s `reconcile_with_disk` fallback — and a wrong
+mount is as silently wrong for a reader as for a writer.
 
 Then:
 
@@ -530,7 +522,17 @@ In the `worker` service's `environment`, add:
       FETCH_CONCURRENCY: ${FETCH_CONCURRENCY:-3}
 ```
 
-Remove from `worker` the library volume, and the `user:` line with its comment — the fetch lane writes no files. Keep everything else.
+Make its library volume read-only, and remove the `user:` line with its comment — the fetch lane
+reads the library but writes nothing:
+
+```yaml
+    volumes:
+      - ${LIBRARY_PATH_HOST:-./data/manga}:/manga:ro
+```
+
+The mount stays because `chapter_discover` runs here and its `reconcile_with_disk` fallback reads
+the directory. Removing it would make that fallback report nothing on disk rather than fail. Keep
+everything else.
 
 - [ ] **Step 2: Add the download worker**
 
@@ -627,10 +629,13 @@ docker compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB
 
 Expected: `list_sync|leased` (or `done`) while `download_batch` rows are still `leased` or `pending`. On `main` today it would sit `pending` behind them — that difference is the whole point of this plan.
 
-- [ ] **Step 5: Confirm the fetch worker has no library mount**
+- [ ] **Step 5: Confirm each worker's mount is the right kind**
 
-Run: `docker inspect kuromanga-worker-1 --format '{{range .Mounts}}{{.Destination}} {{end}}'`
-Expected: no `/manga`. And on `kuromanga-worker-download-1`, `/manga` present and pointing at an absolute host path.
+Run: `docker inspect kuromanga-worker-1 --format '{{range .Mounts}}{{.Destination}}:{{if .RW}}rw{{else}}ro{{end}} {{end}}'`
+Expected: `/manga:ro`.
+
+Run the same against `kuromanga-worker-download-1`.
+Expected: `/manga:rw`, and the source an absolute host path rather than one inside a worktree.
 
 ---
 
