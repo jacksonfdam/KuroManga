@@ -789,6 +789,13 @@ export const api = {
       `/api/jobs/${id}/retry`,
       { method: 'POST' },
     ),
+  removeSeries: (ids: number[]) =>
+    request<{ ok: boolean; removed: number }>('/api/series', {
+      method: 'DELETE',
+      body: JSON.stringify({ ids }),
+    }),
+  clearFailedJobs: () =>
+    request<{ ok: boolean; cleared: number }>('/api/jobs/failed', { method: 'DELETE' }),
   retryFailed: () =>
     request<{ ok: boolean; requeued: number }>('/api/jobs/retry-failed', { method: 'POST' }),
   promoteQueue: (seriesId: number) =>
