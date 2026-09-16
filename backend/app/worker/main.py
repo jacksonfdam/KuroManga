@@ -219,15 +219,10 @@ async def main() -> None:
         ) from None
 
     types = types_for(lane)
-    concurrency_key = (
-        settings_store.DOWNLOAD_CONCURRENCY
-        if lane is Lane.DOWNLOAD
-        else settings_store.FETCH_CONCURRENCY
-    )
 
     sessionmaker = get_sessionmaker()
     async with sessionmaker() as session:
-        concurrency = await settings_store.get_int(session, concurrency_key)
+        concurrency = await settings_store.concurrency_for(session, lane)
         expressions = {
             job.id: await settings_store.get(session, job.setting_key) for job in CRON_JOBS
         }
