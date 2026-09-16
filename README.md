@@ -67,6 +67,7 @@ Full walkthrough in [docs/configuration.md](docs/configuration.md).
 | [Features](docs/features.md) | What each screen does and how the pipeline works |
 | [Configuration](docs/configuration.md) | Credentials, environment variables and first run |
 | [All documentation](docs/README.md) | Architecture, data model, jobs and external contracts |
+| [MCP server](docs/mcp.md) | Driving the pipeline from an assistant, including a locally hosted one |
 
 ## Built with
 

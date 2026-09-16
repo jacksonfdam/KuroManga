@@ -29,6 +29,11 @@ class Settings(BaseSettings):
 
     public_base_url: str = "http://localhost:8080"
 
+    # Where app/mcp reaches the API. The MCP server runs beside a model rather
+    # than inside Compose, so it addresses the published port instead of the
+    # `api` service name.
+    kuromanga_api_url: str = "http://localhost:8080"
+
     # MangaDex personal client. Optional: search and chapter feeds work anonymously,
     # and MangaDex caches anonymous responses but not authenticated ones.
     # MangaBaka API key. Full account access, so it stays in .env and is never

@@ -84,6 +84,12 @@ These live in the database and are edited in Settings, because they change witho
 | `KOMGA_USER` / `KOMGA_PASS` | Only needed once, to create the first Komga account |
 | `KOMGA_LIBRARY_NAME` | The library name KuroManga creates. Default `Manga` |
 
+One variable belongs to nothing in Compose:
+
+| | |
+|---|---|
+| `KUROMANGA_API_URL` | Where the MCP server reaches the API. Default `http://localhost:8080`. See [mcp.md](mcp.md) |
+
 On a brand-new Komga there is no account yet, so no API key can exist. Fill in `KOMGA_USER` and
 `KOMGA_PASS` and KuroManga creates the first administrator for you on startup, then creates the
 library. After that, generate an API key and use it — it can be revoked on its own.
