@@ -23,7 +23,7 @@ that title appears on.
 
 Two deliberate stops:
 
-**Confirming the source.** A new entry waits on the Review screen. KuroManga searches the source
+**Confirming the source.** A new entry waits on the Discover screen. KuroManga searches the source
 site and shows what it found, with covers, years and chapter counts, and you pick the right one.
 An automatic guess that got this wrong would download the wrong manga for every future chapter,
 so it asks once and then remembers.
@@ -108,23 +108,25 @@ Where a provider serves nothing, the screen shows nothing. A release schedule an
 counts are absent for that reason: no source states them, and an invented figure would be worse than
 the gap.
 
-### Discovery
+### Discover
 
-Manga suggested from the anime you have watched. Each card says where the suggestion came from,
-how far the adaptation got, and how much manga is left after it. Choose the status to file it
-under, optionally start downloading straight away, then add or dismiss it. Dismissals stick.
+Everything waiting on a decision, in one place: manga suggested from the anime you have watched,
+the anime no relation could connect to a manga, and the series waiting for you to confirm a
+source. These were three screens, and they were three stages of one question — is there a manga
+here you want, and which one is it?
 
-### Unmatched
+A card says what an item still owes: find the manga, pick a status, pick a source. The order is by
+distance to done, so the ones a single click finishes come first and the ones needing a manual
+search sit behind them. The header gives both numbers, because "171 you can answer now" is a
+figure you can act on and "698 waiting" on its own is not.
 
-The anime on your lists that no relation could connect to a manga. Search any of them by title
-when you want to, hide the ones you are not interested in, and filter the rest. Nothing here is
-searched until you ask.
+Opening one asks only for what it owes. A suggestion takes a status and optionally starts
+downloading. An unmatched anime is searched by title when you ask — never before. A series waiting
+on a source shows the candidates the search found, and if it found none you paste a URL on the
+series screen. Dismissing an item stops it being suggested again, whichever of the three it
+came from.
 
-### Review
-
-The queue of series waiting for you to confirm a source. Your list's titles on one side,
-candidates from the source site on the other. Number keys confirm and advance, so a backlog can
-be cleared quickly. If the search found nothing, paste a URL directly.
+`/discovery`, `/unmatched` and `/review` redirect here.
 
 ### Downloads
 

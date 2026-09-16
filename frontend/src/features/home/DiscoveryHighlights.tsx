@@ -110,7 +110,7 @@ export function DiscoveryHighlights({
             Based on the anime you have watched.
           </p>
         </div>
-        <Link to="/discovery" className="ml-auto font-mono text-label-md text-primary hover:underline">
+        <Link to="/discover" className="ml-auto font-mono text-label-md text-primary hover:underline">
           See all
         </Link>
       </div>

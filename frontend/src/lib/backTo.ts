@@ -4,9 +4,9 @@ import type { Location } from 'react-router-dom'
  * Where a detail screen came from, and what to call it.
  *
  * The series screen used to render its back link as a hardcoded `/library`.
- * Reached from Review, from Unmatched or from Home — all of which link to a
- * series — the one control that means "go back" put the user on a screen they
- * had not been on, and the place they left was gone.
+ * Reached from Discover or from Home — both of which link to a series — the
+ * one control that means "go back" put the user on a screen they had not been
+ * on, and the place they left was gone.
  *
  * The origin travels in the link's history state rather than in a query
  * parameter: it belongs to the act of navigating, not to the series being
@@ -26,9 +26,7 @@ const LABELS: Record<string, string> = {
   '/': 'home',
   '/stats': 'statistics',
   '/library': 'library',
-  '/discovery': 'discovery',
-  '/unmatched': 'unmatched',
-  '/review': 'review',
+  '/discover': 'discover',
   '/downloads': 'downloads',
 }
 

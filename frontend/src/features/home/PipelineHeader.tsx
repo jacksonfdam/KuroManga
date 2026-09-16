@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 
-import { Badge, Button, Icon, buttonClass } from '../../ui'
+import { Button, Icon, buttonClass } from '../../ui'
 import type { DashboardIntegrations } from '../../lib/api'
 
 /**
@@ -23,13 +23,9 @@ function pipeline(connected: number, total: number) {
 
 export function PipelineHeader({
   integrations,
-  pendingMappings,
-  newSuggestions,
   onForceScan,
 }: {
   integrations: DashboardIntegrations
-  pendingMappings: number
-  newSuggestions: number
   onForceScan: () => void
 }) {
   const { connected, total } = integrations
@@ -63,22 +59,12 @@ export function PipelineHeader({
           <Button variant="surface" icon="sync" onClick={onForceScan}>
             Force scan
           </Button>
-          <Link to="/review" className={buttonClass()}>
-            <Icon name="check" />
-            Review mappings
-            {pendingMappings > 0 && <Badge tone="warning">{pendingMappings}</Badge>}
-          </Link>
-          <Link to="/discovery" className={buttonClass({ variant: 'primary' })}>
+          {/* One link where there were two, to Review and to Discovery. They
+              are one screen now, and it carries its own count in the nav a few
+              pixels away - repeating it here would be the same number twice. */}
+          <Link to="/discover" className={buttonClass({ variant: 'primary' })}>
             <Icon name="sparkle" />
-            Explore discovery
-            {newSuggestions > 0 && (
-              // Badge's own tones are built for the surfaces; on the primary
-              // fill they would sit hue-on-hue, so this borrows the count
-              // treatment Chip already uses for its active state.
-              <span className="rounded-full bg-on-primary/20 px-space-xs py-0.5 font-mono text-label-sm font-semibold text-on-primary">
-                {newSuggestions}
-              </span>
-            )}
+            Open Discover
           </Link>
         </div>
       </div>
