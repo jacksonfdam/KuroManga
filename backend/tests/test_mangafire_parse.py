@@ -83,12 +83,18 @@ def test_the_chapter_list_says_when_more_pages_follow():
     assert has_next(fixture("mangafire_chapters.json")) is True
 
 
-def test_pages_read_in_reading_order_with_no_invented_headers():
+def test_pages_read_in_reading_order_and_carry_the_referer():
+    """The CDN answers 403 without it — verified against a real chapter, where
+    the same URL returns 403 with no headers and 200 with this one.
+
+    The recording cannot show this. It was captured in a browser, which sends a
+    referer without being asked, and the first real download failed on it.
+    """
     pages = parse_pages(fixture("mangafire_pages.json"))
 
     assert len(pages) == 23
     assert pages[0].url.startswith("https://o48.mfcdn3.xyz/mf/")
-    assert all(page.headers == {} for page in pages)
+    assert all(page.headers == {"Referer": "https://mangafire.to/"} for page in pages)
     # Order is the response's order; page 20 is one of the two double spreads.
     assert pages[0].url != pages[1].url
 
