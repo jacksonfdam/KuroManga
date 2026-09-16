@@ -306,6 +306,9 @@ class _Relisting:
         self.calls += 1
         return self._lists[min(self.calls - 1, len(self._lists) - 1)]
 
+    def descramble(self, data: bytes, page: PageRef) -> bytes:
+        return data
+
 
 async def test_a_page_that_404s_makes_the_list_be_asked_for_again():
     """A 404 on a page the list named seconds ago is the address going out of
@@ -373,5 +376,101 @@ async def test_a_failure_that_is_not_a_missing_page_does_not_re_list():
             await fetch_chapter(source, "https://site.test/chapter/1", client)
 
         assert source.calls == 1
+    finally:
+        stub.close()
+
+
+async def test_transform_runs_on_the_verified_bytes_of_each_page():
+    """fetch_pages takes values, never a Source - transform is given the raw
+    bytes and the PageRef, the same two things comiciviewer.descramble needs.
+    """
+
+    def router(path, headers):
+        return 200, "image/jpeg", JPEG
+
+    def transform(data: bytes, page: PageRef) -> bytes:
+        assert data == JPEG
+        return data + page.url.encode()
+
+    stub = Stub(router)
+    try:
+        client = _client(stub, key="transform-applied")
+        pages = [PageRef(url="/page-1.jpg")]
+
+        result = await fetch_pages(client, pages, transform=transform)
+
+        assert result == [JPEG + b"/page-1.jpg"]
+    finally:
+        stub.close()
+
+
+async def test_verification_runs_before_transform_not_after():
+    """Decision 2 (#107): an HTML error page must fail before a transform
+    ever sees it - descrambling first would reassemble the error page instead
+    of rejecting it.
+    """
+
+    def router(path, headers):
+        return 200, "text/html", HTML_ERROR_PAGE
+
+    def transform(data: bytes, page: PageRef) -> bytes:
+        raise AssertionError("transform must not run on bytes that failed verification")
+
+    stub = Stub(router)
+    try:
+        client = _client(stub, key="transform-after-verify")
+        pages = [PageRef(url="/page-1.jpg")]
+
+        with pytest.raises(PageFetchError):
+            await fetch_pages(client, pages, transform=transform)
+    finally:
+        stub.close()
+
+
+async def test_fetch_pages_defaults_to_no_transform():
+    def router(path, headers):
+        return 200, "image/jpeg", JPEG
+
+    stub = Stub(router)
+    try:
+        client = _client(stub, key="no-transform")
+        pages = [PageRef(url="/page-1.jpg")]
+
+        result = await fetch_pages(client, pages)
+
+        assert result == [JPEG]
+    finally:
+        stub.close()
+
+
+async def test_fetch_chapter_passes_the_sources_own_descramble_as_the_transform():
+    """The contract (#107): fetch_chapter passes source.descramble, so a
+    source never has to know the fetcher exists to get its pages transformed.
+    """
+    from app.downloader.fetcher import fetch_chapter
+
+    def router(path, headers):
+        return 200, "image/jpeg", JPEG
+
+    class _Descrambling:
+        def __init__(self) -> None:
+            self.seen: list[str] = []
+
+        async def list_pages(self, chapter_url: str, *, language: str = "en") -> list[PageRef]:
+            return [PageRef(url="/page-1.jpg")]
+
+        def descramble(self, data: bytes, page: PageRef) -> bytes:
+            self.seen.append(page.url)
+            return b"descrambled"
+
+    stub = Stub(router)
+    try:
+        client = _client(stub, key="fetch-chapter-descrambles")
+        source = _Descrambling()
+
+        result = await fetch_chapter(source, "https://site.test/chapter/1", client)
+
+        assert result == [b"descrambled"]
+        assert source.seen == ["/page-1.jpg"]
     finally:
         stub.close()
