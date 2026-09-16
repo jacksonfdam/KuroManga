@@ -3,6 +3,7 @@
 import asyncio
 import contextlib
 import logging
+import os
 import signal
 from pathlib import Path
 
@@ -15,7 +16,7 @@ from app.catalogue.loader import load_catalogue
 from app.config import get_settings
 from app.cron import CRON_JOBS
 from app.db import get_sessionmaker
-from app.enums import JobType, Provider
+from app.enums import JobType, Lane, Provider, types_for
 
 # Importing the handler modules is what registers them.
 from app.handlers import (  # noqa: F401
@@ -206,19 +207,42 @@ async def verify_library_mount() -> None:
 async def main() -> None:
     await verify_library_mount()
     await load_registry()
+
+    lane_name = os.environ.get("LANE", Lane.FETCH.value)
+    try:
+        lane = Lane(lane_name)
+    except ValueError:
+        # A typo must not quietly lease everything, which is the behaviour the
+        # lanes exist to remove.
+        raise SystemExit(
+            f"LANE must be one of {[member.value for member in Lane]}, not {lane_name!r}"
+        ) from None
+
+    types = types_for(lane)
+    concurrency_key = (
+        settings_store.DOWNLOAD_CONCURRENCY
+        if lane is Lane.DOWNLOAD
+        else settings_store.FETCH_CONCURRENCY
+    )
+
     sessionmaker = get_sessionmaker()
     async with sessionmaker() as session:
-        concurrency = await settings_store.get_int(session, settings_store.DOWNLOAD_CONCURRENCY)
+        concurrency = await settings_store.get_int(session, concurrency_key)
         expressions = {
             job.id: await settings_store.get(session, job.setting_key) for job in CRON_JOBS
         }
 
-    scheduler = AsyncIOScheduler(timezone="UTC")
-    for job in CRON_JOBS:
-        scheduler.add_job(
-            ENQUEUERS[job.id], CronTrigger.from_crontab(expressions[job.id]), id=job.id
-        )
-    scheduler.start()
+    # The crons all enqueue fetch-lane work, and a second scheduler would fire
+    # every one of them twice against the user's real MyAnimeList and AniList
+    # accounts. One lane owns them.
+    scheduler = None
+    if lane is Lane.FETCH:
+        scheduler = AsyncIOScheduler(timezone="UTC")
+        for job in CRON_JOBS:
+            scheduler.add_job(
+                ENQUEUERS[job.id], CronTrigger.from_crontab(expressions[job.id]), id=job.id
+            )
+        scheduler.start()
 
     stop = asyncio.Event()
     loop = asyncio.get_running_loop()
@@ -227,12 +251,16 @@ async def main() -> None:
             loop.add_signal_handler(sig, stop.set)
 
     log.info(
-        "worker up: concurrency=%d %s",
+        "worker up: lane=%s concurrency=%d %s",
+        lane,
         concurrency,
-        " ".join(f"{name}='{expression}'" for name, expression in expressions.items()),
+        " ".join(f"{name}='{expression}'" for name, expression in expressions.items())
+        if scheduler is not None
+        else "(no scheduler in this lane)",
     )
-    await asyncio.gather(work_loop(concurrency, stop), reclaim_loop(stop))
-    scheduler.shutdown(wait=False)
+    await asyncio.gather(work_loop(concurrency, stop, types), reclaim_loop(stop, types))
+    if scheduler is not None:
+        scheduler.shutdown(wait=False)
     # Same reason the API closes these on shutdown: the connections and
     # cookie jars each SiteClient holds have no other owner to release them.
     await close_site_clients()

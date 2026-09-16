@@ -16,6 +16,7 @@ CRON_CHAPTER_DISCOVER = "cron_chapter_discover"
 CRON_PROGRESS_PUSH = "cron_progress_push"
 CRON_ANIME_LIST_SYNC = "cron_anime_list_sync"
 DOWNLOAD_CONCURRENCY = "download_concurrency"
+FETCH_CONCURRENCY = "fetch_concurrency"
 PER_SOURCE_CONCURRENCY = "per_source_concurrency"
 SOURCE_SEARCH_CONCURRENCY = "source_search_concurrency"
 SOURCE_SEARCH_TIMEOUT = "source_search_timeout"
@@ -76,6 +77,11 @@ def _fallback(key: str) -> str:
         case k if k == CRON_ANIME_LIST_SYNC:
             return DEFAULTS.cron_anime_list_sync
         case k if k == DOWNLOAD_CONCURRENCY:
+            return str(get_settings().download_concurrency)
+        case k if k == FETCH_CONCURRENCY:
+            # The same number downloads already used. Splitting the lanes
+            # changes what competes for a slot and nothing else: neither lane
+            # runs hotter than the single pool did, and no source sees new load.
             return str(get_settings().download_concurrency)
         case k if k == PER_SOURCE_CONCURRENCY:
             return str(DEFAULTS.per_source_concurrency)
