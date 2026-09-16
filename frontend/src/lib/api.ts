@@ -198,6 +198,9 @@ export interface Job {
   state: string
   attempts: number
   max_attempts: number
+  /** Which worker owns it: 'fetch' or 'download'. Stated by the API rather
+      than derived here, so the mapping has one home. */
+  lane: string
   last_error: string | null
   /** Whether retrying could ever help. False for an ordinary failure; true for
       one nothing about a second attempt would change. */
@@ -786,6 +789,16 @@ export const api = {
       `/api/jobs/${id}/retry`,
       { method: 'POST' },
     ),
+  retryFailed: () =>
+    request<{ ok: boolean; requeued: number }>('/api/jobs/retry-failed', { method: 'POST' }),
+  promoteQueue: (seriesId: number) =>
+    request<{ ok: boolean; moved: number }>(`/api/series/${seriesId}/queue/top`, {
+      method: 'POST',
+    }),
+  cancelQueue: (seriesId: number) =>
+    request<{ ok: boolean; dropped: number }>(`/api/series/${seriesId}/queue`, {
+      method: 'DELETE',
+    }),
   sync: (provider: string) =>
     request<{ ok: boolean }>(`/api/sync/${provider}`, { method: 'POST' }),
   settings: () => request<SettingsPayload>('/api/settings'),
