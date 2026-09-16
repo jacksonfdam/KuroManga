@@ -82,6 +82,7 @@ function Entry({
           <QuickIncrement
             progress={row.progress}
             pending={pending}
+            writable={row.writable}
             onIncrement={(next) => onIncrement(row.series_id, next)}
           />
           {/* The label carries the state: the button's own tint is the quiet

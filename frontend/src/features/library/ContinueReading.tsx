@@ -72,6 +72,7 @@ export function ContinueReading({
                   <QuickIncrement
                     progress={row.progress}
                     pending={pending.has(row.id)}
+                    writable={row.writable}
                     onIncrement={(next) => onIncrement(row.id, next)}
                   />
                   {/* The label carries the state: the button's own tint is the

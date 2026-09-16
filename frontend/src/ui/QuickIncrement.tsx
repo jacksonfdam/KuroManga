@@ -19,9 +19,15 @@ const FLASH: Record<NonNullable<FlashState>, string> = {
 // providers wears it too rather than inventing a fourth colour.
 const PENDING = 'border-tertiary/40 bg-tertiary/[0.12] text-tertiary'
 
+// Said once, for every screen that offers a write. The table row and the
+// series detail stepper are not this component, but they refuse for the
+// same reason and must not word it differently.
+export const NO_WRITE_TARGET = 'No list here can be written to — this series is only on a read-only provider'
+
 export function QuickIncrement({
   progress,
   pending = false,
+  writable = true,
   onIncrement,
 }: {
   progress: number
@@ -31,6 +37,16 @@ export function QuickIncrement({
    * rather than queueing a competing one.
    */
   pending?: boolean
+  /**
+   * Whether a write has anywhere to land. A series held only by read-only
+   * providers — MangaBaka is read, never written — fails every progress write
+   * with "no connected list entry", so the control says so before the click
+   * rather than flashing red after it.
+   *
+   * The wording lives here rather than at each caller: four screens offer this
+   * button, and four copies of one sentence is how they start disagreeing.
+   */
+  writable?: boolean
   onIncrement: (next: number) => Promise<void>
 }) {
   const { flash, busy, trigger } = useIncrementFlash(onIncrement)
@@ -46,9 +62,15 @@ export function QuickIncrement({
         event.stopPropagation()
         void trigger(progress + 1)
       }}
-      disabled={busy}
-      aria-label="Mark next chapter read"
-      title={pending ? 'Waiting for the write to reach your lists' : 'Mark next chapter read'}
+      disabled={busy || !writable}
+      aria-label={writable ? 'Mark next chapter read' : NO_WRITE_TARGET}
+      title={
+        !writable
+          ? NO_WRITE_TARGET
+          : pending
+            ? 'Waiting for the write to reach your lists'
+            : 'Mark next chapter read'
+      }
       className={`flex h-8 w-8 items-center justify-center rounded-lg border border-white/15 bg-surface-container/85 text-on-surface backdrop-blur transition-all active:scale-90 disabled:cursor-not-allowed ${
         // The flash outranks the pending tint for its 400ms: it is the answer
         // to the click that just happened, and pending is the state around it.

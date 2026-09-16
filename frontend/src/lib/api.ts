@@ -10,6 +10,9 @@ export interface Series {
   source_site: string | null
   source_url: string | null
   providers: string[]
+  /** Whether a progress or status write has anywhere to land. False for a
+      series held only by read-only providers, where every write must fail. */
+  writable: boolean
   downloaded: number
   known: number
   in_flight: number
@@ -308,6 +311,8 @@ export interface WorkerState {
 
 export interface ContinueReadingEntry {
   series_id: number
+  /** Whether a progress write has anywhere to land. */
+  writable: boolean
   title: string
   slug: string
   cover_url: string | null
