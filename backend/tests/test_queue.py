@@ -110,7 +110,7 @@ async def test_an_expired_lease_returns_the_job_to_the_pool():
         assert leased is not None and leased.id == job_id
 
         assert await repo.lease(db, types=EVERY_TYPE) is None
-        reclaimed = await repo.reclaim_expired(db)
+        reclaimed = await repo.reclaim_expired(db, types=EVERY_TYPE)
         await db.commit()
         assert reclaimed == 1
 
@@ -236,3 +236,35 @@ async def test_a_download_waits_behind_nothing_in_the_fetch_lane():
 
     assert job is not None
     assert job.type is JobType.PROGRESS_PUSH
+
+
+async def test_reclaim_leaves_the_other_lane_s_leases_alone():
+    """A download worker stopped for an hour must not strand fetch work, and a
+    fetch worker must not hand back a download it is not running."""
+    from app.enums import Lane, types_for
+
+    async with await session() as db:
+        await repo.enqueue(db, JobType.DOWNLOAD_BATCH, {"series_id": 1})
+        await db.commit()
+
+    async with await session() as db:
+        leased = await repo.lease(db, types=types_for(Lane.DOWNLOAD))
+        await db.commit()
+    assert leased is not None
+
+    async with await session() as db:
+        await db.execute(
+            text("update job set lease_until = now() - interval '1 hour' where id = :id"),
+            {"id": leased.id},
+        )
+        await db.commit()
+
+    async with await session() as db:
+        reclaimed = await repo.reclaim_expired(db, types=types_for(Lane.FETCH))
+        await db.commit()
+    assert reclaimed == 0
+
+    async with await session() as db:
+        reclaimed = await repo.reclaim_expired(db, types=types_for(Lane.DOWNLOAD))
+        await db.commit()
+    assert reclaimed == 1

@@ -258,8 +258,13 @@ async def reclaim_orphaned_chapters(session: AsyncSession) -> int:
     return len(result.fetchall())
 
 
-async def reclaim_expired(session: AsyncSession) -> int:
-    """Return jobs whose worker died to the pending pool. Returns how many."""
+async def reclaim_expired(session: AsyncSession, *, types: Sequence[str]) -> int:
+    """Return this lane's dead leases to the pending pool. Returns how many.
+
+    Scoped to the lane so neither worker depends on the other being alive: a
+    download worker stopped for an hour must not strand fetch work, and must not
+    have a job it is still running handed back by a process that cannot see it.
+    """
     result = await session.execute(
         text(
             """
@@ -267,9 +272,11 @@ async def reclaim_expired(session: AsyncSession) -> int:
                set state = 'pending', lease_until = null,
                    last_error = coalesce(last_error, 'lease expired, reclaimed')
              where state = 'leased' and lease_until < now()
+               and type = any(cast(:types as text[]))
             returning id
             """
-        )
+        ),
+        {"types": list(types)},
     )
     return len(result.fetchall())
 
