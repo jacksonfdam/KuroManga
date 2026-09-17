@@ -791,6 +791,10 @@ export const api = {
     request<{ ok: boolean; ignored: boolean }>(`/api/series/${id}/review-ignore`, {
       method: 'DELETE',
     }),
+  trackLocally: (id: number) =>
+    request<{ tracked: boolean; series_id: number }>(`/api/series/${id}/track-local`, {
+      method: 'POST',
+    }),
   confirmMapping: (id: number, sourceUrl: string) =>
     request<{ ok: boolean }>(`/api/series/${id}/mapping`, {
       method: 'POST',

@@ -891,7 +891,13 @@ def status_write_destinations() -> list[str]:
     someone a change reached a service it never touched is worse than saying
     nothing.
     """
-    return [*writable_providers(), "komga"]
+    # The local list is left out on purpose. This is what the interface names
+    # to the user before they apply anything — the services a change will
+    # reach — and the local list is this database, not a service. Naming it on
+    # every batch, when most selections hold no local entry at all, would be
+    # the same overstatement the rest of this list exists to avoid.
+    outward = [p for p in writable_providers() if p != str(Provider.LOCAL)]
+    return [*outward, "komga"]
 
 
 @router.post("/{series_id}/status")

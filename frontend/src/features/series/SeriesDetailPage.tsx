@@ -129,6 +129,7 @@ export function SeriesDetailPage() {
             refusal={refusal}
             onProgress={setProgress}
             onStatus={setListStatus}
+            onTracked={reload}
           />
 
           <ReadingFrequency frequency={detail.reading_frequency} />

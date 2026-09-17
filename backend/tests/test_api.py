@@ -14,7 +14,7 @@ from sqlalchemy import text
 from app.api.main import app
 from app.config import get_settings
 from app.db import get_sessionmaker
-from app.enums import Provider
+from app.providers import syncing_providers
 from app.sources import mangadex_auth
 
 pytestmark = pytest.mark.asyncio
@@ -84,7 +84,9 @@ async def test_series_list_accepts_a_state_filter(client):
 async def test_settings_expose_defaults_and_provider_status(client):
     body = (await client.get("/api/settings")).json()
     assert body["values"]["download_concurrency"]
-    assert set(body["providers"]) == {str(provider) for provider in Provider}
+    # The local list is not an integration: no account, no token, nothing to
+    # connect, so a row for it here would report a sign-in that cannot happen.
+    assert set(body["providers"]) == {str(provider) for provider in syncing_providers()}
 
 
 async def test_settings_reject_unknown_keys_instead_of_storing_them(client):
