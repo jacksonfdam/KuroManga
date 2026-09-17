@@ -25,6 +25,21 @@ class NotConnected(Exception):
     """No usable token is stored for this provider."""
 
 
+def keyed_providers() -> list[str]:
+    """Providers that are usable without a row in `provider_token`.
+
+    A provider authenticating with a configured key never stores a token, so
+    every query that decided "is this list connected?" by joining
+    `provider_token` answered no for it forever - and the write handlers skipped
+    it while reporting success on the others. They ask for this list too.
+
+    Empty configuration is the same answer as no row: a key provider nobody set
+    up is not connected, and must be skipped exactly as an unauthorised OAuth
+    one is.
+    """
+    return [str(p) for p in Provider if get_source(p).static_credential()]
+
+
 def is_expiring(expires_at: datetime | None, *, now: datetime | None = None) -> bool:
     if expires_at is None:
         return False

@@ -126,9 +126,13 @@ their site; KuroManga only ever stores the resulting token.
 MANGABAKA_TOKEN=
 ```
 
-An API key from your MangaBaka account settings, used to read your library there. MangaBaka
-grants this key full access to your account, so treat it with more care than the others — it
-belongs only in `.env`.
+An API key from your MangaBaka account settings, used to read your library there and to write
+status and progress back to it. MangaBaka grants this key full access to your account — it is not
+scoped to the library — so treat it with more care than the others: it belongs only in `.env`, it
+is never written to the database, and revoking it is the first response to anything suspicious.
+
+Leave it empty and MangaBaka is simply absent. Nothing is read and nothing is written; the other
+lists are unaffected.
 
 ### MangaDex (optional)
 

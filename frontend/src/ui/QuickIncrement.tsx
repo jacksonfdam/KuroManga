@@ -38,10 +38,11 @@ export function QuickIncrement({
    */
   pending?: boolean
   /**
-   * Whether a write has anywhere to land. A series held only by read-only
-   * providers — MangaBaka is read, never written — fails every progress write
-   * with "no connected list entry", so the control says so before the click
-   * rather than flashing red after it.
+   * Whether a write has anywhere to land. A series held only by providers the
+   * pipeline cannot write to — one that is read-only, or one whose credential
+   * was never configured — fails every progress write with "no connected list
+   * entry", so the control says so before the click rather than flashing red
+   * after it.
    *
    * The wording lives here rather than at each caller: four screens offer this
    * button, and four copies of one sentence is how they start disagreeing.
