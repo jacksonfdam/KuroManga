@@ -16,14 +16,14 @@ type Integration = { name: string; state: string; detail: string | null }
 // library, which meant the interface had a shelf where its dashboard should
 // be. Statistics sits beside it, as the design has it: the two answer the same
 // kind of question — what is happening, and what has happened — before the
-// shelf and the queues that act on it.
-const NAV: { to: string; label: string; icon: IconName; badge?: 'review' | 'jobs' | 'suggestions' }[] = [
+// shelf and the queues that act on it. Discovery, Unmatched and Review used to
+// take three entries between them; they were three stages of one question and
+// are one entry now.
+const NAV: { to: string; label: string; icon: IconName; badge?: 'discover' | 'jobs' }[] = [
   { to: '/', label: 'Home', icon: 'server' },
   { to: '/stats', label: 'Statistics', icon: 'chart' },
   { to: '/library', label: 'Library', icon: 'book' },
-  { to: '/discovery', label: 'Discovery', icon: 'sparkle', badge: 'suggestions' },
-  { to: '/unmatched', label: 'Unmatched', icon: 'search' },
-  { to: '/review', label: 'Review', icon: 'check', badge: 'review' },
+  { to: '/discover', label: 'Discover', icon: 'sparkle', badge: 'discover' },
   { to: '/downloads', label: 'Downloads', icon: 'download', badge: 'jobs' },
   { to: '/settings', label: 'Settings', icon: 'settings' },
 ]
@@ -40,21 +40,23 @@ const STATE_LABEL: Record<string, string> = {
 
 export function AppShell() {
   const [counts, setCounts] = useState<Record<string, number>>({})
-  const [reviewCount, setReviewCount] = useState(0)
-  const [suggestionCount, setSuggestionCount] = useState(0)
+  const [actionable, setActionable] = useState(0)
   const [integrations, setIntegrations] = useState<Integration[]>([])
   const { notice, report, fail } = useNotice()
 
-  // These four feed badges and the status strip, not the screen below. A
+  // These three feed badges and the status strip, not the screen below. A
   // failure here degrades those to zero and to nothing, which the screens
   // themselves report properly, so it stays quiet rather than covering every
   // page with a banner the user cannot act on.
   const refresh = () => {
     api.jobCounts().then(setCounts).catch(() => undefined)
-    // The queue endpoint is the one that knows about ignored series; counting
-    // needs_review here would overstate the badge by however many were ignored.
-    api.reviewQueue().then((q) => setReviewCount(q.total)).catch(() => undefined)
-    api.suggestionCounts().then((c) => setSuggestionCount(c.new ?? 0)).catch(() => undefined)
+    // The badge is the feed's own actionable count rather than a sum of the
+    // three queues it replaced: one page asks the question, so one number
+    // answers it, and the nav cannot disagree with the screen it points at.
+    // A single row is requested because only the count is read here.
+    api.discover({ q: '', kinds: [], sort: 'rank', page: 1, per: 1 })
+      .then((feed) => setActionable(feed.actionable))
+      .catch(() => undefined)
     api.integrations().then(setIntegrations).catch(() => undefined)
   }
 
@@ -79,9 +81,8 @@ export function AppShell() {
   }
 
   const badges: Record<string, number> = {
-    review: reviewCount,
+    discover: actionable,
     jobs: (counts.leased ?? 0) + (counts.pending ?? 0),
-    suggestions: suggestionCount,
   }
 
   return (

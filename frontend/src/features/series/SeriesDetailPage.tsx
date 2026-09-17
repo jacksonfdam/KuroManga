@@ -169,7 +169,7 @@ export function SeriesDetailPage() {
         </div>
 
         <aside className="flex flex-col gap-space-md">
-          <MappingPanel mapping={mapping} onResearch={research} onRemap={remap} />
+          <MappingPanel seriesId={series.id} mapping={mapping} onResearch={research} onRemap={remap} />
           <SyncTargets entries={entries} />
           <DownloadControls
             autoDownload={series.auto_download}

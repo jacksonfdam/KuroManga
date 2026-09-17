@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
-import { Button, Card, Icon } from '../../ui'
-import { messageOf } from '../../lib/api'
+import { Button, CandidateList, Card, Icon, Skeleton, type SourceChoice } from '../../ui'
+import { api, messageOf } from '../../lib/api'
+import { useJobEvents } from '../../lib/useEvents'
 import { PROVIDER_LABEL } from '../../lib/format'
 
 // Markup reference: the "Pipeline & Mapeamento" block in
@@ -11,10 +12,12 @@ import { PROVIDER_LABEL } from '../../lib/format'
 // source_site/source_url pair, nothing else) — so this shows only that pair
 // and the action that requests a new one.
 export function MappingPanel({
+  seriesId,
   mapping,
   onResearch,
   onRemap,
 }: {
+  seriesId: number
   mapping: { source_site: string; source_url: string } | null
   onResearch: () => Promise<unknown>
   /** Supersede the mapping with a URL typed by hand. */
@@ -24,6 +27,36 @@ export function MappingPanel({
   const [error, setError] = useState<string | null>(null)
   const [draft, setDraft] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [candidates, setCandidates] = useState<SourceChoice[] | null>(null)
+
+  const loadCandidates = useCallback(() => {
+    api
+      .candidates(seriesId)
+      .then((payload) =>
+        setCandidates(
+          payload.candidates.map((c) => ({
+            url: c.source_url,
+            site: c.source_site,
+            score: c.score,
+            title: c.title,
+            cover_url: c.cover_url,
+            chapters: c.chapter_count,
+            year: c.year,
+          })),
+        ),
+      )
+      .catch(() => setCandidates([]))
+  }, [seriesId])
+
+  useEffect(loadCandidates, [loadCandidates])
+
+  // The search is a job, and the candidates land when it finishes. Without
+  // this the reader queues a search, is told it is queued, and has to reload
+  // the page to find out it found anything — which is exactly the complaint
+  // the Review screen used to draw.
+  useJobEvents((event) => {
+    if (event.event !== 'job.progress') loadCandidates()
+  })
 
   const save = async () => {
     if (draft === null) return
@@ -41,6 +74,20 @@ export function MappingPanel({
       // The address stays in the box on a refusal. The API rejects a URL no
       // source owns, and retyping it from memory is the last thing someone
       // whose paste was just rejected wants to do.
+      setError(messageOf(err))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  /** Taking a candidate is the same act as pasting its address, so it takes
+      the same path — one refusal message, one reload, one place to change. */
+  const confirm = async (url: string) => {
+    setSaving(true)
+    setError(null)
+    try {
+      await onRemap(url)
+    } catch (err) {
       setError(messageOf(err))
     } finally {
       setSaving(false)
@@ -116,9 +163,28 @@ export function MappingPanel({
         </div>
       ) : (
         <p className="text-body-sm text-on-surface-variant">
-          No source mapped yet — downloads cannot start until one is confirmed in Review.
+          No source mapped yet — downloads cannot start until one is confirmed.
         </p>
       )}
+
+      {/* Shown whether or not a mapping exists: re-running the search on a
+          mapped series is how a wrong mapping gets corrected, and parking the
+          results somewhere the reader cannot see them is what made that
+          impossible. */}
+      {candidates === null ? (
+        <Skeleton className="h-12 w-full" />
+      ) : candidates.length > 0 ? (
+        <div className="flex flex-col gap-space-xs">
+          <span className="font-mono text-label-sm uppercase tracking-wide text-outline">
+            {mapping ? 'Other sources found' : 'Sources found'}
+          </span>
+          <CandidateList
+            candidates={candidates.filter((c) => c.url !== mapping?.source_url)}
+            busy={saving}
+            onChoose={(candidate) => void confirm(candidate.url)}
+          />
+        </div>
+      ) : null}
       {draft === null && (
         <div className="flex flex-wrap items-center gap-space-xs">
           <Button

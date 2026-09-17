@@ -192,6 +192,48 @@ export interface ReviewQueue {
   items: ReviewQueueItem[]
 }
 
+export type DiscoverKind = 'suggestion' | 'review' | 'unmatched'
+export type DiscoverSort = 'rank' | 'title' | '-title' | 'added' | '-added'
+
+export interface DiscoverQuery {
+  q: string
+  kinds: DiscoverKind[]
+  sort: DiscoverSort
+  page: number
+  per: number
+}
+
+export interface DiscoverFeed {
+  items: DiscoverItem[]
+  total: number
+  actionable: number
+  page: number
+  per: number
+  pages: number
+}
+
+export interface DiscoverItem {
+  kind: DiscoverKind
+  id: number
+  series_id: number | null
+  title: string
+  cover_url: string | null
+  /** Why this is in front of you: which anime it came from, or that it is on
+      your list with no source. */
+  why: string
+  /** The step owed now, and only that one. What an item owes after it is
+      answered depends on the answer, and a card that named the whole journey
+      was promising steps this screen has no control for. */
+  needs: string[]
+  candidates: { url: string; site: string; score: number; chapters?: number }[]
+  /** A source good enough to take without a decision. */
+  confident: boolean
+  candidate_count: number
+  /** When it arrived. Null for an unmatched anime: `anime_entry` records only
+      when the sync last touched the row, so there is no answer to give. */
+  added_at: string | null
+}
+
 export interface Job {
   id: number
   type: string
@@ -796,6 +838,18 @@ export const api = {
     }),
   clearFailedJobs: () =>
     request<{ ok: boolean; cleared: number }>('/api/jobs/failed', { method: 'DELETE' }),
+  discover: (query: DiscoverQuery) => {
+    const params = new URLSearchParams({
+      sort: query.sort,
+      page: String(query.page),
+      per: String(query.per),
+    })
+    if (query.q) params.set('q', query.q)
+    // Repeated rather than comma-joined: the endpoint declares a list of
+    // enums, and one value carrying two names would be refused as neither.
+    for (const kind of query.kinds) params.append('kind', kind)
+    return request<DiscoverFeed>(`/api/discover?${params}`)
+  },
   retryFailed: () =>
     request<{ ok: boolean; requeued: number }>('/api/jobs/retry-failed', { method: 'POST' }),
   promoteQueue: (seriesId: number) =>

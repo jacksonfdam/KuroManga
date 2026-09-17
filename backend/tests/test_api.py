@@ -836,3 +836,180 @@ async def test_clearing_failed_jobs_takes_every_one_of_them(client):
             )
         ).all()
     assert rows == []
+
+
+async def test_the_discover_feed_serves_items_and_counts(client):
+    async with get_sessionmaker()() as db:
+        await db.execute(
+            text(
+                """
+                insert into series (canonical_title, slug, needs_review, meta, created_at)
+                values ('Waiting On A Source', 'waiting-on-a-source', true, '{}'::jsonb, now())
+                """
+            )
+        )
+        await db.commit()
+
+    response = await client.get("/api/discover?per=20&page=1")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["total"] >= 1
+
+    item = next(i for i in body["items"] if i["title"] == "Waiting On A Source")
+    assert item["kind"] == "review"
+    assert item["needs"] == ["source"]
+
+
+async def test_the_discover_feed_pages_without_repeating_a_row(client):
+    async with get_sessionmaker()() as db:
+        # The feed draws on three tables and this file's fixture truncates only
+        # one of them. Paging is only deterministic if the other two are empty,
+        # so this test says so rather than hoping.
+        await db.execute(text("truncate suggestion, anime_entry restart identity cascade"))
+        for n in range(3):
+            await db.execute(
+                text(
+                    """
+                    insert into series (canonical_title, slug, needs_review, meta, created_at)
+                    values (:t, :s, true, '{}'::jsonb, now())
+                    """
+                ),
+                {"t": f"Series {n}", "s": f"series-{n}"},
+            )
+        await db.commit()
+
+    first = (await client.get("/api/discover?per=2&page=1")).json()
+    second = (await client.get("/api/discover?per=2&page=2")).json()
+
+    assert len(first["items"]) == 2
+    assert (first["page"], first["per"], first["pages"]) == (1, 2, 2)
+    # Asserted on the rows this test made rather than the feed's total: the
+    # fixture here truncates series but not suggestion or anime_entry, so
+    # another test's row is legitimately in the feed and the total is not this
+    # test's to predict.
+    assert first["total"] == 3
+    seen = [i["title"] for i in first["items"] + second["items"]]
+    assert {"Series 0", "Series 1", "Series 2"} == set(seen)
+    assert {i["id"] for i in first["items"]}.isdisjoint({i["id"] for i in second["items"]})
+
+
+async def _a_feed(rows: list[tuple[str, str]]) -> None:
+    """Three tables feed Discover and this file's fixture truncates one.
+
+    Paging and filtering are only deterministic if the other two are empty, so
+    every test below says so rather than hoping.
+    """
+    async with get_sessionmaker()() as db:
+        await db.execute(
+            text("truncate suggestion, anime_entry, series restart identity cascade")
+        )
+        for title, slug in rows:
+            await db.execute(
+                text(
+                    """
+                    insert into series (canonical_title, slug, needs_review, meta, created_at)
+                    values (:t, :s, true, '{}'::jsonb, now())
+                    """
+                ),
+                {"t": title, "s": slug},
+            )
+        await db.commit()
+
+
+async def test_a_search_narrows_the_feed_and_the_counts_with_it(client):
+    """The pager reads off `total`, so an unfiltered total would page over rows
+    the grid is not showing."""
+    await _a_feed([("Vinland Saga", "vinland-saga"), ("Berserk", "berserk")])
+
+    body = (await client.get("/api/discover?q=saga")).json()
+
+    assert [i["title"] for i in body["items"]] == ["Vinland Saga"]
+    assert body["total"] == 1
+    assert body["pages"] == 1
+
+
+async def test_a_search_is_indifferent_to_case(client):
+    await _a_feed([("Vinland Saga", "vinland-saga")])
+
+    body = (await client.get("/api/discover?q=VINLAND")).json()
+
+    assert [i["title"] for i in body["items"]] == ["Vinland Saga"]
+
+
+async def test_a_kind_filter_keeps_only_that_kind(client):
+    await _a_feed([("A Series", "a-series")])
+    async with get_sessionmaker()() as db:
+        await db.execute(
+            text(
+                """
+                insert into suggestion (provider, provider_media_id, title, state,
+                                        rank_score, meta, created_at)
+                values ('anilist', '7001', 'A Suggestion', 'new', 0.5, '{}'::jsonb, now())
+                """
+            )
+        )
+        await db.commit()
+
+    body = (await client.get("/api/discover?kind=suggestion")).json()
+
+    assert [i["title"] for i in body["items"]] == ["A Suggestion"]
+    assert body["total"] == 1
+
+
+async def test_two_kinds_keep_both(client):
+    await _a_feed([("A Series", "a-series")])
+    async with get_sessionmaker()() as db:
+        await db.execute(
+            text(
+                """
+                insert into suggestion (provider, provider_media_id, title, state,
+                                        rank_score, meta, created_at)
+                values ('anilist', '7002', 'A Suggestion', 'new', 0.5, '{}'::jsonb, now())
+                """
+            )
+        )
+        await db.commit()
+
+    body = (await client.get("/api/discover?kind=suggestion&kind=review")).json()
+
+    assert body["total"] == 2
+
+
+async def test_an_unknown_kind_is_refused_rather_than_silently_ignored(client):
+    """Ignoring it would answer the whole feed to a request that asked for a
+    slice of it, which reads as the filter being broken."""
+    assert (await client.get("/api/discover?kind=nonsense")).status_code == 422
+
+
+async def test_sorting_by_title_overrides_the_ranking(client):
+    await _a_feed(
+        [("Zeta", "zeta"), ("Alpha", "alpha"), ("Mu", "mu")]
+    )
+
+    ascending = (await client.get("/api/discover?sort=title")).json()
+    descending = (await client.get("/api/discover?sort=-title")).json()
+
+    assert [i["title"] for i in ascending["items"]] == ["Alpha", "Mu", "Zeta"]
+    assert [i["title"] for i in descending["items"]] == ["Zeta", "Mu", "Alpha"]
+
+
+async def test_a_page_past_the_end_is_empty_rather_than_an_error(client):
+    """A stale link and a shrinking feed both land here, and neither is a fault."""
+    await _a_feed([("Only One", "only-one")])
+
+    response = await client.get("/api/discover?page=9&per=20")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["items"] == []
+    assert body["total"] == 1
+
+
+async def test_an_empty_feed_still_reports_one_page(client):
+    """Zero pages would make the pager read "page 1 of 0"."""
+    await _a_feed([])
+
+    body = (await client.get("/api/discover")).json()
+
+    assert (body["total"], body["pages"], body["page"]) == (0, 1, 1)

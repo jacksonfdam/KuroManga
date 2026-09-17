@@ -21,8 +21,9 @@ from app.downloader.comicinfo import ComicInfo
 from app.downloader.fetcher import fetch_chapter
 from app.downloader.limits import source_semaphore
 from app.downloader.paths import chapter_path
-from app.enums import JobType
+from app.enums import JobType, Provider
 from app.handlers.base import JobContext, PermanentError, register
+from app.providers import mangabaka
 from app.queue import repo
 from app.sources import source_for_url
 from app.sources.base import ChapterUnavailable
@@ -91,18 +92,45 @@ async def load_catalogue_row(session: AsyncSession, key: str) -> CatalogueRow:
     )
 
 
+def _list_metadata(raw: dict[str, Any]) -> dict[str, Any]:
+    """The same fields out of a MyAnimeList or AniList entry.
+
+    Neither states who drew the work apart from who wrote it, so `penciller` is
+    left empty here and only a MangaBaka entry can fill it.
+    """
+    media = raw.get("media") or (raw.get("node") or {})
+    year = (media.get("startDate") or {}).get("year")
+    if not year and media.get("start_date"):
+        year = str(media["start_date"])[:4]
+    return {
+        "summary": media.get("description") or media.get("synopsis"),
+        "writer": primary_author(media),
+        "penciller": None,
+        "genres": [
+            genre["name"] if isinstance(genre, dict) else str(genre)
+            for genre in media.get("genres") or []
+        ],
+        "year": year,
+    }
+
+
 async def build_comicinfo(session: AsyncSession, ctx_row: dict[str, Any]) -> ComicInfo:
-    """Metadata comes from whichever provider entry carries the most detail."""
+    """Metadata comes from whichever provider entry carries the most detail.
+
+    MangaBaka is read first, field by field, because it is the only one that
+    separates the author from the artist and the only one whose genres come from
+    a single vocabulary; the others fill whatever it left empty.
+    """
     result = await session.execute(
         text(
             """
-            select title_english, title_romaji, total_chapters, raw
+            select provider, title_english, title_romaji, total_chapters, raw
               from list_entry
              where series_id = :series_id
-             order by (raw is not null) desc, updated_at desc
+             order by (provider = :preferred) desc, (raw is not null) desc, updated_at desc
             """
         ),
-        {"series_id": ctx_row["series_id"]},
+        {"series_id": ctx_row["series_id"], "preferred": str(Provider.MANGABAKA)},
     )
     rows = result.all()
 
@@ -111,19 +139,21 @@ async def build_comicinfo(session: AsyncSession, ctx_row: dict[str, Any]) -> Com
     year = None
     total = None
     writer = None
+    penciller = None
 
     for row in rows:
         raw = row.raw or {}
-        media = raw.get("media") or (raw.get("node") or {})
-        summary = summary or media.get("description") or media.get("synopsis")
-        if not genres:
-            for genre in media.get("genres") or []:
-                genres.append(genre["name"] if isinstance(genre, dict) else str(genre))
-        year = year or (media.get("startDate") or {}).get("year")
-        if not year and media.get("start_date"):
-            year = str(media["start_date"])[:4]
+        fields = (
+            mangabaka.comic_metadata(raw)
+            if row.provider == Provider.MANGABAKA
+            else _list_metadata(raw)
+        )
+        summary = summary or fields["summary"]
+        genres = genres or fields["genres"]
+        year = year or fields["year"]
+        writer = writer or fields["writer"]
+        penciller = penciller or fields["penciller"]
         total = total or row.total_chapters
-        writer = writer or primary_author(media)
 
     return ComicInfo(
         series=ctx_row["canonical_title"],
@@ -131,6 +161,7 @@ async def build_comicinfo(session: AsyncSession, ctx_row: dict[str, Any]) -> Com
         title=ctx_row["title"],
         summary=_strip_markup(summary) if summary else None,
         writer=writer,
+        penciller=penciller,
         genres=genres[:10],
         year=int(year) if year and str(year).isdigit() else None,
         count=int(total) if total else None,

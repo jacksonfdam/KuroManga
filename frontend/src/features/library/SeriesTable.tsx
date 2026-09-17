@@ -1,5 +1,8 @@
+import { Link, useLocation } from 'react-router-dom'
+
 import { Icon, NO_WRITE_TARGET, useIncrementFlash, type FlashState } from '../../ui'
 import type { Series, SeriesState } from '../../lib/api'
+import { originState } from '../../lib/backTo'
 import { PROVIDER_LABEL, formatChapter, formatSeriesFormat } from '../../lib/format'
 import { totalChapters } from './useLibrary'
 
@@ -59,6 +62,10 @@ function SeriesRow({
   const pct = total ? Math.min(100, Math.round((row.progress / total) * 100)) : 0
   const format = formatSeriesFormat(row.format)
   const { flash, busy, trigger } = useIncrementFlash((next) => onIncrement(row.id, next))
+  // Carried into the link so the series screen's back control returns to this
+  // table, on this page, with these filters — rather than to the library's
+  // defaults, which is a screen the reader was never on.
+  const location = useLocation()
 
   return (
     <tr
@@ -85,7 +92,16 @@ function SeriesRow({
           as wide as its longest word, and one 90-character light-novel title
           pushed the pipeline column off the right edge. */}
       <td className="max-w-0 px-4">
-        <div className="flex items-center gap-3">
+        {/* The table had no way into a series at all: the grid's card is a
+            Link and this row was text. The cover and title are the link rather
+            than the whole row, because a row holds a checkbox and a stepper
+            that must stay clickable — and a table row cannot be wrapped in an
+            anchor without invalid markup. */}
+        <Link
+          to={`/series/${row.id}`}
+          state={originState(location)}
+          className="flex items-center gap-3 hover:underline"
+        >
           <div className="h-14 w-10 shrink-0 overflow-hidden rounded-lg bg-surface-container-highest shadow-sm">
             {row.cover_url && <img src={row.cover_url} alt="" className="h-full w-full object-cover" />}
           </div>
@@ -95,7 +111,7 @@ function SeriesRow({
               {[format, row.genres[0]].filter(Boolean).join(' • ') || '—'}
             </span>
           </div>
-        </div>
+        </Link>
       </td>
       <td className="px-3">
         <div className="flex flex-wrap gap-1">
