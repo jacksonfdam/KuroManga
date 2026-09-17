@@ -16,7 +16,7 @@ from app.handlers.base import JobContext, PermanentError, register
 from app.handlers.progress_write import forward_only
 from app.komga import KomgaBook, from_settings
 from app.providers import get_source
-from app.providers.tokens import access_token_for
+from app.providers.tokens import access_token_for, keyed_providers
 
 
 def highest_completed(books: list[KomgaBook], numbers: dict[str, Decimal]) -> Decimal | None:
@@ -39,16 +39,25 @@ async def chapter_numbers(session: AsyncSession, series_id: int) -> dict[str, De
 
 
 async def entries_of(session: AsyncSession, series_id: int) -> list:
+    """Every list entry this job may actually write to.
+
+    A provider authenticating with a configured key has no `provider_token` row
+    and never will, so the join alone dropped it from the loop silently - the
+    job reported the lists it did push and never mentioned the one it had not
+    looked at.
+    """
     result = await session.execute(
         text(
             """
             select e.id, e.provider, e.provider_media_id, e.user_progress_chapter
               from list_entry e
-              join provider_token t on t.provider = e.provider
+              left join provider_token t on t.provider = e.provider
              where e.series_id = :series_id
+               and (t.provider is not null
+                    or e.provider = any(cast(:keyed as text[])))
             """
         ),
-        {"series_id": series_id},
+        {"series_id": series_id, "keyed": keyed_providers()},
     )
     return result.all()
 

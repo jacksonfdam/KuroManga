@@ -13,7 +13,7 @@ from sqlalchemy import text
 from app.enums import JobType, ListStatus, Provider
 from app.handlers.base import JobContext, PermanentError, latest_payload, register
 from app.providers import get_source
-from app.providers.tokens import NotConnected, access_token_for
+from app.providers.tokens import NotConnected, access_token_for, keyed_providers
 
 
 async def latest_requested(ctx: JobContext, series_id: int) -> str | None:
@@ -35,13 +35,14 @@ async def handle(ctx: JobContext) -> None:
         text(
             """
             select e.id, e.provider, e.provider_media_id,
-                   t.provider is not null as connected
+                   (t.provider is not null
+                    or e.provider = any(cast(:keyed as text[]))) as connected
               from list_entry e
               left join provider_token t on t.provider = e.provider
              where e.series_id = :series_id
             """
         ),
-        {"series_id": series_id},
+        {"series_id": series_id, "keyed": keyed_providers()},
     )
     entries = result.all()
     if not any(entry.connected for entry in entries):

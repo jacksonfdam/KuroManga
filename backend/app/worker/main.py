@@ -35,6 +35,7 @@ from app.handlers import (  # noqa: F401
     status_write,
     suggest_build,
 )
+from app.providers.tokens import keyed_providers
 from app.queue import repo
 from app.sources import reload as reload_sources
 from app.sources.net import close_all as close_site_clients
@@ -108,10 +109,13 @@ async def enqueue_progress_push() -> None:
                 select distinct s.id
                   from series s
                   join list_entry e on e.series_id = s.id
-                  join provider_token t on t.provider = e.provider
+                  left join provider_token t on t.provider = e.provider
                  where s.komga_series_id is not null
+                   and (t.provider is not null
+                        or e.provider = any(cast(:keyed as text[])))
                 """
-            )
+            ),
+            {"keyed": keyed_providers()},
         )
         series_ids = [row[0] for row in result.all()]
         for series_id in series_ids:

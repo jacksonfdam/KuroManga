@@ -7,6 +7,7 @@ it cannot be rolled back by fixing our database.
 import pytest
 from sqlalchemy import text
 
+from app.config import get_settings
 from app.db import get_sessionmaker
 from app.enums import JobType, Lane, Provider, types_for
 from app.handlers import progress_write
@@ -208,3 +209,61 @@ async def test_the_job_pushes_the_newest_chapter_asked_for_not_the_one_it_was_qu
 
     assert pushed == [("mal", 102)]
     assert await _progress(series_id) == {"mal": 102}
+
+
+@pytest.fixture
+def mangabaka_configured(monkeypatch):
+    """A provider whose credential is configuration, not a stored token.
+
+    `get_settings` is cached, so the key has to be put in place and the cache
+    dropped on both sides of the test - a token left behind here would make the
+    next test's "not configured" case pass for the wrong reason.
+    """
+    monkeypatch.setenv("MANGABAKA_TOKEN", "mb-configured")
+    get_settings.cache_clear()
+    yield
+    get_settings.cache_clear()
+
+
+async def test_a_provider_that_authenticates_with_a_key_is_written_to(
+    pushed, mangabaka_configured
+):
+    """It has no `provider_token` row and never will.
+
+    Deciding "connected" by joining that table answered no for it forever, so
+    the handler skipped the one list this pipeline exists to keep in step, and
+    said so only in a log line nobody reads.
+    """
+    series_id = await _seed(entries=[("mangabaka", "1238", 3)], tokens=[])
+
+    await _run(series_id, 9)
+
+    assert pushed == [("mangabaka", 9)]
+    assert await _progress(series_id) == {"mangabaka": 9}
+
+
+async def test_a_key_provider_with_no_key_configured_is_not_connected(pushed):
+    """Empty configuration is the same answer as a missing token row."""
+    series_id = await _seed(entries=[("mangabaka", "1238", 3)], tokens=[])
+
+    with pytest.raises(PermanentError):
+        await _run(series_id, 9)
+
+    assert pushed == []
+
+
+async def test_a_key_provider_is_never_sent_a_chapter_that_would_lower_it(
+    pushed, mangabaka_configured
+):
+    """The forward-only guard holds for a provider that has no token row.
+
+    Reading elsewhere records progress on MangaBaka that this pipeline did not
+    make, and a write that moved that number backwards would be data loss on
+    somebody else's service, with nothing here to roll it back.
+    """
+    series_id = await _seed(entries=[("mangabaka", "1238", 40)], tokens=[])
+
+    await _run(series_id, 12)
+
+    assert pushed == []
+    assert await _progress(series_id) == {"mangabaka": 40}
