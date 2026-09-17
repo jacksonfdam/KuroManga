@@ -504,6 +504,45 @@ async def resolve_series(session: AsyncSession, dto: ListEntryDTO) -> tuple[int,
     return series_id, True
 
 
+# A series tracked locally, now also held by a list that can be written to,
+# where that list is behind what was read here. One query per sync rather than
+# one per entry: the local list only ever holds series no other list had, so
+# this finds nothing on almost every run and must not cost anything to ask.
+CARRY_SQL = """
+select e.series_id, max(own.user_progress_chapter) as chapter
+  from list_entry own
+  join list_entry e
+    on e.series_id = own.series_id
+   and e.provider <> :local
+ where own.provider = :local
+   and own.series_id is not null
+   and e.user_progress_chapter < own.user_progress_chapter
+ group by e.series_id
+"""
+
+
+async def carry_local_progress(ctx: JobContext) -> int:
+    """Hand what was read locally to a list that has since appeared.
+
+    Tracking locally is what a reader does while nothing else will take the
+    chapter. When a real list turns up holding the same series, the reading
+    recorded in the meantime would otherwise sit here and never reach it, and
+    the reader would have to type the number a second time.
+
+    The write goes through the ordinary job, so the forward-only guard still
+    decides what actually lands on the provider.
+    """
+    rows = (await ctx.session.execute(text(CARRY_SQL), {"local": str(Provider.LOCAL)})).all()
+    for row in rows:
+        await ctx.enqueue(
+            JobType.PROGRESS_WRITE,
+            {"series_id": row.series_id, "chapter": row.chapter},
+            series_id=row.series_id,
+            dedupe_key=f"progress_write:{row.series_id}",
+        )
+    return len(rows)
+
+
 @register(JobType.LIST_SYNC)
 async def handle(ctx: JobContext) -> None:
     provider = Provider(ctx.payload["provider"])
@@ -538,8 +577,11 @@ async def handle(ctx: JobContext) -> None:
                 f"processed {index}/{len(entries)}", pct=10 + 90 * index / max(len(entries), 1)
             )
 
+    carried = await carry_local_progress(ctx)
+
     await ctx.log(
         f"done: {len(entries)} entries, {created} new series"
-        + (f", {skipped} removed by the user and left out" if skipped else ""),
+        + (f", {skipped} removed by the user and left out" if skipped else "")
+        + (f", {carried} carried forward from local tracking" if carried else ""),
         pct=100,
     )
