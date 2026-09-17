@@ -103,7 +103,7 @@ async def _review(session: AsyncSession) -> list[DiscoverItem]:
 
 
 async def _unmatched(session: AsyncSession) -> list[DiscoverItem]:
-    from app.api.routes_discovery import collapsed_anime
+    from app.api.routes_discovery import unanswered_anime
 
     return [
         DiscoverItem(
@@ -120,8 +120,7 @@ async def _unmatched(session: AsyncSession) -> list[DiscoverItem]:
             # and it is the only tiebreak this kind carries.
             finished=str(anime.status) == "completed",
         )
-        for anime in await collapsed_anime(session)
-        if not anime.hidden
+        for anime in await unanswered_anime(session)
     ]
 
 

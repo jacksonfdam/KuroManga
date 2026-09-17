@@ -218,3 +218,101 @@ async def test_an_unmatched_anime_owes_a_match_and_has_no_date():
     assert [i.title for i in unmatched] == ["A Mystery Anime"]
     assert unmatched[0].needs == [Need.MATCH]
     assert unmatched[0].added_at is None
+
+
+async def test_an_anime_a_standing_suggestion_already_answers_is_not_in_the_feed():
+    """The eligibility filter is not in `collapsed_anime`.
+
+    It lived in the unmatched endpoint, and gathering from the collapse alone
+    offered every anime on the lists - including the ones already answered a
+    week ago. Adding one of those failed with "suggestion already added", which
+    is true and is not something a reader can act on.
+    """
+    async with get_sessionmaker()() as db:
+        await db.execute(
+            text(
+                """
+                insert into anime_entry
+                       (provider, provider_media_id, title_romaji, title_english,
+                        synonyms, status, progress_episode, total_episodes,
+                        related_manga, raw)
+                values ('anilist', '5001', 'Kotae Zumi', 'Already Answered',
+                        '[]'::jsonb, 'completed', 12, 12, '[]'::jsonb, '{}'::jsonb)
+                """
+            )
+        )
+        await db.execute(
+            text(
+                """
+                insert into suggestion (provider, provider_media_id, title, state,
+                                        rank_score, meta, created_at)
+                values ('anilist', '6001', 'The Manga Of It', 'added', 0.5,
+                        cast(:meta as jsonb), now())
+                """
+            ),
+            {"meta": json.dumps({"origin": {"provider": "anilist", "media_id": "5001"}})},
+        )
+        await db.commit()
+
+    async with get_sessionmaker()() as db:
+        items = await gather(db)
+
+    assert [i for i in items if i.kind == "unmatched"] == []
+
+
+async def test_an_anime_whose_only_suggestion_was_dismissed_comes_back():
+    """Rejecting one manga is not an answer about the anime: it may have been
+    the wrong manga, and the search has to stay reachable."""
+    async with get_sessionmaker()() as db:
+        await db.execute(
+            text(
+                """
+                insert into anime_entry
+                       (provider, provider_media_id, title_romaji, title_english,
+                        synonyms, status, progress_episode, total_episodes,
+                        related_manga, raw)
+                values ('anilist', '5002', 'Kotae Nashi', 'Still Unanswered',
+                        '[]'::jsonb, 'completed', 12, 12, '[]'::jsonb, '{}'::jsonb)
+                """
+            )
+        )
+        await db.execute(
+            text(
+                """
+                insert into suggestion (provider, provider_media_id, title, state,
+                                        rank_score, meta, created_at)
+                values ('anilist', '6002', 'The Wrong Manga', 'dismissed', 0.5,
+                        cast(:meta as jsonb), now())
+                """
+            ),
+            {"meta": json.dumps({"origin": {"provider": "anilist", "media_id": "5002"}})},
+        )
+        await db.commit()
+
+    async with get_sessionmaker()() as db:
+        items = await gather(db)
+
+    assert [i.title for i in items if i.kind == "unmatched"] == ["Still Unanswered"]
+
+
+async def test_an_anime_that_already_has_a_manga_relation_is_not_in_the_feed():
+    async with get_sessionmaker()() as db:
+        await db.execute(
+            text(
+                """
+                insert into anime_entry
+                       (provider, provider_media_id, title_romaji, title_english,
+                        synonyms, status, progress_episode, total_episodes,
+                        related_manga, raw)
+                values ('anilist', '5003', 'Kanren Ari', 'Has A Relation',
+                        '[]'::jsonb, 'completed', 12, 12,
+                        '[{"media_id": "77"}]'::jsonb, '{}'::jsonb)
+                """
+            )
+        )
+        await db.commit()
+
+    async with get_sessionmaker()() as db:
+        items = await gather(db)
+
+    assert [i for i in items if i.kind == "unmatched"] == []

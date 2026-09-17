@@ -570,6 +570,26 @@ async def collapsed_anime(session: AsyncSession) -> list[UnmatchedAnime]:
     return collapse_anime((await session.execute(text(ANIME_ROWS))).all())
 
 
+async def unanswered_anime(session: AsyncSession) -> list[UnmatchedAnime]:
+    """The anime still worth offering a search for.
+
+    The collapse alone is not this: it is every non-dropped row on the lists,
+    answered or not. Screens that gathered from it offered anime whose manga
+    had been added a week earlier, and adding one again failed with "suggestion
+    already added" - true, and nothing a reader can do anything about. So the
+    filter lives here rather than in a caller, where it was skipped once.
+    """
+    settled = {(row[0], row[1]) for row in (await session.execute(text(SETTLED_ROWS))).all()}
+    # One provider settling an anime settles the anime: the other row is the
+    # same show, and offering it would be offering the same search twice.
+    return [
+        anime
+        for anime in await collapsed_anime(session)
+        if not anime.hidden
+        and not any((str(m.provider), m.media_id) in settled for m in anime.members)
+    ]
+
+
 async def _load_anime(session: AsyncSession, anime_id: int) -> UnmatchedAnime:
     """Resolve by any member's id, and without the eligibility filter.
 
@@ -602,21 +622,10 @@ async def list_unmatched(
     search the twenty-five rows already loaded, which is not what a search box
     promises.
     """
-    collapsed = await collapsed_anime(session)
     if hidden:
-        items = [anime for anime in collapsed if anime.hidden]
+        items = [anime for anime in await collapsed_anime(session) if anime.hidden]
     else:
-        settled = {
-            (row[0], row[1]) for row in (await session.execute(text(SETTLED_ROWS))).all()
-        }
-        # One provider settling an anime settles the anime: the other row is the
-        # same show, and offering it would be offering the same search twice.
-        items = [
-            anime
-            for anime in collapsed
-            if not anime.hidden
-            and not any((str(m.provider), m.media_id) in settled for m in anime.members)
-        ]
+        items = await unanswered_anime(session)
     items = [anime for anime in items if anime.matches(q)]
     # Alphabetical, because five hundred rows paged by offset are only navigable
     # if the same anime is always on the same page.

@@ -1,6 +1,7 @@
 export { AddToList } from './AddToList'
 export { Badge } from './Badge'
 export { Button, buttonClass } from './Button'
+export { CandidateList, type SourceChoice } from './CandidateList'
 export { Card } from './Card'
 export { Chip } from './Chip'
 export { ConfirmDialog } from './ConfirmDialog'
