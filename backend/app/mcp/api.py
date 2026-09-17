@@ -1,10 +1,10 @@
-"""The KuroManga HTTP API, as this server's only dependency.
+"""The Soshuhen HTTP API, as this server's only dependency.
 
 The MCP server is a client of the API rather than a second entry point into the
 database. The rules about what may be queued and when already live in the API,
 and a second copy of them is one that drifts from the first.
 
-Nothing here reaches anything but `KUROMANGA_API_URL`. That is what makes the
+Nothing here reaches anything but `SOSHUHEN_API_URL`. That is what makes the
 server usable by a locally hosted model: no cloud service, no credential, no
 second container.
 """
@@ -33,13 +33,13 @@ class ApiError(RuntimeError):
         self.detail = detail
 
 
-class KuroMangaApi:
+class SoshuhenApi:
     """Thin async wrapper: one place that knows the base URL and the timeout."""
 
     def __init__(
         self, base_url: str | None = None, client: httpx.AsyncClient | None = None
     ) -> None:
-        self.base_url = (base_url or get_settings().kuromanga_api_url).rstrip("/")
+        self.base_url = (base_url or get_settings().soshuhen_api_url).rstrip("/")
         self._client = client
 
     async def _request(self, method: str, path: str, **kwargs: Any) -> Any:

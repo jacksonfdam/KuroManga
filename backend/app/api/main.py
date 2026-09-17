@@ -41,7 +41,7 @@ async def lifespan(app: FastAPI):
     await close_site_clients()
 
 
-app = FastAPI(title="KuroManga", lifespan=lifespan)
+app = FastAPI(title="Soshuhen", lifespan=lifespan)
 app.include_router(routes_series.router)
 app.include_router(routes_discovery.router)
 app.include_router(routes_discover.router)
