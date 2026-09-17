@@ -209,6 +209,12 @@ use and update the redirect URLs you registered with each list service to match.
 
 | | |
 |---|---|
+| Chapters | `LIBRARY_PATH_HOST`, `./data/manga` by default |
+| Komga's data | A Docker volume, `kuromanga_komga_config` |
+| KuroManga's database | A Docker volume, `kuromanga_pgdata` |
+| Credentials | `.env`, which is never committed |
+
+Tokens obtained by connecting a list are kept in the database, never in `.env`.
 
 ### Set `LIBRARY_PATH_HOST` to an absolute path
 
@@ -221,13 +227,6 @@ fetches them again on the next run.
 
 The worker refuses to start when the library it can see holds no archives and the database says
 chapters are downloaded, which catches this. An absolute path avoids it altogether.
-
-| Chapters | `LIBRARY_PATH_HOST`, `./data/manga` by default |
-| Komga's data | A Docker volume, `kuromanga_komga_config` |
-| KuroManga's database | A Docker volume, `kuromanga_pgdata` |
-| Credentials | `.env`, which is never committed |
-
-Tokens obtained by connecting a list are kept in the database, never in `.env`.
 
 ## When something goes wrong
 
