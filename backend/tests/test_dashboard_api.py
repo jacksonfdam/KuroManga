@@ -14,6 +14,7 @@ from sqlalchemy import text
 
 from app.api.main import app
 from app.db import get_sessionmaker
+from app.providers.mangabaka import MangaBakaSource
 from app.storage import usage
 
 pytestmark = pytest.mark.asyncio
@@ -460,7 +461,19 @@ async def test_the_recent_activity_window_does_not_reach_back_forever(client):
     assert len(body["activity"]["recent"]) == 6
 
 
-async def test_home_counts_the_status_the_library_shows(client):
+@pytest.fixture
+def read_only_provider(monkeypatch):
+    """Make MangaBaka read only for the duration of one test.
+
+    The rules below are about what a *read-only* provider may decide, not about
+    MangaBaka in particular. Every provider writes today, so the case has to be
+    staged rather than borrowed from whichever one happens to be read only this
+    month - which is how these tests came to name MangaBaka in the first place.
+    """
+    monkeypatch.setattr(MangaBakaSource, "writable", False)
+
+
+async def test_home_counts_the_status_the_library_shows(client, read_only_provider):
     """Home and the library have to mean the same thing by "reading".
 
     The library picks one status per series and prefers a provider the pipeline
@@ -493,7 +506,7 @@ async def test_home_counts_the_status_the_library_shows(client):
     assert [row["title"] for row in body["continue_reading"]] == ["Actually reading"]
 
 
-async def test_a_card_says_when_no_list_can_take_the_write(client):
+async def test_a_card_says_when_no_list_can_take_the_write(client, read_only_provider):
     """A read-only provider is not a write target, and the card has to know.
 
     MangaBaka is read and never written. A series it alone holds fails every

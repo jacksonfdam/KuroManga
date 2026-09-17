@@ -132,9 +132,11 @@ async def test_the_destinations_named_are_the_ones_a_write_reaches(client):
             "/api/series/status", json={"series_ids": ids, "status": "completed"}
         )
     ).json()
-    # MangaBaka is read only and there is no MangaDex list provider, so neither
-    # may be named. The bar shows this list to the user before they apply.
-    assert body["destinations"] == ["mal", "anilist", "komga"]
+    # Every provider the pipeline writes to, in enum order, and Komga. There is
+    # no MangaDex list provider, so it is not named. The bar shows this list to
+    # the user before they apply, so it is asked of the providers rather than
+    # typed: a list that says more than a write reaches is worse than silence.
+    assert body["destinations"] == ["mal", "anilist", "mangabaka", "komga"]
 
 
 async def test_a_repeated_apply_while_the_jobs_wait_adds_nothing(client):

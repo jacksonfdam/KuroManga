@@ -18,9 +18,10 @@ const DESTINATION_LABEL: Record<string, string> = {
  * The bar that acts on a selection, fixed to the bottom while one exists.
  *
  * The destinations are read from the API rather than written here. The obvious
- * hardcoding is already wrong — there is no MangaDex list provider, and
- * MangaBaka is read only — and a bar claiming a change reached a service it
- * never touched is worse than a bar that says nothing.
+ * hardcoding is already wrong — there is no MangaDex list provider, and which
+ * providers accept a write changes as they gain write paths — and a bar
+ * claiming a change reached a service it never touched is worse than a bar that
+ * says nothing.
  */
 export function BatchActionBar({
   count,

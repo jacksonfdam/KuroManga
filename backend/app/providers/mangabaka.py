@@ -1,17 +1,30 @@
 """MangaBaka list source.
 
-Read only for now. MangaBaka receives reading state from MangaFire, which does
-not write to MyAnimeList, so this is the one destination in the set that nothing
-else keeps in step. Reading it first lets the pipeline reconcile what is already
-recorded there before anything is written back.
+MangaBaka receives reading state from MangaFire, which does not write to
+MyAnimeList, so this is the one destination in the set that nothing else keeps
+in step. Reading it reconciles what is already recorded there; writing it back
+is what closes the gap this provider exists for.
 
-Two details of this API are easy to get wrong and are pinned by tests:
+Four details of this API are easy to get wrong and are pinned by tests:
 
 * The credential is an API key sent in `X-API-Key`. Sending it as a bearer token
   returns "Invalid access token", which reads as a bad key rather than a wrong
   header.
 * A library entry is addressed by `series_id`, not by the entry's own `id`.
   Using `id` returns 404, which reads as a missing record.
+* A write goes to `POST /v1/my/library/batch`, not to the per-series verbs.
+  Batch is the only path that creates an absent entry and patches a present one
+  under a single request; `PATCH /v1/my/library/{series_id}` answers 404 for a
+  series the library does not hold yet, and `set_status` is contracted to create
+  it. A batch of one is still a batch.
+* The API stores a submitted `progress_chapter` of 0 as null. Nothing here ever
+  sends it: the forward-only guard in the handlers only ever asks for a chapter
+  above what is recorded, so the lowest number that can reach this file is 1.
+
+The request shapes come from MangaBaka's own OpenAPI 3.1 document, which is
+served at `https://mangabaka.org/api.json` rather than under the API host. It is
+not linked anywhere; the explorer page loads it. MangaBaka states the schema has
+no 1.0 stability, so every shape it decides is pinned by a fixture here.
 """
 
 from decimal import Decimal, InvalidOperation
@@ -21,7 +34,7 @@ import httpx
 
 from app.config import get_settings
 from app.enums import ListStatus, Provider
-from app.providers.base import ListEntryDTO, ListSource
+from app.providers.base import ListEntryDTO, ListSource, NotSupported
 
 # MangaBaka's own vocabulary for `Series.type`, translated onto AniList's the
 # way MyAnimeList's `media_type` is - see MEDIA_TYPE_MAP in providers/mal.py.
@@ -38,6 +51,10 @@ KIND_MAP = {
 
 API_BASE = "https://api.mangabaka.org/v1"
 LIBRARY_PATH = "/my/library"
+# Creates an entry the library does not hold and patches one it does, per entry,
+# in a single request. The per-series verbs split that into two cases we would
+# have to tell apart from a 404.
+BATCH_PATH = "/my/library/batch"
 PAGE_LIMIT = 100
 
 # Only `reading` and `plan_to_read` were observed on a live account; the rest are
@@ -54,6 +71,19 @@ STATUS_MAP = {
     "on_hold": ListStatus.ON_HOLD,
     "paused": ListStatus.ON_HOLD,
     "dropped": ListStatus.DROPPED,
+}
+
+
+# The other direction, for writing. MangaBaka's write schema accepts a narrower
+# set than its responses carry: there is no `on_hold` and no `planned`, so the
+# value read back from an entry is not always a value that may be sent. Deriving
+# this by inverting STATUS_MAP would produce exactly those rejected spellings.
+STATE_FOR_STATUS = {
+    ListStatus.READING: "reading",
+    ListStatus.PLAN_TO_READ: "plan_to_read",
+    ListStatus.COMPLETED: "completed",
+    ListStatus.ON_HOLD: "paused",
+    ListStatus.DROPPED: "dropped",
 }
 
 
@@ -183,9 +213,7 @@ class MangaBakaSource(ListSource):
     # The key is configured, not obtained through a browser flow.
     uses_oauth = False
 
-    # Read only. Writing needs the request shapes confirmed first, and the key
-    # carries full account access, so nothing is sent until that is settled.
-    writable = False
+    writable = True
 
     def __init__(self, client: httpx.AsyncClient | None = None) -> None:
         self._client = client
@@ -204,6 +232,24 @@ class MangaBakaSource(ListSource):
         response.raise_for_status()
         return response.json()
 
+    async def _upsert(self, api_key: str, media_id: str, fields: dict[str, Any]) -> None:
+        """Write one entry, creating it when the library does not hold it yet.
+
+        Only the fields named are touched; everything else the user recorded on
+        the entry - their rating, their note, their dates - is left where it is.
+        """
+        headers = {"X-API-Key": api_key, "Accept": "application/json"}
+        url = f"{API_BASE}{BATCH_PATH}"
+        # series_id is typed as an integer upstream, and a quoted number is
+        # rejected as a validation error rather than coerced.
+        body = [{"series_id": int(media_id), **fields}]
+        if self._client is not None:
+            response = await self._client.post(url, json=body, headers=headers)
+        else:
+            async with httpx.AsyncClient(timeout=30) as client:
+                response = await client.post(url, json=body, headers=headers)
+        response.raise_for_status()
+
     async def fetch_list(self, access_token: str) -> list[ListEntryDTO]:
         entries: list[ListEntryDTO] = []
         url: str | None = f"{API_BASE}{LIBRARY_PATH}?limit={PAGE_LIMIT}"
@@ -214,6 +260,10 @@ class MangaBakaSource(ListSource):
         return entries
 
     async def push_progress(self, access_token: str, media_id: str, chapter: int) -> None:
-        raise NotImplementedError(
-            "the MangaBaka source is read only; writing is tracked separately"
-        )
+        await self._upsert(access_token, media_id, {"progress_chapter": chapter})
+
+    async def set_status(self, access_token: str, media_id: str, status: ListStatus) -> None:
+        state = STATE_FOR_STATUS.get(status)
+        if state is None:
+            raise NotSupported(f"MangaBaka has no state for {status}")
+        await self._upsert(access_token, media_id, {"state": state})

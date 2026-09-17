@@ -5,10 +5,12 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
 
 from app.api.main import app
+from app.config import get_settings
 from app.db import get_sessionmaker
 from app.enums import JobType, Lane, Provider, types_for
 from app.handlers import status_write
 from app.handlers.base import JobContext
+from app.providers.mangabaka import MangaBakaSource
 from app.queue import repo
 
 pytestmark = pytest.mark.asyncio
@@ -176,10 +178,10 @@ async def test_the_written_status_is_the_one_the_library_shows(client, monkeypat
     """The write has to win the tie-break the library sorts by.
 
     A series carries one entry per provider, and the library shows whichever was
-    updated most recently. A read-only provider is never written to, so if the
-    write leaves its own row's timestamp alone that row loses and the screen goes
-    on showing a status the user just changed. The change lands in the database
-    and looks like nothing happened.
+    updated most recently. A provider nobody connected is never written to, so
+    if the write leaves its own row's timestamp alone that row loses and the
+    screen goes on showing a status the user just changed. The change lands in
+    the database and looks like nothing happened.
     """
     async with get_sessionmaker()() as session:
         await session.execute(
@@ -190,8 +192,8 @@ async def test_the_written_status_is_the_one_the_library_shows(client, monkeypat
                 """
             )
         )
-        # The read-only entry is the most recently touched, as it would be after
-        # any sync of that provider.
+        # The unwritten entry is the most recently touched, as it would be
+        # after any sync of that provider.
         await session.execute(
             text(
                 """
@@ -248,7 +250,9 @@ async def test_the_written_status_is_the_one_the_library_shows(client, monkeypat
     assert shown == "on_hold"
 
 
-async def test_a_read_only_provider_does_not_decide_what_the_series_reads_as(client):
+async def test_a_read_only_provider_does_not_decide_what_the_series_reads_as(
+    client, monkeypatch
+):
     """The status shown is one the user can change.
 
     A series carries one entry per provider. Ordering purely by recency let a
@@ -256,7 +260,11 @@ async def test_a_read_only_provider_does_not_decide_what_the_series_reads_as(cli
     would revert with nothing on screen to explain it. A writable provider's
     status is the one their action lands in, and it outranks anything we were
     merely told.
+
+    Every provider writes today, so the read-only half of the rule is staged
+    here rather than borrowed from whichever provider happens to be read only.
     """
+    monkeypatch.setattr(MangaBakaSource, "writable", False)
     async with get_sessionmaker()() as session:
         await session.execute(
             text(
@@ -294,3 +302,63 @@ async def test_a_read_only_provider_does_not_decide_what_the_series_reads_as(cli
         "mal": "on_hold",
         "mangabaka": "reading",
     }
+
+
+@pytest.fixture
+def mangabaka_configured(monkeypatch):
+    """A provider whose credential is configuration, not a stored token."""
+    monkeypatch.setenv("MANGABAKA_TOKEN", "mb-configured")
+    get_settings.cache_clear()
+    yield
+    get_settings.cache_clear()
+
+
+async def test_a_provider_that_authenticates_with_a_key_is_written_to(
+    client, monkeypatch, mangabaka_configured
+):
+    """A series held only by a key provider still has a status written.
+
+    It has no `provider_token` row and never will, so a handler that reads
+    "connected" off that table failed the job permanently with "no connected
+    list entry" - for the one list this pipeline exists to keep in step.
+    """
+    async with get_sessionmaker()() as session:
+        await session.execute(
+            text(
+                """
+                insert into series (canonical_title, slug, needs_review, meta)
+                values ('Eleceed', 'eleceed', false, '{}'::jsonb)
+                """
+            )
+        )
+        await session.execute(
+            text(
+                """
+                insert into list_entry
+                       (provider, provider_media_id, series_id, status,
+                        user_progress_chapter, synonyms, raw)
+                values ('mangabaka', '1238', 1, 'reading', 280, '[]'::jsonb, '{}'::jsonb)
+                """
+            )
+        )
+        await repo.enqueue(
+            session,
+            JobType.STATUS_WRITE,
+            {"series_id": 1, "status": "completed"},
+            series_id=1,
+            dedupe_key="status_write:1",
+        )
+        await session.commit()
+        job = await repo.lease(session, types=EVERY_TYPE)
+        assert job is not None
+
+    written: list[tuple[str, str]] = []
+    monkeypatch.setattr(
+        status_write, "get_source", lambda provider: RecordingSource(written, provider)
+    )
+
+    async with get_sessionmaker()() as session:
+        await status_write.handle(JobContext(session=session, job=job))
+        await session.commit()
+
+    assert written == [("mangabaka", "completed")]

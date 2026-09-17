@@ -6,6 +6,8 @@ in `X-API-Key`, and an entry is identified by `series_id` rather than by its own
 `id`.
 """
 
+import json
+
 import httpx
 import pytest
 
@@ -13,7 +15,12 @@ from app.config import get_settings
 from app.enums import ListStatus, Provider
 from app.providers import get_source
 from app.providers.base import NotSupported
-from app.providers.mangabaka import MangaBakaSource, next_page, parse_library
+from app.providers.mangabaka import (
+    STATE_FOR_STATUS,
+    MangaBakaSource,
+    next_page,
+    parse_library,
+)
 
 pytestmark = pytest.mark.asyncio
 
@@ -130,15 +137,107 @@ async def test_every_page_is_walked(fixture):
     assert requested[1].endswith("page=2")
 
 
-async def test_the_source_declares_itself_read_only_and_keyless():
+async def test_the_source_declares_itself_writable_and_keyless():
     source = get_source(Provider.MANGABAKA)
-    assert source.writable is False
+    assert source.writable is True
     assert source.uses_oauth is False
 
 
-async def test_writing_is_refused_while_the_source_is_read_only():
-    with pytest.raises(NotImplementedError):
-        await MangaBakaSource().push_progress("mb-secret", "1238", 5)
+async def _capture(call) -> httpx.Request:
+    """Run one write against a transport that answers instead of the network."""
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, json={"status": 200, "data": [{"series_id": 1238,
+                                                                 "action": "updated"}]})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        await call(MangaBakaSource(client))
+    return seen[0]
+
+
+async def test_a_write_goes_to_the_batch_path_because_it_creates_what_is_absent():
+    """`PATCH /my/library/{series_id}` answers 404 for a series not in the library.
+
+    `set_status` is contracted to create the entry when it is absent, and batch
+    is the only path that creates or patches under one request. A batch of one
+    is still a batch.
+    """
+    request = await _capture(lambda source: source.push_progress("mb-secret", "1238", 12))
+
+    assert str(request.url) == "https://api.mangabaka.org/v1/my/library/batch"
+    assert request.method == "POST"
+
+
+async def test_the_key_goes_in_the_api_key_header_on_a_write_too():
+    request = await _capture(lambda source: source.push_progress("mb-secret", "1238", 12))
+
+    assert request.headers["x-api-key"] == "mb-secret"
+    assert "authorization" not in request.headers
+
+
+async def test_the_series_id_is_sent_as_a_number_not_a_string():
+    """It is typed as an integer upstream; a quoted number is a validation error."""
+    request = await _capture(lambda source: source.push_progress("mb-secret", "1238", 12))
+
+    assert json.loads(request.content) == [{"series_id": 1238, "progress_chapter": 12}]
+
+
+async def test_a_progress_write_names_no_other_field():
+    """Everything the user recorded on the entry survives a progress write.
+
+    Batch patches only the fields present, so naming a field here is what would
+    blank their rating or their note.
+    """
+    request = await _capture(lambda source: source.push_progress("mb-secret", "1238", 12))
+
+    assert set(json.loads(request.content)[0]) == {"series_id", "progress_chapter"}
+
+
+async def test_on_hold_is_written_as_paused_which_is_the_only_spelling_accepted():
+    """The write schema has no `on_hold`, though the read vocabulary is wider.
+
+    Inverting STATUS_MAP would produce exactly the spellings the API rejects.
+    """
+    request = await _capture(
+        lambda source: source.set_status("mb-secret", "1238", ListStatus.ON_HOLD)
+    )
+
+    assert json.loads(request.content) == [{"series_id": 1238, "state": "paused"}]
+
+
+@pytest.mark.parametrize(
+    ("status", "state"),
+    [
+        (ListStatus.READING, "reading"),
+        (ListStatus.PLAN_TO_READ, "plan_to_read"),
+        (ListStatus.COMPLETED, "completed"),
+        (ListStatus.DROPPED, "dropped"),
+    ],
+)
+async def test_every_status_the_pipeline_holds_has_a_state_the_api_accepts(status, state):
+    request = await _capture(lambda source: source.set_status("mb-secret", "1238", status))
+
+    assert json.loads(request.content)[0]["state"] == state
+
+
+def test_no_status_is_left_without_a_mapping():
+    """A status with no entry here would raise at write time, per series, silently."""
+    assert set(STATE_FOR_STATUS) == set(ListStatus)
+
+
+def test_every_state_written_is_one_the_api_schema_accepts():
+    """From MangaBaka's OpenAPI document, which is where these came from."""
+    assert set(STATE_FOR_STATUS.values()) <= {
+        "considering",
+        "completed",
+        "dropped",
+        "paused",
+        "plan_to_read",
+        "reading",
+        "rereading",
+    }
 
 
 async def test_the_oauth_flow_is_refused_rather_than_silently_doing_nothing():
