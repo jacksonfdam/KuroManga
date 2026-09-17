@@ -1117,3 +1117,44 @@ async def test_a_series_a_real_list_already_holds_is_refused(client):
 
 async def test_tracking_an_unknown_series_locally_is_a_404(client):
     assert (await client.post("/api/series/987654/track-local")).status_code == 404
+
+
+async def _an_aged_job(job_type: str, series_id: int, state: str, days_old: int) -> int:
+    """A job with a chosen age. The window that hides a failure is ordered by
+    `created_at desc`, so reproducing issue #228 needs the failure to be older
+    than the finished work burying it, not merely outnumbered by it.
+    """
+    async with get_sessionmaker()() as db:
+        job_id = (
+            await db.execute(
+                text(
+                    """
+                    insert into job (type, payload, state, priority, attempts, max_attempts,
+                                     series_id, permanent, created_at)
+                    values (:type, '{}'::jsonb, :state, 100, 0, 3, :series_id, false,
+                            now() - make_interval(days => :days))
+                    returning id
+                    """
+                ),
+                {"type": job_type, "state": state, "series_id": series_id, "days": days_old},
+            )
+        ).scalar_one()
+        await db.commit()
+    return int(job_id)
+
+
+async def test_an_old_failure_is_not_buried_by_newer_finished_jobs(client):
+    """The Downloads screen reads one windowed list and renders running,
+    failed and pending from it. On a settled library the window is nearly all
+    `done`, and a failure from last week sorts among them by date - so the
+    header chip counted it while the Failed section could not show it, and
+    nothing on the screen could retry it. Issue #228.
+    """
+    series_id = await _a_series("crowded-queue")
+    failure = await _an_aged_job("download_batch", series_id, "failed", days_old=7)
+    for _ in range(12):
+        await _an_aged_job("download_chapter", series_id, "done", days_old=0)
+
+    rows = (await client.get("/api/jobs?limit=5")).json()
+
+    assert failure in [row["id"] for row in rows]
