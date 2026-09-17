@@ -1,8 +1,8 @@
 import { useRef, useState } from 'react'
 
-import { Card, Icon, NO_WRITE_TARGET, NoticeBar, ProgressBar, SegmentedControl } from '../../ui'
+import { Button, Card, Icon, NO_WRITE_TARGET, NoticeBar, ProgressBar, SegmentedControl } from '../../ui'
 import type { ListStatus } from '../../lib/format'
-import { messageOf, type SeriesDetail } from '../../lib/api'
+import { api, messageOf, type SeriesDetail } from '../../lib/api'
 import { formatChapter, relativeTime } from '../../lib/format'
 import { useIncrementFlash } from '../../ui/useIncrementFlash'
 
@@ -38,6 +38,7 @@ export function ProgressManager({
   refusal,
   onProgress,
   onStatus,
+  onTracked,
 }: {
   detail: SeriesDetail
   total: number | null
@@ -50,6 +51,8 @@ export function ProgressManager({
   refusal: string | null
   onProgress: (next: number) => Promise<void>
   onStatus: (status: ListStatus) => Promise<void>
+  /** Re-read the series, so the control comes alive once a list holds it. */
+  onTracked: () => void
 }) {
   const { series, metadata } = detail
   const { busy, trigger } = useIncrementFlash(onProgress)
@@ -62,6 +65,7 @@ export function ProgressManager({
   // clears the draft has been applied, so the commit would read the abandoned
   // value out of its own closure and write it.
   const abandoned = useRef(false)
+  const [tracking, setTracking] = useState(false)
   const remaining = total != null ? Math.max(total - series.progress, 0) : null
   const estimate =
     remaining != null && minutesPerChapter != null ? remaining * minutesPerChapter : null
@@ -94,6 +98,19 @@ export function ProgressManager({
     void trigger(parsed)
   }
 
+  const trackLocally = async () => {
+    setTracking(true)
+    setStatusError(null)
+    try {
+      await api.trackLocally(series.id)
+      onTracked()
+    } catch (failure) {
+      setStatusError(messageOf(failure))
+    } finally {
+      setTracking(false)
+    }
+  }
+
   const changeStatus = (status: ListStatus) => {
     setStatusError(null)
     onStatus(status).catch((failure: unknown) => setStatusError(messageOf(failure)))
@@ -118,7 +135,17 @@ export function ProgressManager({
           does not reliably show. This is the screen a reader opens to ask why
           the number will not move, so the reason is stated rather than hovered
           for. Not an error: nothing failed, there is simply nowhere to write. */}
-      {!series.writable && <NoticeBar text={NO_WRITE_TARGET} />}
+      {!series.writable && (
+        <div className="flex flex-wrap items-center gap-space-sm">
+          <NoticeBar text={NO_WRITE_TARGET} />
+          {/* The way out, rather than only the diagnosis. A series no list
+              holds is still a series someone is reading, and the chapter has
+              to be recordable somewhere. */}
+          <Button variant="surface" icon="add" disabled={tracking} onClick={() => void trackLocally()}>
+            {tracking ? 'Setting up…' : 'Track it here'}
+          </Button>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-space-lg md:grid-cols-2">
         <div className="flex flex-col gap-space-sm">

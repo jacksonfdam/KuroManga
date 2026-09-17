@@ -27,7 +27,7 @@ from app.handlers.list_sync import (
     upsert_entry_status,
 )
 from app.handlers.suggest_build import upsert_suggestion
-from app.providers import get_source
+from app.providers import get_source, syncing_providers
 from app.providers.base import (
     MANGA_FORMATS,
     PROSE_FORMATS,
@@ -373,7 +373,7 @@ async def dismiss_suggestion(suggestion_id: int, session: Session) -> dict[str, 
 async def refresh(session: Session) -> dict[str, Any]:
     """Queue a fresh anime list pull per provider; `enqueue` skips one already pending."""
     queued = 0
-    for provider in Provider:
+    for provider in syncing_providers():
         job_id = await repo.enqueue(
             session,
             JobType.ANIME_LIST_SYNC,

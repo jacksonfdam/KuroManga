@@ -8,7 +8,7 @@ from sqlalchemy import text
 
 from app.api.main import app
 from app.db import get_sessionmaker
-from app.enums import Provider
+from app.providers import syncing_providers
 
 pytestmark = pytest.mark.asyncio
 
@@ -452,9 +452,11 @@ async def test_a_dismissed_suggestion_leaves_the_new_list(client, suggestion_id)
 
 async def test_refresh_queues_one_sync_per_provider(client, suggestion_id):
     body = (await client.post("/api/discovery/refresh")).json()
-    # One per provider. A provider with no anime side contributes nothing, which
-    # is the documented behaviour rather than a reason to special-case it here.
-    assert body["queued"] == len(Provider)
+    # One per provider with a list to pull. A provider with no anime side
+    # contributes nothing, which is the documented behaviour rather than a
+    # reason to special-case it here; the local list has no remote side at all
+    # and is never scheduled.
+    assert body["queued"] == len(syncing_providers())
 
 
 async def test_approving_leaves_the_progress_and_metadata_list_sync_already_read(

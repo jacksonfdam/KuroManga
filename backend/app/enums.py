@@ -5,6 +5,10 @@ class Provider(StrEnum):
     MAL = "mal"
     ANILIST = "anilist"
     MANGABAKA = "mangabaka"
+    #: Not a service. The list this installation keeps for itself, for a work
+    #: no remote list the user can write to holds - which is most manhwa and
+    #: manhua, and every series read before a database has catalogued it.
+    LOCAL = "local"
 
 
 class ListStatus(StrEnum):

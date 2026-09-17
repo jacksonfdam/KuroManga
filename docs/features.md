@@ -105,8 +105,13 @@ a glance whether they agree.
 
 Opening a series gives you its cover, native title, author credit and score, its synopsis and
 genres, the characters and related works its providers know about, and the chapters KuroManga has
-found against the ones you hold. From here you record progress, pick a range to download, follow the
-series, correct the source mapping, and keep private notes that go nowhere near your lists.
+found against the ones you hold. From here you record progress — type the chapter or step it — pick
+a range to download, follow the series, choose from the sources the search found or paste a URL, and
+keep private notes that go nowhere near your lists.
+
+A series no list holds yet has nowhere for a chapter to land, and says so. **Track it here** gives it
+a local entry: the reading is recorded in KuroManga and goes no further. If one of your lists later
+turns out to hold the same series, the next sync carries the chapter you recorded across to it.
 
 Where a provider serves nothing, the screen shows nothing. A release schedule and per-chapter page
 counts are absent for that reason: no source states them, and an invented figure would be worse than

@@ -167,6 +167,13 @@ class ListSource(ABC):
     #: library (MangaBaka) is never asked and never shows up as a failure.
     can_search: bool = False
 
+    #: False for a provider with no remote list to pull. The cron, the manual
+    #: sync and the anime refresh all iterate every provider, and a source that
+    #: answers from this database would be asked to fetch itself once an hour,
+    #: fail, and be reported as an integration needing a sign-in it has no way
+    #: to perform.
+    syncs: bool = True
+
     @classmethod
     def static_credential(cls) -> str | None:
         """The configured credential, for providers that do not use OAuth."""
