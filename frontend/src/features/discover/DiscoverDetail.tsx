@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 
-import { AddToList, Button, DetailPanel, Skeleton } from '../../ui'
+import { AddToList, Button, CandidateList, DetailPanel, Skeleton, type SourceChoice } from '../../ui'
 import { api, type DiscoverItem, type SearchCandidate } from '../../lib/api'
 import { DEFAULT_STATUS, type ListStatus } from '../../lib/format'
 import { KIND_LABEL } from './labels'
@@ -35,9 +35,11 @@ export function DiscoverDetail({
   const [download, setDownload] = useState(false)
   const [busy, setBusy] = useState(false)
   const [failure, setFailure] = useState<string | null>(null)
-  const [sources, setSources] = useState<{ url: string; site: string; score: number }[] | null>(
-    null,
-  )
+  const [sources, setSources] = useState<SourceChoice[] | null>(null)
+  // The source to confirm once the series exists. A suggestion has no series
+  // yet, so the choice has to wait for the add rather than being made against
+  // an id that is not there.
+  const [source, setSource] = useState<string | null>(null)
   const [found, setFound] = useState<SearchCandidate[] | null>(null)
   const [picked, setPicked] = useState<SearchCandidate | null>(null)
 
@@ -57,6 +59,10 @@ export function DiscoverDetail({
               url: c.source_url,
               site: c.source_site,
               score: c.score,
+              title: c.title,
+              cover_url: c.cover_url,
+              chapters: c.chapter_count,
+              year: c.year,
             })),
           )
         }
@@ -91,7 +97,11 @@ export function DiscoverDetail({
 
   const addSuggestion = () =>
     void act(async () => {
-      await api.addSuggestion(item.id, status, download)
+      const added = await api.addSuggestion(item.id, status, download)
+      // Confirming is a second call because the add is what creates the series
+      // this mapping belongs to. Adding without a pick still works: an exact
+      // match maps itself, and anything softer comes back here needing one.
+      if (source) await api.confirmMapping(added.series_id, source)
       onDone()
     })
 
@@ -149,6 +159,24 @@ export function DiscoverDetail({
         </div>
       )}
 
+      {/* A suggestion carries the sources its search already found, and until
+          now they were served, typed and never drawn — so the one thing a
+          reader wanted to decide was the one thing the screen never offered.
+          Picking is optional: unpicked, the add maps an exact match itself. */}
+      {needs.has('status') && candidates.length > 0 && (
+        <div className="flex flex-col gap-space-xs">
+          <span className="font-mono text-label-sm uppercase tracking-wide text-outline">
+            Source {source ? '' : '(optional)'}
+          </span>
+          <CandidateList
+            candidates={candidates}
+            chosen={source}
+            busy={busy}
+            onChoose={(candidate) => setSource(source === candidate.url ? null : candidate.url)}
+          />
+        </div>
+      )}
+
       {needs.has('status') && (
         <AddToList
           idPrefix={`discover-${item.kind}-${item.id}`}
@@ -180,22 +208,18 @@ export function DiscoverDetail({
             Sources found
           </span>
           {sources === null ? (
-            <Skeleton className="h-9 w-full" />
+            <Skeleton className="h-12 w-full" />
           ) : candidates.length === 0 ? (
             <p className="text-body-sm text-outline">
               No source was found for this one. It needs a URL pasted by hand on the series page.
             </p>
           ) : (
-            candidates.map((candidate) => (
-              <Button
-                key={candidate.url}
-                variant="surface"
-                disabled={busy}
-                onClick={() => confirmSource(candidate.url)}
-              >
-                {candidate.site} · {Math.round(candidate.score * 100)}%
-              </Button>
-            ))
+            // The series already exists, so picking one confirms it outright.
+            <CandidateList
+              candidates={candidates}
+              busy={busy}
+              onChoose={(candidate) => confirmSource(candidate.url)}
+            />
           )}
         </div>
       )}

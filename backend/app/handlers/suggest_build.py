@@ -135,6 +135,10 @@ def source_summary(candidates: list[Candidate]) -> dict[str, Any]:
             "url": c.source_url,
             "chapters": c.chapter_count,
             "score": float(c.score),
+            # Recorded so a reader can tell two candidates apart. Without it a
+            # suggestion offering three MangaDex results at the same score is
+            # three identical rows, and picking between them is guesswork.
+            "title": c.title,
         }
         for c in sorted(candidates, key=lambda c: c.score, reverse=True)
     ]
