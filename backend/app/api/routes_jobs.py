@@ -33,10 +33,21 @@ select j.id, j.type, j.state, j.priority, j.attempts, j.max_attempts, j.last_err
   left join chapter c on c.id = (j.payload ->> 'chapter_id')::bigint
 """
 
+# Failed ranks with leased and pending, ahead of everything else, because the
+# Downloads screen renders exactly those three states out of one windowed read.
+# Leaving it to share a rank with `done` meant a week-old failure sorted among
+# thousands of finished jobs by date and fell off the end of the window: the
+# header chip counted it, the Failed section could not show it, and its retry
+# button was unreachable (#228). `done` fills whatever the first three leave.
 JOBS_SQL = f"""
 {JOB_COLUMNS}
  where (cast(:state as text) is null or j.state = cast(:state as text))
- order by case j.state when 'leased' then 0 when 'pending' then 1 else 2 end,
+ order by case j.state
+            when 'leased' then 0
+            when 'pending' then 1
+            when 'failed' then 2
+            else 3
+          end,
           j.priority, j.created_at desc
  limit :limit
 """
