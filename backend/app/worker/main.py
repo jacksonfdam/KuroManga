@@ -16,7 +16,7 @@ from app.catalogue.loader import load_catalogue
 from app.config import get_settings
 from app.cron import CRON_JOBS
 from app.db import get_sessionmaker
-from app.enums import JobType, Lane, Provider, types_for
+from app.enums import JobType, Lane, types_for
 
 # Importing the handler modules is what registers them.
 from app.handlers import (  # noqa: F401
@@ -35,6 +35,7 @@ from app.handlers import (  # noqa: F401
     status_write,
     suggest_build,
 )
+from app.providers import syncing_providers
 from app.providers.tokens import keyed_providers
 from app.queue import repo
 from app.sources import reload as reload_sources
@@ -48,7 +49,10 @@ log = logging.getLogger("worker")
 async def enqueue_list_sync() -> None:
     sessionmaker = get_sessionmaker()
     async with sessionmaker() as session:
-        for provider in Provider:
+        # Asked of the providers, not listed here: the local list answers from
+        # this database and has nothing to pull, and scheduling it would fail
+        # the same job every hour forever.
+        for provider in syncing_providers():
             await repo.enqueue(
                 session,
                 JobType.LIST_SYNC,
@@ -62,7 +66,7 @@ async def enqueue_list_sync() -> None:
 async def enqueue_anime_list_sync() -> None:
     sessionmaker = get_sessionmaker()
     async with sessionmaker() as session:
-        for provider in Provider:
+        for provider in syncing_providers():
             await repo.enqueue(
                 session,
                 JobType.ANIME_LIST_SYNC,

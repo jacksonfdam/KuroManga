@@ -22,7 +22,11 @@ const PENDING = 'border-tertiary/40 bg-tertiary/[0.12] text-tertiary'
 // Said once, for every screen that offers a write. The table row and the
 // series detail stepper are not this component, but they refuse for the
 // same reason and must not word it differently.
-export const NO_WRITE_TARGET = 'No list here can be written to — this series is only on a read-only provider'
+// Named the cause wrongly: it blamed a read-only provider, when every provider
+// here can be written to and the real state is that no list holds this series
+// at all. A message pointing at the wrong reason sends the reader to check a
+// setting that was never the problem.
+export const NO_WRITE_TARGET = 'No list holds this series yet, so there is nowhere to record a chapter'
 
 export function QuickIncrement({
   progress,

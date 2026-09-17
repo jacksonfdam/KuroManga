@@ -167,7 +167,12 @@ def _answer(monkeypatch, fixture, slug: str):
         return "token"
 
     monkeypatch.setattr("app.api.routes_discovery.access_token_for", token)
-    monkeypatch.setattr("app.api.routes_discovery.get_source", lambda p: sources[p])
+    # Falls through for anything this fixture does not fake. The search loop
+    # asks every provider what it is capable of, so a map covering only the
+    # ones under test turns a new provider into a KeyError here.
+    monkeypatch.setattr(
+        "app.api.routes_discovery.get_source", lambda p: sources.get(p) or get_source(p)
+    )
     return sources
 
 
