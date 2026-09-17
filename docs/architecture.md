@@ -57,6 +57,13 @@ which manga match a title, which chapters exist, which pages a chapter has — a
 fetches those pages, verifies each one is really an image, and writes the archive. Both are Python
 end to end; there is no external binary in the path.
 
+A source may also state a fourth thing, and only a scrambling site ever does: `Source.descramble`
+turns the bytes of one page into the bytes a reader can open. It is concrete and identity by
+default, so no other source carries a no-op override, and `fetch_pages` applies it **after**
+`_verify_image`, never before — reassembling first would turn an HTML error page into something
+that passes for an image. The hook keeps the import direction intact: `sources/` states what to do
+to the bytes, `downloader/` does it.
+
 That is not style. It is what lets those four be tested against recorded fixtures with no network and
 no Postgres, which is most of the suite. A database call inside a provider breaks that and will be
 rejected in review.

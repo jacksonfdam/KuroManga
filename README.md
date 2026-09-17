@@ -11,7 +11,7 @@ have not started.
 
 Self-hosted. One `docker compose up`. Nothing leaves your machine.
 
-![The KuroManga dashboard](docs/images/dashboard.png)
+![The KuroManga home screen](docs/images/home.webp)
 
 ---
 

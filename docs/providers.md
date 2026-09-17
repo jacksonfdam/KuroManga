@@ -149,9 +149,13 @@ before.
 
 ## What a source is
 
-A source answers three questions and nothing else: which manga match a title, which chapters exist
-at a URL, and which pages a chapter has. Fetching those pages, verifying they are images and writing
-the archive is the downloader's job.
+A source answers three questions: which manga match a title, which chapters exist at a URL, and which
+pages a chapter has. Fetching those pages, verifying they are images and writing the archive is the
+downloader's job.
+
+A site that scrambles its pages adds one more, `descramble(data, page) -> bytes`, which is identity
+on the base class and overridden only where a page arrives shuffled. It runs inside the downloader,
+on bytes already verified to be an image. See `comiciviewer` for the shape of one.
 
 Most sources are not written by hand. `site_catalogue` holds several hundred sites generated from
 the Tachiyomi extension repository, and a template class turns a catalogue row into a working source

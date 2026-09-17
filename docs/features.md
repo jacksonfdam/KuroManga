@@ -42,6 +42,12 @@ Failures retry on a widening schedule and then stop and say why, in plain text, 
 screen. A chapter the source does not publish in your language is marked and set aside rather
 than retried forever. A worker that dies mid-download hands its work back instead of losing it.
 
+Some sites do not serve a page as a picture of the page. They cut it into tiles and shuffle them,
+and only their own reader puts it back. KuroManga reassembles those before the archive is written,
+so what lands on disk is the page — not a mosaic that opens fine in Komga and cannot be read. The
+check that the site sent an image at all still runs first, on the bytes as they arrived, because a
+reassembled error page would otherwise start looking like a picture.
+
 ### Files a reader understands
 
 Each chapter is written as a CBZ with a `ComicInfo.xml` inside carrying series, chapter number,
@@ -70,6 +76,8 @@ the series you are part way through — each with a one-click way to record anot
 alongside the newest suggestions, what the queue has just finished, and how much room is left on
 the disk holding your library.
 
+![The Home screen](images/home.webp)
+
 ### Statistics
 
 What the library looks like as a whole, over the last 7, 30, 90 or 365 days. Totals for series
@@ -86,6 +94,8 @@ in Settings.
 A series on both MyAnimeList and AniList is counted once. It is one thing on the shelf, and counting
 it twice would inflate every distribution on the screen.
 
+![The Statistics screen](images/statistics.webp)
+
 ### Library
 
 Every series KuroManga knows about, with covers, which lists it came from, how many chapters you
@@ -93,29 +103,46 @@ have against how many exist, and its current state. Filter by state or by format
 sort by title, by what was updated most recently or by how far along you are, choose a page size,
 choose a range to download, or follow a series.
 
+Covers or a table, whichever reads better — the toggle sits with the rest of the controls. Above
+both, the series you are furthest into sit in their own strip, so the thing you came to read is not
+something you have to find first.
+
 Every one of those controls is in the address, so a filtered, sorted page can be bookmarked and
 comes back the way you left it after opening a series and pressing Back.
 
-Opening one gives you the full picture: progress with a chapter counter you can nudge, your
-rating against the global score, the source it is mapped to, every chapter and whether it is on
-disk, and a panel showing exactly what each connected list currently records — so you can see at
-a glance whether they agree.
+![The Library screen](images/library.webp)
 
 ### A series
 
-Opening a series gives you its cover, native title, author credit and score, its synopsis and
-genres, the characters and related works its providers know about, and the chapters KuroManga has
-found against the ones you hold. From here you record progress — type the chapter or step it — pick
-a range to download, follow the series, choose from the sources the search found or paste a URL, and
-keep private notes that go nowhere near your lists.
+Opening a series gives you its cover, native title, author credit, its global score and where that
+places it, its synopsis and genres, the characters and related works its providers know about, and
+the chapters KuroManga has found against the ones you hold. From here you record progress — type the
+chapter or step it — pick a range to download, follow the series, choose from the sources the search
+found or paste a URL, and keep private notes that go nowhere near your lists.
 
 A series no list holds yet has nowhere for a chapter to land, and says so. **Track it here** gives it
 a local entry: the reading is recorded in KuroManga and goes no further. If one of your lists later
 turns out to hold the same series, the next sync carries the chapter you recorded across to it.
 
+Three panels are worth knowing about before you need them:
+
+**Source mapping** names the site this series is currently read from, and keeps the other candidates
+the search turned up underneath it, each with how well it matched. If the mapping is wrong, the right
+one is usually already on that list; re-running the search asks the sites again.
+
+**Sync targets** shows, list by list, exactly what MyAnimeList, AniList and MangaBaka each record
+right now — status, chapter and when it last moved. Three lists that disagree is a thing you can see
+rather than a thing you deduce.
+
+**Reading frequency** charts this series alone, and is honest about being young: it counts reading
+events from the day they started being recorded and fills forward, so a series read for years can
+still show nothing. The panel says so on itself rather than leaving you to infer it.
+
 Where a provider serves nothing, the screen shows nothing. A release schedule and per-chapter page
 counts are absent for that reason: no source states them, and an invented figure would be worse than
 the gap.
+
+![A series](images/series.webp)
 
 ### Discover
 
@@ -146,6 +173,8 @@ again, whichever of the three it came from.
 
 `/discovery`, `/unmatched` and `/review` redirect here.
 
+![The Discover screen](images/discover.webp)
+
 ### Downloads
 
 What is running right now, with live progress. What failed, with the actual error and a retry
@@ -157,9 +186,12 @@ container output.
 Connect your lists and see when each token expires. Tune the pipeline: how many downloads run at
 once, how hard a single source may be hit, batch size, and the schedules.
 
+![The Settings screen](images/settings.webp)
+
 **Sources** is a list of every site KuroManga knows how to read — several hundred of them, generated
-from the Tachiyomi extension repository. Nothing is searched until you switch it on, and a site that
-is on is a site the review screen will offer candidates from.
+from the Tachiyomi extension repository. Search it by name or key, or narrow it to one language.
+Nothing is searched until you switch it on, and a site that is on is a site Discover will offer
+candidates from.
 
 A row that cannot be switched on says why, and the three reasons mean different things:
 
@@ -172,6 +204,8 @@ A row that cannot be switched on says why, and the three reasons mean different 
 Two sources need something from you beyond a switch. A site behind Cloudflare needs FlareSolverr
 running, and MangaFire additionally raises a challenge only a person can clear — see
 [configuration](configuration.md).
+
+![The source list in Settings, narrowed to one language](images/settings-sources.webp)
 
 ## What it reads and writes
 
