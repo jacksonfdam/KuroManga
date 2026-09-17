@@ -52,9 +52,10 @@ is a queued job, so the answer says the list is still the old one and to call ag
 
 ## Trust boundary
 
-The KuroManga API has no authentication by design — local network only. This server inherits that:
-anything able to spawn the process can queue downloads and change mappings. Acceptable on a homelab,
-and written down here so it is a decision rather than an oversight. If the API ever gains
+The KuroManga API has no authentication — local network only, and what that costs is set out in
+[configuration](configuration.md#the-stack-has-no-authentication-of-its-own). This server inherits
+it: anything able to spawn the process can queue downloads and change mappings. Acceptable on a
+homelab, and written down here so it is a decision rather than an oversight. If the API ever gains
 authentication, this server needs a credential.
 
 ## Running it
