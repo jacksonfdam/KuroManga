@@ -11,7 +11,7 @@ from app import settings_store
 from app.api.deps import db_session
 from app.config import get_settings
 from app.enums import Provider
-from app.providers import get_source
+from app.providers import get_source, syncing_providers
 from app.sources.comick_client import ComickClient
 from app.sources.mangadex_auth import tokens as mangadex_tokens
 
@@ -78,7 +78,11 @@ async def read_settings(session: Session) -> dict[str, Any]:
     return {
         "values": await settings_store.all_settings(session),
         "providers": {
-            str(provider): _provider_status(provider, connected, settings) for provider in Provider
+            # The local list is not an integration: there is no account, no
+            # token and nothing to connect, so a row for it in this panel would
+            # only ever report a sign-in that cannot be performed.
+            str(provider): _provider_status(provider, connected, settings)
+            for provider in syncing_providers()
         },
         "library_path": str(settings.library_path),
         "sources": {
