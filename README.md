@@ -50,8 +50,8 @@ Two deliberate stops, both there so your disk and your bandwidth stay yours to s
 ## Quick start
 
 ```bash
-git clone https://github.com/jacksonfdam/KuroManga.git
-cd KuroManga
+git clone https://github.com/jacksonfdam/soshuhen.git
+cd soshuhen
 cp .env.example .env      # fill in your credentials
 docker compose up -d
 ```
