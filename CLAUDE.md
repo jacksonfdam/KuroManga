@@ -113,7 +113,17 @@ first four be tested from recorded fixtures with no network.
 
 A provider is not required to use OAuth. `uses_oauth` says which kind it is, and
 `static_credential()` lets a configured key answer before the token table is consulted. `writable`
-says whether anything may be written back to it.
+says whether anything may be written back to it, `can_search` whether a title search should ask it,
+and `syncs` whether it has a remote list to pull at all.
+
+`local` is a provider with no service behind it — the list this installation keeps for itself, for a
+series no remote list holds. It is a `list_entry` row like any other, which is what lets the
+forward-only guard, the chapter ceiling, the reading-frequency log and the library's progress column
+work on it unchanged. The capability flags are what keep it out of the loops that would otherwise
+schedule it hourly against a list that does not exist, or report it as an integration awaiting a
+sign-in it cannot perform. **Ask the providers what they are capable of; never iterate the enum.**
+When a real list later turns up holding the same series, `list_sync` carries the locally recorded
+chapter across to it.
 
 **`sources/` never imports from `downloader/`.** `ChapterUnavailable` lives in `sources/base.py` for
 that reason, and a handler maps it to `PermanentError`. The import went the wrong way once and was
