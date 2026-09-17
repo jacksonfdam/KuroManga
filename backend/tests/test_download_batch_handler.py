@@ -84,6 +84,9 @@ class FakeSource:
             raise ChapterUnavailable(f"no pages found for {chapter_url}")
         return self._pages[chapter_url]
 
+    def descramble(self, data: bytes, page) -> bytes:
+        return data
+
 
 async def _series(session, site: str, title: str = "Rebirth: Monarch of the Dead") -> int:
     series_id = (

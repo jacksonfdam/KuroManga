@@ -49,8 +49,17 @@ async def fetch_pages(
     pages: list[PageRef],
     *,
     on_page: Callable[[int, int], Awaitable[None]] | None = None,
+    transform: Callable[[bytes, PageRef], bytes] | None = None,
 ) -> list[bytes]:
     """Fetch every page and return their bytes, index-aligned with `pages`.
+
+    `transform`, when given, runs on each page's bytes after verification -
+    never before: comiciviewer's descrambler is the reason this exists, and
+    descrambling a hotlinked HTML error page would reassemble it into
+    something that looks like a legitimate failure instead of getting caught.
+    Values in, values out, deliberately - this function takes PageRef and
+    bytes, never a Source, so it stays usable by anything that can produce
+    the same two things.
 
     `on_page(done, total)` is awaited as each page lands. A caller holding a
     job lease needs it: a chapter of two hundred pages against a site that
@@ -76,7 +85,7 @@ async def fetch_pages(
     async def bound(index: int, page: PageRef) -> None:
         nonlocal done
         async with semaphore:
-            results[index] = await _fetch_one(client, page)
+            results[index] = await _fetch_one(client, page, transform)
         done += 1
         if on_page is not None:
             await on_page(done, len(pages))
@@ -101,7 +110,11 @@ def _first_leaf(group: BaseException) -> BaseException:
     return group
 
 
-async def _fetch_one(client: SiteClient, page: PageRef) -> bytes:
+async def _fetch_one(
+    client: SiteClient,
+    page: PageRef,
+    transform: Callable[[bytes, PageRef], bytes] | None,
+) -> bytes:
     attempt = 1
     while True:
         try:
@@ -124,7 +137,8 @@ async def _fetch_one(client: SiteClient, page: PageRef) -> bytes:
         # A 5xx that reached here has already exhausted its retries above.
         response.raise_for_status()
 
-        return _verify_image(page, response)
+        data = _verify_image(page, response)
+        return transform(data, page) if transform is not None else data
 
 
 def _verify_image(page: PageRef, response: httpx.Response) -> bytes:
@@ -182,7 +196,7 @@ async def fetch_chapter(
         raise ChapterUnavailable(f"no pages listed for {chapter_url}")
 
     try:
-        return await fetch_pages(client, pages, on_page=on_page)
+        return await fetch_pages(client, pages, on_page=on_page, transform=source.descramble)
     except httpx.HTTPStatusError as exc:
         if exc.response.status_code not in (404, 410):
             raise
@@ -195,4 +209,4 @@ async def fetch_chapter(
     pages = await source.list_pages(chapter_url, language=language)
     if not pages:
         raise ChapterUnavailable(f"no pages listed for {chapter_url}")
-    return await fetch_pages(client, pages, on_page=on_page)
+    return await fetch_pages(client, pages, on_page=on_page, transform=source.descramble)

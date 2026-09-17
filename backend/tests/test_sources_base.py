@@ -111,3 +111,11 @@ def test_source_for_url_names_the_enabled_sites_when_nothing_matches():
         base.source_for_url("https://unrelated.example/x")
 
 
+def test_descramble_defaults_to_identity_for_a_source_that_does_not_override_it():
+    # Every source but comiciviewer serves pages as-is; the default must not
+    # touch a byte, or a source that never scrambled anything would start
+    # re-encoding every page it fetches.
+    page = base.PageRef(url="https://fake.example/1.jpg")
+    assert FakeSource().descramble(b"\xff\xd8\xff\xe0raw-bytes", page) == b"\xff\xd8\xff\xe0raw-bytes"
+
+
