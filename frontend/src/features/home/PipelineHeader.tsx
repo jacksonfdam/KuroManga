@@ -47,7 +47,7 @@ export function PipelineHeader({
       <div className="flex flex-wrap items-end justify-between gap-space-md">
         <div className="max-w-2xl">
           <h1 className="text-headline-lg font-extrabold tracking-tight text-on-surface">
-            KuroManga
+            Soshuhen
           </h1>
           <p className="mt-1 text-body-md text-on-surface-variant">
             One view of the pipeline: what the index knows, what the acquisition queue is
