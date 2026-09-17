@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 
 import { Card, Icon, NO_WRITE_TARGET, NoticeBar, ProgressBar, SegmentedControl } from '../../ui'
 import type { ListStatus } from '../../lib/format'
@@ -54,9 +54,45 @@ export function ProgressManager({
   const { series, metadata } = detail
   const { busy, trigger } = useIncrementFlash(onProgress)
   const [statusError, setStatusError] = useState<string | null>(null)
+  // What is in the box while it is being typed in. Null means the box is
+  // showing the stored chapter, so a write that lands from elsewhere - the
+  // queue settling, a sync - moves the number without fighting the caret.
+  const [draft, setDraft] = useState<string | null>(null)
+  // Escape has to beat the blur it causes. Both fire before the state that
+  // clears the draft has been applied, so the commit would read the abandoned
+  // value out of its own closure and write it.
+  const abandoned = useRef(false)
   const remaining = total != null ? Math.max(total - series.progress, 0) : null
   const estimate =
     remaining != null && minutesPerChapter != null ? remaining * minutesPerChapter : null
+
+  /**
+   * Take the typed chapter, or put the stored one back.
+   *
+   * Reaching chapter 240 by pressing + two hundred and forty times is not a
+   * thing anyone will do, and the number was a span: the one control on this
+   * screen that says where you are could not be told where you are.
+   *
+   * A blank box, a value that is not a number, and the chapter already stored
+   * all mean the same thing here - nothing to write - because none of them is
+   * a correction the reader is asking for.
+   */
+  const commit = () => {
+    const typed = draft
+    setDraft(null)
+    if (abandoned.current) {
+      abandoned.current = false
+      return
+    }
+    if (typed === null) return
+    const parsed = Number(typed.trim())
+    if (!typed.trim() || Number.isNaN(parsed) || parsed < 0) return
+    if (parsed === series.progress) return
+    // Refusals are reported by the caller: a chapter past what the series is
+    // known to have, and a number that would move a list backwards, both come
+    // back as `refusal` and are already on screen above.
+    void trigger(parsed)
+  }
 
   const changeStatus = (status: ListStatus) => {
     setStatusError(null)
@@ -100,9 +136,27 @@ export function ProgressManager({
             >
               <Icon name="chevron" className="h-4 w-4 rotate-90" />
             </button>
-            <span className="min-w-16 text-center text-headline-lg text-on-surface">
-              {formatChapter(series.progress)}
-            </span>
+            <input
+              type="text"
+              inputMode="decimal"
+              value={draft ?? formatChapter(series.progress)}
+              disabled={busy || !series.writable}
+              aria-label="Chapters read"
+              title={series.writable ? undefined : NO_WRITE_TARGET}
+              onChange={(event) => setDraft(event.target.value)}
+              // Selected on focus: the box is being opened to replace the
+              // number, not to edit a digit of it.
+              onFocus={(event) => event.target.select()}
+              onBlur={commit}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') event.currentTarget.blur()
+                if (event.key === 'Escape') {
+                  abandoned.current = true
+                  event.currentTarget.blur()
+                }
+              }}
+              className="w-20 rounded-lg bg-surface-container-high text-center text-headline-lg text-on-surface focus:outline-none focus:ring-1 focus:ring-primary disabled:cursor-not-allowed disabled:bg-transparent disabled:text-outline"
+            />
             <button
               type="button"
               disabled={busy || !series.writable}
