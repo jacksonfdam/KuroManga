@@ -174,7 +174,7 @@ running, and MangaFire additionally raises a challenge only a person can clear â
 |---|---|
 | MyAnimeList | Reads your manga and anime lists; writes status and progress back |
 | AniList | Reads your manga and anime lists; writes status and progress back |
-| MangaBaka | Reads your library |
+| MangaBaka | Reads your library; writes status and progress back |
 | MangaDex | Searches for series and fetches chapters |
 | Comick | An optional second source, self-hosted, if you run one |
 | Any enabled source site | Searched for candidates, and fetched from once a mapping is confirmed |

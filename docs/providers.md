@@ -87,12 +87,19 @@ the token store falls back to what it holds.
 
 ## MangaBaka
 
-`backend/app/providers/mangabaka.py` · API key, **read-only**
+`backend/app/providers/mangabaka.py` · API key, read and write
 
 | | |
 |---|---|
 | Base | `https://api.mangabaka.org` (`api.mangabaka.dev` is deprecated and answers 500) |
 | Library | `GET /v1/my/library`, paginated |
+| Write | `POST /v1/my/library/batch`, one entry at a time |
+| Schema | `https://mangabaka.org/api.json` — OpenAPI 3.1, **not** under the API host |
+
+**The OpenAPI document is served by the website, not the API.** Nothing links to it: the explorer
+page at `/data/api/explorer` fetches `/api.json` from its own origin, and every conventional path
+under `api.mangabaka.org` answers 404. MangaBaka states the schema has no 1.0 stability, which is
+why every shape it decides is pinned by a fixture rather than trusted to stay put.
 
 **The key goes in `X-API-Key`.** Sent as `Authorization: Bearer` it returns
 `BAD_REQUEST: Invalid access token` — byte-identical to the response for a garbage value, so the
@@ -108,8 +115,29 @@ in the library there is no title matching to do.
 `total_chapters` arrives as a **string**, and sometimes an empty one. An empty string reaching an
 integer column fails at bind time, far from the parser that let it through.
 
+**A write goes to the batch endpoint, even for one entry.** `POST /v1/my/library/batch` creates an
+entry the library does not hold and patches one it does, per entry, in a single request. The
+per-series verbs split that into two cases: `PATCH /v1/my/library/{series_id}` answers 404 for a
+series not in the library, and `set_status` is contracted to create it. Only the fields named are
+touched, so a progress write leaves the user's rating, note and dates where they are.
+
+**The write vocabulary is narrower than the read one.** `state` accepts `considering`, `completed`,
+`dropped`, `paused`, `plan_to_read`, `reading` and `rereading` — there is no `on_hold` and no
+`planned`, both of which appear in responses. Inverting the read map to write with would produce
+exactly the spellings the API rejects, which is why `STATE_FOR_STATUS` is written out separately.
+
+**A submitted `progress_chapter` of 0 is stored as null.** Nothing sends it: the forward-only guard
+only ever asks for a chapter above what is recorded, so the lowest number that reaches the provider
+is 1.
+
 The key carries **full account access**, not scoped to the library. It is a stronger credential than
 anything else here.
+
+**A provider that authenticates with a key has no `provider_token` row and never will.** Every query
+that decided "is this list connected?" by joining that table answered no for MangaBaka forever — so
+the write handlers skipped it while reporting success on the others, and the cron never queued a
+push for a series it alone held. `providers/tokens.py:keyed_providers()` is what those queries ask
+instead, and an empty `MANGABAKA_TOKEN` is the same answer as a missing row.
 
 It is also the only provider that states **authors and artists separately**, which is what fills
 `Penciller` in `ComicInfo.xml`; MyAnimeList and AniList answer with one credit list and leave the art
