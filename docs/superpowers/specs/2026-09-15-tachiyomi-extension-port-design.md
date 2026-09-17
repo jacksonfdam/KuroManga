@@ -7,13 +7,13 @@ sources download through Python. Templates and the settings screen remain. Site 
 
 ## What this changes
 
-KuroManga reaches two source sites today: MangaDex through its JSON API, and weebcentral
+Soshuhen reaches two source sites today: MangaDex through its JSON API, and weebcentral
 through comick. Both modules answer only two questions — which manga match a title, and which
 chapters exist — and the actual fetching is done by the `manga-downloader` binary, which supports
 its own closed list of domains. A site the binary does not know is unreachable no matter what the
 source layer says about it.
 
-This design replaces that arrangement. KuroManga gains its own source execution layer, ported to
+This design replaces that arrangement. Soshuhen gains its own source execution layer, ported to
 Python from the Kotlin extensions in
 [yuzono/tachiyomi-extensions](https://github.com/yuzono/tachiyomi-extensions), and its own page
 fetcher and CBZ writer. The binary is deleted. Which sites are searched becomes a setting.

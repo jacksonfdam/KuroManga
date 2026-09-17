@@ -15,7 +15,7 @@ is doing while it does it.
 
 ### One series, however many lists
 
-The same manga on MyAnimeList and on AniList is one thing, not two. KuroManga merges them into a
+The same manga on MyAnimeList and on AniList is one thing, not two. Soshuhen merges them into a
 single series, so it maps once, downloads once, and keeps one folder — no matter how many lists
 that title appears on.
 
@@ -23,7 +23,7 @@ that title appears on.
 
 Two deliberate stops:
 
-**Confirming the source.** A new entry waits on the Discover screen. KuroManga searches the source
+**Confirming the source.** A new entry waits on the Discover screen. Soshuhen searches the source
 site and shows what it found, with covers, years and chapter counts, and you pick the right one.
 An automatic guess that got this wrong would download the wrong manga for every future chapter,
 so it asks once and then remembers.
@@ -43,7 +43,7 @@ screen. A chapter the source does not publish in your language is marked and set
 than retried forever. A worker that dies mid-download hands its work back instead of losing it.
 
 Some sites do not serve a page as a picture of the page. They cut it into tiles and shuffle them,
-and only their own reader puts it back. KuroManga reassembles those before the archive is written,
+and only their own reader puts it back. Soshuhen reassembles those before the archive is written,
 so what lands on disk is the page — not a mosaic that opens fine in Komga and cannot be read. The
 check that the site sent an image at all still runs first, on the bytes as they arrived, because a
 reassembled error page would otherwise start looking like a picture.
@@ -56,12 +56,12 @@ title, author, artist, genres, year and summary, pulled from your list providers
 Files land as `Series Name - Ch.0012 - Chapter Title.cbz`, zero-padded so they sort correctly,
 and are written atomically — Komga never sees a half-finished download.
 
-Already own some chapters? Drop them into the library folder. KuroManga sees them, counts them as
+Already own some chapters? Drop them into the library folder. Soshuhen sees them, counts them as
 present, and will not download them again.
 
 ### Progress that follows you
 
-Finish a chapter in your reader and KuroManga writes that progress back to your lists.
+Finish a chapter in your reader and Soshuhen writes that progress back to your lists.
 
 It only ever moves progress forward. If a list already records a higher chapter than your reader
 does, the list wins — reading somewhere else never gets undone.
@@ -98,7 +98,7 @@ it twice would inflate every distribution on the screen.
 
 ### Library
 
-Every series KuroManga knows about, with covers, which lists it came from, how many chapters you
+Every series Soshuhen knows about, with covers, which lists it came from, how many chapters you
 have against how many exist, and its current state. Filter by state or by format, search by title,
 sort by title, by what was updated most recently or by how far along you are, choose a page size,
 choose a range to download, or follow a series.
@@ -116,12 +116,12 @@ comes back the way you left it after opening a series and pressing Back.
 
 Opening a series gives you its cover, native title, author credit, its global score and where that
 places it, its synopsis and genres, the characters and related works its providers know about, and
-the chapters KuroManga has found against the ones you hold. From here you record progress — type the
+the chapters Soshuhen has found against the ones you hold. From here you record progress — type the
 chapter or step it — pick a range to download, follow the series, choose from the sources the search
 found or paste a URL, and keep private notes that go nowhere near your lists.
 
 A series no list holds yet has nowhere for a chapter to land, and says so. **Track it here** gives it
-a local entry: the reading is recorded in KuroManga and goes no further. If one of your lists later
+a local entry: the reading is recorded in Soshuhen and goes no further. If one of your lists later
 turns out to hold the same series, the next sync carries the chapter you recorded across to it.
 
 Three panels are worth knowing about before you need them:
@@ -188,7 +188,7 @@ once, how hard a single source may be hit, batch size, and the schedules.
 
 ![The Settings screen](images/settings.webp)
 
-**Sources** is a list of every site KuroManga knows how to read — several hundred of them, generated
+**Sources** is a list of every site Soshuhen knows how to read — several hundred of them, generated
 from the Tachiyomi extension repository. Search it by name or key, or narrow it to one language.
 Nothing is searched until you switch it on, and a site that is on is a site Discover will offer
 candidates from.
@@ -221,6 +221,6 @@ running, and MangaFire additionally raises a challenge only a person can clear �
 
 ## Reading
 
-KuroManga does not include a reader, because Komga already is one and a good one. It serves a web
+Soshuhen does not include a reader, because Komga already is one and a good one. It serves a web
 reader, and any Komga-compatible app on iOS or Android connects to the same library — with your
 progress shared across all of them.

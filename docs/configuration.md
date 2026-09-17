@@ -16,7 +16,7 @@ Give it a minute on the first start — Komga builds its database, and the image
 
 Then:
 
-- **KuroManga** at http://localhost:8080
+- **Soshuhen** at http://localhost:8080
 - **Komga** at http://localhost:25600
 
 Open Settings, connect your lists, press **Sync now**, then work through the Review queue.
@@ -82,16 +82,16 @@ These live in the database and are edited in Settings, because they change witho
 | `KOMGA_URL` | Where Komga lives. Leave as the default inside Compose |
 | `KOMGA_API_KEY` | An API key from Komga: Settings, Account, API keys |
 | `KOMGA_USER` / `KOMGA_PASS` | Only needed once, to create the first Komga account |
-| `KOMGA_LIBRARY_NAME` | The library name KuroManga creates. Default `Manga` |
+| `KOMGA_LIBRARY_NAME` | The library name Soshuhen creates. Default `Manga` |
 
 One variable belongs to nothing in Compose:
 
 | | |
 |---|---|
-| `KUROMANGA_API_URL` | Where the MCP server reaches the API. Default `http://localhost:8080`. See [mcp.md](mcp.md) |
+| `SOSHUHEN_API_URL` | Where the MCP server reaches the API. Default `http://localhost:8080`. See [mcp.md](mcp.md) |
 
 On a brand-new Komga there is no account yet, so no API key can exist. Fill in `KOMGA_USER` and
-`KOMGA_PASS` and KuroManga creates the first administrator for you on startup, then creates the
+`KOMGA_PASS` and Soshuhen creates the first administrator for you on startup, then creates the
 library. After that, generate an API key and use it — it can be revoked on its own.
 
 ### Reading lists
@@ -114,11 +114,11 @@ ANILIST_CLIENT_SECRET=
 instead of `http`, `127.0.0.1` instead of `localhost`, or a different port will all be rejected —
 usually with a message about the client being invalid, which does not mention the redirect at all.
 
-If you reach KuroManga at a different address, set `PUBLIC_BASE_URL` to it. Redirect URLs are
+If you reach Soshuhen at a different address, set `PUBLIC_BASE_URL` to it. Redirect URLs are
 built from that value, and it must agree with what you registered.
 
 Once the stack is running, go to Settings and press Connect for each service. You approve on
-their site; KuroManga only ever stores the resulting token.
+their site; Soshuhen only ever stores the resulting token.
 
 ### MangaBaka (optional)
 
@@ -194,14 +194,14 @@ not look like the site itself being unreachable.
 Komga on port 25600 is what your reader connects to. Install any Komga-compatible reader, point
 it at your machine's address, and sign in with your Komga account.
 
-Progress syncs both ways: your reader tells Komga, Komga tells KuroManga, and KuroManga tells
+Progress syncs both ways: your reader tells Komga, Komga tells Soshuhen, and Soshuhen tells
 your lists.
 
 ## The stack has no authentication of its own
 
 Read this before you forward a port, and before you decide the default is fine.
 
-KuroManga ships no sign-in. There is no password, no API key and no session — not on the interface
+Soshuhen ships no sign-in. There is no password, no API key and no session — not on the interface
 and not on the API behind it. `docker compose up` publishes `:8080` on **every** interface of the
 host, and Caddy proxies `/api/*` straight through. Anyone who can reach that port has the same
 control over the pipeline that you do, without being asked for anything.
@@ -248,8 +248,8 @@ Do not forward `:8080` from a router. There is nothing behind it.
 | | |
 |---|---|
 | Chapters | `LIBRARY_PATH_HOST`, `./data/manga` by default |
-| Komga's data | A Docker volume, `kuromanga_komga_config` |
-| KuroManga's database | A Docker volume, `kuromanga_pgdata` |
+| Komga's data | A Docker volume, `soshuhen_komga_config` |
+| Soshuhen's database | A Docker volume, `soshuhen_pgdata` |
 | Credentials | `.env`, which is never committed |
 
 Tokens obtained by connecting a list are kept in the database, never in `.env`.
@@ -265,6 +265,41 @@ fetches them again on the next run.
 
 The worker refuses to start when the library it can see holds no archives and the database says
 chapters are downloaded, which catches this. An absolute path avoids it altogether.
+
+## Upgrading from KuroManga
+
+The project was called KuroManga until it was renamed. Docker Compose derives volume names from the
+project name, so an installation that predates the rename holds its data in `kuromanga_pgdata` and
+`kuromanga_komga_config` while the stack now looks for `soshuhen_pgdata` and
+`soshuhen_komga_config`. Start it without copying first and Docker creates the new volumes empty:
+the database comes up with no series and Komga comes up having forgotten the library. Nothing is
+deleted — the old volumes are still there — but the stack will happily run beside them.
+
+Copy the data across once, with the stack stopped:
+
+```bash
+docker compose down
+
+docker volume create soshuhen_pgdata
+docker run --rm -v kuromanga_pgdata:/from -v soshuhen_pgdata:/to alpine \
+  sh -c 'cd /from && cp -a . /to'
+
+docker volume create soshuhen_komga_config
+docker run --rm -v kuromanga_komga_config:/from -v soshuhen_komga_config:/to alpine \
+  sh -c 'cd /from && cp -a . /to'
+
+docker compose up -d
+```
+
+Keep the old volumes until the library, the queue and your reading progress all look right. Remove
+them with `docker volume rm kuromanga_pgdata kuromanga_komga_config` once you are sure.
+
+Two other things change with the name:
+
+- `KUROMANGA_API_URL` is now `SOSHUHEN_API_URL`. It only matters if you run the MCP server; the
+  setting is what the environment variable is read from, so the old name is no longer read at all.
+- Container names follow the project, so `kuromanga-worker-1` is now `soshuhen-worker-1`. Any script
+  or `docker inspect` invocation naming a container has to follow.
 
 ## When something goes wrong
 

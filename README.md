@@ -1,8 +1,8 @@
-# KuroManga
+# Soshuhen
 
 **Your reading lists, downloaded and organised, ready to read on any device.**
 
-KuroManga watches the manga lists you already keep on MyAnimeList, AniList and MangaBaka,
+Soshuhen watches the manga lists you already keep on MyAnimeList, AniList and MangaBaka,
 fetches the chapters you are missing, tags them properly, and hands them to
 [Komga](https://komga.org) so you can read in a browser or on your phone.
 
@@ -11,7 +11,7 @@ have not started.
 
 Self-hosted. One `docker compose up`. Nothing leaves your machine.
 
-![The KuroManga home screen](docs/images/home.webp)
+![The Soshuhen home screen](docs/images/home.webp)
 
 ---
 
@@ -21,7 +21,7 @@ Your list lives on one service. Your files live somewhere else. Keeping the two 
 manual work that never ends — checking for new chapters, finding them, naming them so a reader
 understands them, and remembering what you already have.
 
-KuroManga closes that gap and then stays out of the way.
+Soshuhen closes that gap and then stays out of the way.
 
 - **Reads the lists you already keep.** MyAnimeList, AniList and MangaBaka. No new list to
   maintain.
@@ -39,10 +39,10 @@ KuroManga closes that gap and then stays out of the way.
 
 ## Nothing downloads without you
 
-KuroManga never fetches anything on its own initiative.
+Soshuhen never fetches anything on its own initiative.
 
 A new entry on your list waits on the **Review** screen until you confirm which manga it is.
-Confirming tells KuroManga what the series *is* — not that it should go and get all of it. You
+Confirming tells Soshuhen what the series *is* — not that it should go and get all of it. You
 then choose a range, or follow the series so new chapters arrive as they are published.
 
 Two deliberate stops, both there so your disk and your bandwidth stay yours to spend.
@@ -50,8 +50,8 @@ Two deliberate stops, both there so your disk and your bandwidth stay yours to s
 ## Quick start
 
 ```bash
-git clone https://github.com/jacksonfdam/KuroManga.git
-cd KuroManga
+git clone https://github.com/jacksonfdam/soshuhen.git
+cd soshuhen
 cp .env.example .env      # fill in your credentials
 docker compose up -d
 ```
@@ -60,7 +60,7 @@ Then open **http://localhost:8080**, connect your lists in Settings, and press S
 
 Full walkthrough in [docs/configuration.md](docs/configuration.md).
 
-**KuroManga has no sign-in of its own**, and `docker compose up` publishes it on every interface of
+**Soshuhen has no sign-in of its own**, and `docker compose up` publishes it on every interface of
 the host. On a machine only you use that is fine. Before you put it anywhere else — a shared
 network, a forwarded port — read
 [the stack has no authentication of its own](docs/configuration.md#the-stack-has-no-authentication-of-its-own).
@@ -84,6 +84,6 @@ fetched and archived in Python, against source modules ported from the Tachiyomi
 
 MIT. See [LICENSE](LICENSE).
 
-KuroManga orchestrates other people's work — Komga, the extension authors whose sources it was
+Soshuhen orchestrates other people's work — Komga, the extension authors whose sources it was
 ported from, and the databases that make a reading list mean anything.
 [CREDITS.md](CREDITS.md) names them.

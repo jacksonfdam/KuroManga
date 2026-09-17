@@ -7,14 +7,14 @@ request this client sends and the refusal it raises, not FastAPI's routing.
 import httpx
 import pytest
 
-from app.mcp.api import ApiError, KuroMangaApi
+from app.mcp.api import ApiError, SoshuhenApi
 
 pytestmark = pytest.mark.asyncio
 
 
 def _api(handler):
     transport = httpx.MockTransport(handler)
-    return KuroMangaApi("http://api.test", client=httpx.AsyncClient(transport=transport))
+    return SoshuhenApi("http://api.test", client=httpx.AsyncClient(transport=transport))
 
 
 async def test_a_get_is_addressed_at_the_configured_base_url():
@@ -59,4 +59,4 @@ async def test_a_refusal_with_no_json_body_reports_what_was_sent():
 
 
 async def test_the_base_url_keeps_no_trailing_slash():
-    assert KuroMangaApi("http://api.test/").base_url == "http://api.test"
+    assert SoshuhenApi("http://api.test/").base_url == "http://api.test"

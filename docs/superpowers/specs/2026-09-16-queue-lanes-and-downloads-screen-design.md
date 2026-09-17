@@ -92,7 +92,7 @@ worker:            # LANE=fetch
 worker-download:   # LANE=download
 ```
 
-Both run `image: kuromanga:local`, as `api`, `worker` and `bootstrap` already do.
+Both run `image: soshuhen:local`, as `api`, `worker` and `bootstrap` already do.
 
 Write access belongs to `worker-download` alone — the library volume read-write, plus `PUID`/`PGID`
 — because it is the only process that writes archives.

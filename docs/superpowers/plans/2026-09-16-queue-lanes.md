@@ -631,10 +631,10 @@ Expected: `list_sync|leased` (or `done`) while `download_batch` rows are still `
 
 - [ ] **Step 5: Confirm each worker's mount is the right kind**
 
-Run: `docker inspect kuromanga-worker-1 --format '{{range .Mounts}}{{.Destination}}:{{if .RW}}rw{{else}}ro{{end}} {{end}}'`
+Run: `docker inspect soshuhen-worker-1 --format '{{range .Mounts}}{{.Destination}}:{{if .RW}}rw{{else}}ro{{end}} {{end}}'`
 Expected: `/manga:ro`.
 
-Run the same against `kuromanga-worker-download-1`.
+Run the same against `soshuhen-worker-download-1`.
 Expected: `/manga:rw`, and the source an absolute host path rather than one inside a worktree.
 
 ---

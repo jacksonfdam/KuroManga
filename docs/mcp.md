@@ -3,13 +3,13 @@
 `backend/app/mcp/` exposes the pipeline as seven tools over the Model Context Protocol, so the whole
 review-and-download loop can be driven from an assistant instead of the web interface.
 
-It is a client of the KuroManga HTTP API, not a second entry point into the database. The rules
+It is a client of the Soshuhen HTTP API, not a second entry point into the database. The rules
 about what may be queued and when already live in the API, and a second copy of them is one that
 drifts from the first.
 
 ## What it is not
 
-It does not wrap AniList, MyAnimeList or Kitsu. KuroManga already reads those directly, with OAuth,
+It does not wrap AniList, MyAnimeList or Kitsu. Soshuhen already reads those directly, with OAuth,
 and holds the result in its own schema; wrapping them again would add a weaker second path to data
 that is already here. Nothing here answers questions about characters, studios, airing schedules or
 rankings — none of that means anything to a manga download pipeline.
@@ -52,7 +52,7 @@ is a queued job, so the answer says the list is still the old one and to call ag
 
 ## Trust boundary
 
-The KuroManga API has no authentication — local network only, and what that costs is set out in
+The Soshuhen API has no authentication — local network only, and what that costs is set out in
 [configuration](configuration.md#the-stack-has-no-authentication-of-its-own). This server inherits
 it: anything able to spawn the process can queue downloads and change mappings. Acceptable on a
 homelab, and written down here so it is a decision rather than an oversight. If the API ever gains
@@ -73,7 +73,7 @@ stdio is the only transport. Every local client can spawn a process; an HTTP tra
 port, an auth mode and a second container for something whose whole purpose is to sit beside a model
 on the same machine.
 
-`KUROMANGA_API_URL` is the one host it may reach, `http://localhost:8080` by default.
+`SOSHUHEN_API_URL` is the one host it may reach, `http://localhost:8080` by default.
 
 ## Client configuration
 
@@ -83,19 +83,19 @@ Any client that spawns a stdio server takes the same three fields. Claude Deskto
 ```json
 {
   "mcpServers": {
-    "kuromanga": {
-      "command": "/path/to/KuroManga/backend/.venv/bin/python",
+    "soshuhen": {
+      "command": "/path/to/Soshuhen/backend/.venv/bin/python",
       "args": ["-m", "app.mcp"],
       "env": {
-        "PYTHONPATH": "/path/to/KuroManga/backend",
-        "KUROMANGA_API_URL": "http://localhost:8080"
+        "PYTHONPATH": "/path/to/Soshuhen/backend",
+        "SOSHUHEN_API_URL": "http://localhost:8080"
       }
     }
   }
 }
 ```
 
-A locally hosted model needs nothing else: no API key, no network beyond the KuroManga host, and
+A locally hosted model needs nothing else: no API key, no network beyond the Soshuhen host, and
 tool schemas that are flat arguments with short descriptions, which is what smaller models follow.
 
 ## Tests

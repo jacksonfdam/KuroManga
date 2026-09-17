@@ -5,7 +5,7 @@ transport would need a port, an auth mode and a second container for a server
 whose whole purpose is to sit beside a model on the same machine.
 
 The client *is* the model. Nothing here runs inference, and nothing here talks
-to anything but the KuroManga API — which is what "supports local models" means
+to anything but the Soshuhen API — which is what "supports local models" means
 in practice, alongside the response budget the tools keep.
 
 Trust boundary: the API has no authentication by design, local network only.
@@ -21,9 +21,9 @@ from typing import Any
 from mcp.server.mcpserver import MCPServer
 
 from app.mcp import tools
-from app.mcp.api import ApiError, KuroMangaApi
+from app.mcp.api import ApiError, SoshuhenApi
 
-INSTRUCTIONS = """KuroManga downloads manga from reading lists into a Komga library.
+INSTRUCTIONS = """Soshuhen downloads manga from reading lists into a Komga library.
 
 The loop: list_series finds what needs work, review_queue shows the source
 candidates for a series awaiting a mapping, confirm_mapping picks one, and
@@ -43,10 +43,10 @@ async def _guard(call: Awaitable[dict[str, Any]]) -> dict[str, Any]:
         return tools.error("api_error", exc.detail, status=exc.status)
 
 
-def build(api: KuroMangaApi | None = None) -> MCPServer:
+def build(api: SoshuhenApi | None = None) -> MCPServer:
     """The server, with its API client injectable so tests need no process."""
-    client = api if api is not None else KuroMangaApi()
-    server = MCPServer("kuromanga", instructions=INSTRUCTIONS, version="0.1.0")
+    client = api if api is not None else SoshuhenApi()
+    server = MCPServer("soshuhen", instructions=INSTRUCTIONS, version="0.1.0")
 
     @server.tool()
     async def list_series(state: str | None = None, limit: int = 20) -> dict[str, Any]:

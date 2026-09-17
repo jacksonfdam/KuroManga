@@ -16,7 +16,7 @@ handing a 300-title payload to a model with eight thousand tokens to spend.
 import json
 from typing import Any
 
-from app.mcp.api import KuroMangaApi
+from app.mcp.api import SoshuhenApi
 
 # Bytes of JSON one tool may answer with. Around a thousand tokens, so a model
 # can hold several turns of this conversation and still have room to act on it.
@@ -79,7 +79,7 @@ def _series_record(row: dict[str, Any]) -> dict[str, Any]:
 
 
 async def list_series(
-    api: KuroMangaApi, state: str | None = None, limit: int = DEFAULT_SERIES_LIMIT
+    api: SoshuhenApi, state: str | None = None, limit: int = DEFAULT_SERIES_LIMIT
 ) -> dict[str, Any]:
     """Series with their state and chapter counts."""
     if state is not None and state not in SERIES_STATES:
@@ -101,7 +101,7 @@ def _candidate_record(row: dict[str, Any]) -> dict[str, Any]:
 
 
 async def review_queue(
-    api: KuroMangaApi,
+    api: SoshuhenApi,
     series_id: int | None = None,
     refresh: bool = False,
     limit: int = DEFAULT_REVIEW_LIMIT,
@@ -158,7 +158,7 @@ def _failure_record(job: dict[str, Any]) -> dict[str, Any]:
 
 
 async def jobs_status(
-    api: KuroMangaApi, failures: int = DEFAULT_FAILURE_LIMIT
+    api: SoshuhenApi, failures: int = DEFAULT_FAILURE_LIMIT
 ) -> dict[str, Any]:
     """Queue counts and worker state, plus recent failures with their error.
 
@@ -188,14 +188,14 @@ async def jobs_status(
 
 
 
-async def confirm_mapping(api: KuroMangaApi, series_id: int, source_url: str) -> dict[str, Any]:
+async def confirm_mapping(api: SoshuhenApi, series_id: int, source_url: str) -> dict[str, Any]:
     """Confirm which source URL a series is, which releases it into the pipeline."""
     answer = await api.post(f"/api/series/{series_id}/mapping", {"source_url": source_url})
     return {"ok": True, "job_id": answer["job_id"]}
 
 
 async def download_chapters(
-    api: KuroMangaApi, series_id: int, from_chapter: float, to_chapter: float | None = None
+    api: SoshuhenApi, series_id: int, from_chapter: float, to_chapter: float | None = None
 ) -> dict[str, Any]:
     """Queue a bounded range of chapters for one series.
 
@@ -230,7 +230,7 @@ async def download_chapters(
     return result
 
 
-async def set_follow(api: KuroMangaApi, series_id: int, enabled: bool) -> dict[str, Any]:
+async def set_follow(api: SoshuhenApi, series_id: int, enabled: bool) -> dict[str, Any]:
     """Turn automatic downloading on or off for one series.
 
     On queues whatever is already missing, which is the deliberate way to fetch a
@@ -240,7 +240,7 @@ async def set_follow(api: KuroMangaApi, series_id: int, enabled: bool) -> dict[s
     return {"ok": True, "auto_download": answer["auto_download"], "queued": answer["queued"]}
 
 
-async def sync_lists(api: KuroMangaApi, provider: str) -> dict[str, Any]:
+async def sync_lists(api: SoshuhenApi, provider: str) -> dict[str, Any]:
     """Trigger a list sync for one provider.
 
     The valid providers are read from the API rather than stated in this tool's

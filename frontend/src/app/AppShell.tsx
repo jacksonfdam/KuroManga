@@ -91,7 +91,7 @@ export function AppShell() {
         <div className="flex h-full items-center justify-between gap-space-md px-gutter">
           <div className="flex shrink-0 items-center gap-space-md">
             <div className="flex items-center gap-space-sm">
-              <span className="text-headline-sm tracking-tight text-on-surface">KuroManga</span>
+              <span className="text-headline-sm tracking-tight text-on-surface">Soshuhen</span>
               <span className="rounded bg-surface-container px-space-sm py-space-xs font-mono text-label-sm text-primary">
                 self-hosted
               </span>
