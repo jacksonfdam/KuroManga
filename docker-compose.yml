@@ -1,4 +1,4 @@
-name: kuromanga
+name: soshuhen
 
 x-logging: &logging
   driver: json-file
@@ -51,7 +51,7 @@ services:
 
   api:
     build: ./backend
-    image: kuromanga:local
+    image: soshuhen:local
     restart: unless-stopped
     environment:
       POSTGRES_HOST: postgres
@@ -94,7 +94,7 @@ services:
 
   worker:
     build: ./backend
-    image: kuromanga:local
+    image: soshuhen:local
     restart: unless-stopped
     environment:
       <<: *worker-env
@@ -116,7 +116,7 @@ services:
 
   worker-download:
     build: ./backend
-    image: kuromanga:local
+    image: soshuhen:local
     restart: unless-stopped
     environment:
       <<: *worker-env
@@ -145,7 +145,7 @@ services:
 
   bootstrap:
     build: ./backend
-    image: kuromanga:local
+    image: soshuhen:local
     restart: "no"
     environment:
       LIBRARY_PATH: ${LIBRARY_PATH:-/manga}
