@@ -31,9 +31,15 @@ async def client():
 @pytest.fixture(autouse=True)
 async def clean():
     async with get_sessionmaker()() as session:
+        # `setting` is truncated too, which restores the packaged defaults
+        # rather than clearing anything a reader needs. Without it a test that
+        # writes a setting decides what every later test reads, and the order
+        # they happen to run in becomes part of the contract - one write of
+        # `reading_minutes_per_chapter` made an unrelated assertion on its
+        # default fail three tests further down.
         await session.execute(
             text(
-                "truncate job, job_event, series, list_entry, provider_token "
+                "truncate job, job_event, series, list_entry, provider_token, setting "
                 "restart identity cascade"
             )
         )
@@ -92,6 +98,80 @@ async def test_settings_expose_defaults_and_provider_status(client):
 async def test_settings_reject_unknown_keys_instead_of_storing_them(client):
     body = (await client.put("/api/settings", json={"values": {"nope": "1"}})).json()
     assert body["ignored"] == ["nope"]
+
+
+async def test_settings_refuse_a_url_the_interface_would_execute(client):
+    """`komga_public_url` becomes the start of an href. A `javascript:` value
+    there runs when the reader link is clicked, and the path the template
+    appends after it is trivially neutralised, so the template is no
+    protection. Issue #232.
+    """
+    response = await client.put(
+        "/api/settings",
+        json={"values": {"komga_public_url": "javascript:alert(1)//"}},
+    )
+
+    assert response.status_code == 400
+    assert "komga_public_url" in response.json()["detail"]
+
+    stored = (await client.get("/api/settings")).json()["values"]["komga_public_url"]
+    assert "javascript" not in stored
+
+
+async def test_settings_refuse_a_url_with_no_scheme_at_all(client):
+    """A bare host is not a link the interface can render either, and accepting
+    it would store something every reader has to second-guess.
+    """
+    response = await client.put(
+        "/api/settings", json={"values": {"comick_url": "comick:3000"}}
+    )
+    assert response.status_code == 400
+
+
+async def test_settings_accept_the_url_schemes_a_browser_will_fetch(client):
+    response = await client.put(
+        "/api/settings",
+        json={
+            "values": {
+                "komga_public_url": "https://komga.example",
+                "comick_url": "http://comick:3000",
+            }
+        },
+    )
+
+    assert response.status_code == 200
+    values = response.json()["values"]
+    assert values["komga_public_url"] == "https://komga.example"
+    assert values["comick_url"] == "http://comick:3000"
+
+
+async def test_settings_accept_an_empty_url_as_not_configured(client):
+    """Empty is how both of these say "nobody has set me", and every reader
+    already handles it. Refusing it would make clearing the field impossible.
+    """
+    assert (
+        await client.put("/api/settings", json={"values": {"komga_public_url": ""}})
+    ).status_code == 200
+
+
+async def test_settings_write_nothing_when_one_value_in_the_batch_is_refused(client):
+    """The settings screen sends the whole form. A refusal that had already
+    committed the keys it walked past first would leave the form and the
+    database disagreeing about what was saved.
+    """
+    response = await client.put(
+        "/api/settings",
+        json={
+            "values": {
+                "reading_minutes_per_chapter": "11",
+                "komga_public_url": "javascript:alert(1)",
+            }
+        },
+    )
+
+    assert response.status_code == 400
+    values = (await client.get("/api/settings")).json()["values"]
+    assert values["reading_minutes_per_chapter"] == "8"
 
 
 async def test_settings_report_oauth_providers_exactly_as_before(client):
