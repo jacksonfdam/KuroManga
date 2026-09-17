@@ -60,6 +60,12 @@ Then open **http://localhost:8080**, connect your lists in Settings, and press S
 
 Full walkthrough in [docs/configuration.md](docs/configuration.md).
 
+**Soshuhen has no sign-in of its own**, and `docker compose up` publishes it on every interface of
+the host. On a machine only you use that is fine. Before you put it anywhere else — a shared
+network, a forwarded port — read
+[the stack has no authentication of its own](docs/configuration.md#the-stack-has-no-authentication-of-its-own).
+It holds write credentials for your reading lists.
+
 ## Documentation
 
 | | |

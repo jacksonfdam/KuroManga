@@ -1,8 +1,9 @@
 """Settings screen: the knobs, and which providers are connected."""
 
 from typing import Annotated, Any
+from urllib.parse import urlsplit
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -36,6 +37,39 @@ EDITABLE = {
     settings_store.KOMGA_PUBLIC_URL,
     settings_store.MANGAFIRE_WAF_PASS,
 }
+
+# Settings whose value becomes the start of a link the interface renders.
+# React escapes text but does not refuse a scheme: `javascript:` in an href
+# runs when the link is clicked, and the path a template appends after it is
+# trivially commented out, so the surrounding template protects nothing (#232).
+# Checked here so the database never holds a value a screen cannot safely
+# render; the components check again, because a value stored before this did.
+URL_SETTINGS = frozenset(
+    {
+        settings_store.COMICK_URL,
+        settings_store.KOMGA_PUBLIC_URL,
+    }
+)
+
+FETCHABLE_SCHEMES = frozenset({"http", "https"})
+
+
+def _validate(key: str, value: str) -> None:
+    """Raise 400 if this key cannot hold this value. Silent for keys with no rule."""
+    if key not in URL_SETTINGS:
+        return
+    # Empty is how both of these say "nobody has set me", and every reader
+    # already handles it. Refusing it would make clearing the field impossible.
+    if not value:
+        return
+    if urlsplit(value).scheme.lower() not in FETCHABLE_SCHEMES:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"{key} must be an http:// or https:// address; "
+                "the interface renders it as a link"
+            ),
+        )
 
 
 class SettingsIn(BaseModel):
@@ -103,6 +137,12 @@ async def read_settings(session: Session) -> dict[str, Any]:
 async def write_settings(body: SettingsIn, session: Session) -> dict[str, Any]:
     """Cron changes take effect when the worker restarts; the response says so."""
     unknown = sorted(set(body.values) - EDITABLE)
+    # Every value is checked before any is written. The screen sends the whole
+    # form, so refusing halfway would commit the keys walked past first and
+    # leave the form and the database disagreeing about what was saved.
+    for key, value in body.values.items():
+        if key in EDITABLE:
+            _validate(key, value)
     for key, value in body.values.items():
         if key in EDITABLE:
             await settings_store.set_value(session, key, value)
