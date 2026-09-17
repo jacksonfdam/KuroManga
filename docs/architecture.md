@@ -26,7 +26,7 @@ docker compose --profile comick --profile flaresolverr up -d
 ```
 
 **`api`, `worker` and `bootstrap` are the same program with different entrypoints**, and declare the
-same `image: kuromanga:local`. Build one and recreate the others, or they run stale code — the
+same `image: soshuhen:local`. Build one and recreate the others, or they run stale code — the
 symptom is a job failing with `no handler registered`, which reads as a code bug and is a build bug.
 
 ```bash

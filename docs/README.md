@@ -1,4 +1,4 @@
-# KuroManga documentation
+# Soshuhen documentation
 
 These documents are written for an agent or an engineer about to change this codebase. They favour
 precision over brevity: exact table names, exact job payloads, exact third-party contracts, and the
