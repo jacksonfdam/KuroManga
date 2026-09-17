@@ -1,0 +1,8 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "mkdir -p site/images && cp docs/images/*.webp site/images/",
+  "outputDirectory": "site",
+  "installCommand": "true",
+  "framework": null,
+  "cleanUrls": true
+}

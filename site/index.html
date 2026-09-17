@@ -1,0 +1,619 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Soshuhen — your reading lists, downloaded and organised</title>
+    <meta
+      name="description"
+      content="Self-hosted. Soshuhen watches the manga lists you already keep on MyAnimeList, AniList and MangaBaka, fetches the chapters you are missing, tags them properly, and hands them to Komga."
+    />
+    <link rel="canonical" href="https://soshuhen.vercel.app/" />
+    <meta property="og:title" content="Soshuhen" />
+    <meta
+      property="og:description"
+      content="Your reading lists, downloaded and organised, ready to read on any device. Self-hosted, and nothing downloads without you."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://soshuhen.vercel.app/" />
+    <meta property="og:image" content="https://soshuhen.vercel.app/images/home.webp" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📚</text></svg>"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      /* Every value here comes from frontend/tailwind.config.ts, which the project
+         treats as the only place a colour, radius or spacing value lives. */
+      :root {
+        --background: #10141a;
+        --surface-lowest: #0a0e14;
+        --surface-low: #181c22;
+        --surface: #1c2026;
+        --surface-high: #262a31;
+        --surface-highest: #31353c;
+        --on-surface: #dfe2eb;
+        --on-surface-variant: #cbc3d7;
+        --outline: #958ea0;
+        --outline-variant: #494454;
+        --primary: #d0bcff;
+        --primary-container: #a078ff;
+        --on-primary: #3c0091;
+        --secondary: #4edea3;
+        --on-secondary: #003824;
+        --tertiary: #7bd0ff;
+        --warning: #ffb877;
+        --gutter: 1.25rem;
+        --canvas: 1180px;
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+      html {
+        -webkit-text-size-adjust: 100%;
+      }
+      body {
+        margin: 0;
+        background: var(--background);
+        color: var(--on-surface);
+        font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+        font-size: 1rem;
+        line-height: 1.625;
+        -webkit-font-smoothing: antialiased;
+      }
+      img {
+        max-width: 100%;
+        display: block;
+      }
+      a {
+        color: var(--primary);
+      }
+      code,
+      kbd,
+      pre {
+        font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+      }
+
+      .wrap {
+        max-width: var(--canvas);
+        margin: 0 auto;
+        padding-inline: var(--gutter);
+      }
+
+      /* ---------- top bar ---------- */
+      header {
+        border-bottom: 1px solid var(--outline-variant);
+        background: rgba(16, 20, 26, 0.86);
+        backdrop-filter: blur(10px);
+        position: sticky;
+        top: env(safe-area-inset-top, 0px);
+        z-index: 10;
+      }
+      .bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        padding-block: 0.875rem;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 0.625rem;
+        font-weight: 800;
+        font-size: 1.125rem;
+        letter-spacing: -0.02em;
+      }
+      .kanji {
+        font-size: 0.9375rem;
+        font-weight: 500;
+        color: var(--outline);
+        letter-spacing: 0.08em;
+      }
+      .bar nav {
+        display: flex;
+        align-items: center;
+        gap: 1.25rem;
+        font-size: 0.875rem;
+      }
+      .bar nav a {
+        color: var(--on-surface-variant);
+        text-decoration: none;
+      }
+      .bar nav a:hover {
+        color: var(--on-surface);
+      }
+      .bar .ghost {
+        display: none;
+      }
+      @media (min-width: 620px) {
+        .bar .ghost {
+          display: inline-flex;
+        }
+      }
+
+      /* ---------- buttons ---------- */
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.6875rem 1.125rem;
+        border-radius: 9999px;
+        font-size: 0.9375rem;
+        font-weight: 600;
+        text-decoration: none;
+        border: 1px solid transparent;
+        white-space: nowrap;
+      }
+      .btn--primary {
+        background: var(--primary);
+        color: var(--on-primary);
+      }
+      .btn--primary:hover {
+        background: var(--primary-container);
+        color: #fff;
+      }
+      .btn--ghost {
+        background: var(--surface-high);
+        border-color: var(--outline-variant);
+        color: var(--on-surface);
+      }
+      .btn--ghost:hover {
+        background: var(--surface-highest);
+      }
+
+      /* ---------- hero ---------- */
+      .hero {
+        padding-block: clamp(3rem, 9vw, 6rem) clamp(2rem, 5vw, 3.5rem);
+        text-align: center;
+      }
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.375rem 0.875rem;
+        border-radius: 9999px;
+        background: var(--surface-high);
+        border: 1px solid var(--outline-variant);
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.8125rem;
+        color: var(--on-surface-variant);
+      }
+      .dot {
+        width: 0.5rem;
+        height: 0.5rem;
+        border-radius: 9999px;
+        background: var(--secondary);
+      }
+      h1 {
+        margin: 1.5rem 0 0;
+        font-size: clamp(2.5rem, 7vw, 4.25rem);
+        line-height: 1.08;
+        letter-spacing: -0.035em;
+        font-weight: 800;
+      }
+      .lede {
+        margin: 1.125rem auto 0;
+        max-width: 46ch;
+        font-size: clamp(1.0625rem, 2.2vw, 1.375rem);
+        color: var(--on-surface-variant);
+      }
+      .cta {
+        margin-top: 2rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        justify-content: center;
+      }
+      .beneath {
+        margin-top: 1.25rem;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.8125rem;
+        color: var(--outline);
+      }
+
+      .shot {
+        margin-top: clamp(2rem, 5vw, 3.5rem);
+        border-radius: 1rem;
+        border: 1px solid var(--outline-variant);
+        overflow: hidden;
+        background: var(--surface-lowest);
+        box-shadow: 0 20px 50px -12px rgba(0, 0, 0, 0.7);
+      }
+
+      /* ---------- sections ---------- */
+      section {
+        padding-block: clamp(3rem, 7vw, 5rem);
+      }
+      section + section {
+        border-top: 1px solid var(--outline-variant);
+      }
+      h2 {
+        margin: 0;
+        font-size: clamp(1.625rem, 3.6vw, 2.25rem);
+        line-height: 1.2;
+        letter-spacing: -0.025em;
+        font-weight: 700;
+      }
+      .sub {
+        margin: 0.75rem 0 0;
+        max-width: 62ch;
+        color: var(--on-surface-variant);
+      }
+
+      .grid {
+        margin-top: 2.25rem;
+        display: grid;
+        gap: 1rem;
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+      }
+      .card {
+        padding: 1.375rem 1.5rem 1.5rem;
+        border-radius: 0.75rem;
+        background: var(--surface);
+        border: 1px solid var(--outline-variant);
+      }
+      .card h3 {
+        margin: 0 0 0.5rem;
+        font-size: 1.0625rem;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+      }
+      .card p {
+        margin: 0;
+        font-size: 0.9375rem;
+        color: var(--on-surface-variant);
+      }
+
+      /* ---------- the stop ---------- */
+      .stop {
+        background: var(--surface-low);
+      }
+      .stop .quote {
+        margin: 0;
+        font-size: clamp(1.75rem, 4.6vw, 3rem);
+        line-height: 1.12;
+        letter-spacing: -0.03em;
+        font-weight: 800;
+        max-width: 18ch;
+      }
+      .stops {
+        margin-top: 2rem;
+        display: grid;
+        gap: 1rem;
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+        counter-reset: stop;
+      }
+      .stops li {
+        list-style: none;
+        padding: 1.25rem 1.5rem 1.375rem;
+        border-radius: 0.75rem;
+        background: var(--surface);
+        border: 1px solid var(--outline-variant);
+        position: relative;
+      }
+      .stops li::before {
+        counter-increment: stop;
+        content: counter(stop);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 1.75rem;
+        height: 1.75rem;
+        border-radius: 9999px;
+        background: var(--primary);
+        color: var(--on-primary);
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.875rem;
+        font-weight: 500;
+        margin-bottom: 0.75rem;
+      }
+      .stops p {
+        margin: 0;
+        font-size: 0.9375rem;
+        color: var(--on-surface-variant);
+      }
+      .stops ul {
+        margin: 0;
+        padding: 0;
+      }
+
+      /* ---------- screens ---------- */
+      .screens {
+        margin-top: 2.25rem;
+        display: grid;
+        gap: 1.25rem;
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr));
+      }
+      figure {
+        margin: 0;
+      }
+      figure img {
+        border-radius: 0.75rem;
+        border: 1px solid var(--outline-variant);
+        background: var(--surface-lowest);
+      }
+      figcaption {
+        margin-top: 0.75rem;
+        font-size: 0.875rem;
+        color: var(--on-surface-variant);
+      }
+      figcaption b {
+        color: var(--on-surface);
+        font-weight: 600;
+      }
+
+      /* ---------- quick start ---------- */
+      pre {
+        margin: 1.75rem 0 0;
+        padding: 1.25rem 1.375rem;
+        border-radius: 0.75rem;
+        background: var(--surface-lowest);
+        border: 1px solid var(--outline-variant);
+        overflow-x: auto;
+        font-size: 0.875rem;
+        line-height: 1.7;
+      }
+      pre .c {
+        color: var(--outline);
+      }
+      pre .k {
+        color: var(--secondary);
+      }
+
+      .notice {
+        margin-top: 1.75rem;
+        padding: 1.125rem 1.375rem;
+        border-radius: 0.75rem;
+        background: rgba(255, 184, 119, 0.08);
+        border: 1px solid rgba(255, 184, 119, 0.35);
+        font-size: 0.9375rem;
+        color: var(--on-surface-variant);
+      }
+      .notice b {
+        color: var(--warning);
+      }
+
+      .stack {
+        margin-top: 2rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+      }
+      .tag {
+        padding: 0.375rem 0.8125rem;
+        border-radius: 9999px;
+        background: var(--surface-high);
+        border: 1px solid var(--outline-variant);
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.8125rem;
+        color: var(--on-surface-variant);
+      }
+
+      footer {
+        border-top: 1px solid var(--outline-variant);
+        padding-block: 2.5rem calc(2.5rem + env(safe-area-inset-bottom, 0px));
+        color: var(--outline);
+        font-size: 0.875rem;
+      }
+      .footrow {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem 1.5rem;
+        justify-content: space-between;
+        align-items: center;
+      }
+      footer a {
+        color: var(--on-surface-variant);
+        text-decoration: none;
+      }
+      footer a:hover {
+        color: var(--primary);
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="wrap bar">
+        <span class="brand">Soshuhen <span class="kanji">総集編</span></span>
+        <nav>
+          <a href="#what">What it does</a>
+          <a href="#screens" class="ghost">Screens</a>
+          <a href="#start">Quick start</a>
+          <a class="btn btn--ghost" href="https://github.com/jacksonfdam/soshuhen">GitHub</a>
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <div class="wrap hero">
+        <span class="pill"><i class="dot"></i>self-hosted · one docker compose up</span>
+        <h1>Your reading lists, downloaded and organised.</h1>
+        <p class="lede">
+          Soshuhen watches the lists you already keep on MyAnimeList, AniList and MangaBaka, fetches
+          the chapters you are missing, tags them properly, and hands them to
+          <a href="https://komga.org">Komga</a> so you can read on any device.
+        </p>
+        <div class="cta">
+          <a class="btn btn--primary" href="#start">Quick start</a>
+          <a class="btn btn--ghost" href="https://github.com/jacksonfdam/soshuhen">View on GitHub</a>
+        </div>
+        <p class="beneath">Nothing leaves your machine.</p>
+
+        <div class="shot">
+          <img
+            src="images/home.webp"
+            width="1440"
+            height="1543"
+            alt="The Soshuhen home screen: pipeline status, continue reading, discovery highlights and the queue"
+          />
+        </div>
+      </div>
+
+      <section id="what">
+        <div class="wrap">
+          <h2>Your list lives on one service. Your files live somewhere else.</h2>
+          <p class="sub">
+            Keeping the two in step is manual work that never ends — checking for new chapters,
+            finding them, naming them so a reader understands them, and remembering what you already
+            have. Soshuhen closes that gap and then stays out of the way.
+          </p>
+
+          <div class="grid">
+            <article class="card">
+              <h3>Reads the lists you already keep</h3>
+              <p>MyAnimeList, AniList and MangaBaka. No new list to maintain.</p>
+            </article>
+            <article class="card">
+              <h3>Finds what to read next</h3>
+              <p>
+                The anime you have finished, matched to the manga that carries the story on, with how
+                far the adaptation got and how much is left.
+              </p>
+            </article>
+            <article class="card">
+              <h3>Downloads only what is missing</h3>
+              <p>It knows what is already in your library and fetches the difference.</p>
+            </article>
+            <article class="card">
+              <h3>Tags everything</h3>
+              <p>
+                Each file carries series, chapter, author, genres and a summary, so your reader shows
+                a real library instead of a folder of archives.
+              </p>
+            </article>
+            <article class="card">
+              <h3>Reads on any device</h3>
+              <p>Komga serves the web, and any Komga-compatible reader on iOS and Android.</p>
+            </article>
+            <article class="card">
+              <h3>Tells you what it is doing</h3>
+              <p>Live progress, a queue you can see, and failures that say why.</p>
+            </article>
+            <article class="card">
+              <h3>Syncs your progress back</h3>
+              <p>
+                Finish a chapter in your reader and your MyAnimeList and AniList entries follow, in
+                one step.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="stop">
+        <div class="wrap">
+          <h2 class="quote">Nothing downloads without you.</h2>
+          <p class="sub">
+            Soshuhen never fetches anything on its own initiative. Two deliberate stops, both there
+            so your disk and your bandwidth stay yours to spend.
+          </p>
+          <ul class="stops">
+            <li>
+              <p>
+                A new entry on your list waits on the <b>Review</b> screen until you confirm which
+                series it is. A wrong automatic match would download the wrong thing for every future
+                chapter.
+              </p>
+            </li>
+            <li>
+              <p>
+                Confirming says what a series <i>is</i> — not that its backlog should be fetched. You
+                then choose a range, or follow the series so new chapters arrive as they publish.
+              </p>
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <section id="screens">
+        <div class="wrap">
+          <h2>The screens</h2>
+          <p class="sub">Seven of them, each doing one job.</p>
+          <div class="screens">
+            <figure>
+              <img src="images/discover.webp" alt="The Discover screen, a grid of cover art awaiting confirmation" loading="lazy" />
+              <figcaption><b>Discover</b> — every entry waiting on a decision, with one-click confirmation where the match is obvious.</figcaption>
+            </figure>
+            <figure>
+              <img src="images/library.webp" alt="The Library screen, every series Soshuhen knows about" loading="lazy" />
+              <figcaption><b>Library</b> — every series it knows about, with covers, which lists it came from and how much is left.</figcaption>
+            </figure>
+            <figure>
+              <img src="images/series.webp" alt="A single series, its chapters and what is held locally" loading="lazy" />
+              <figcaption><b>A series</b> — the chapters found against the ones you hold, and where you record progress.</figcaption>
+            </figure>
+            <figure>
+              <img src="images/statistics.webp" alt="The Statistics screen" loading="lazy" />
+              <figcaption><b>Statistics</b> — what you have read, what is on disk, and what the pipeline has been doing.</figcaption>
+            </figure>
+            <figure>
+              <img src="images/settings.webp" alt="The Settings screen with list integrations" loading="lazy" />
+              <figcaption><b>Settings</b> — connect your lists, and set how the downloader behaves.</figcaption>
+            </figure>
+            <figure>
+              <img src="images/settings-sources.webp" alt="The Sources settings screen" loading="lazy" />
+              <figcaption><b>Sources</b> — several hundred sites it knows how to read, generated from the Tachiyomi extension repository.</figcaption>
+            </figure>
+          </div>
+        </div>
+      </section>
+
+      <section id="start">
+        <div class="wrap">
+          <h2>Quick start</h2>
+          <p class="sub">A clone, a copied env file, and one command.</p>
+          <pre><code><span class="k">git</span> clone https://github.com/jacksonfdam/soshuhen.git
+<span class="k">cd</span> soshuhen
+<span class="k">cp</span> .env.example .env      <span class="c"># fill in your credentials</span>
+<span class="k">docker</span> compose up -d</code></pre>
+          <p class="sub" style="margin-top: 1.25rem">
+            Then open <code>http://localhost:8080</code>, connect your lists in Settings, and press
+            Sync. The full walkthrough is in
+            <a href="https://github.com/jacksonfdam/soshuhen/blob/main/docs/configuration.md">configuration.md</a>.
+          </p>
+
+          <p class="notice">
+            <b>Soshuhen has no sign-in of its own</b>, and <code>docker compose up</code> publishes it
+            on every interface of the host. On a machine only you use that is fine. Before you put it
+            anywhere else — a shared network, a forwarded port — read
+            <a href="https://github.com/jacksonfdam/soshuhen/blob/main/docs/configuration.md#the-stack-has-no-authentication-of-its-own">the stack has no authentication of its own</a>.
+            It holds write credentials for your reading lists.
+          </p>
+
+          <div class="stack">
+            <span class="tag">Python</span>
+            <span class="tag">FastAPI</span>
+            <span class="tag">PostgreSQL</span>
+            <span class="tag">React</span>
+            <span class="tag">Komga</span>
+            <span class="tag">Docker</span>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="wrap footrow">
+        <span>
+          MIT. Soshuhen orchestrates other people's work —
+          <a href="https://github.com/jacksonfdam/soshuhen/blob/main/CREDITS.md">CREDITS.md</a> names them.
+        </span>
+        <span>
+          <a href="https://github.com/jacksonfdam/soshuhen">GitHub</a> ·
+          <a href="https://github.com/jacksonfdam/soshuhen/blob/main/docs/features.md">Features</a> ·
+          <a href="https://github.com/jacksonfdam/soshuhen/blob/main/docs/README.md">Docs</a>
+        </span>
+      </div>
+    </footer>
+  </body>
+</html>

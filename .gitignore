@@ -9,3 +9,6 @@ frontend/dist/
 /data/
 *.egg-info/
 tsconfig.tsbuildinfo
+
+# The landing page copies its screenshots from docs/images at build time.
+site/images/
