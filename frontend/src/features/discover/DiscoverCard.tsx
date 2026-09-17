@@ -1,19 +1,17 @@
 import { Badge } from '../../ui'
 import type { DiscoverItem } from '../../lib/api'
-
-const NEED_LABEL: Record<string, string> = {
-  match: 'Find the manga',
-  status: 'Pick a status',
-  source: 'Pick a source',
-}
+import { KIND_LABEL } from './labels'
 
 /**
- * One item, and what it still owes.
+ * One item, and which of the three it is.
  *
- * What is shown is the needs, not the kind. A reader does not care whether a
- * row arrived from a suggestion, a mapping queue or an unmatched anime; they
- * care whether it is one click away or a search away - which is also what the
- * order is built on.
+ * The badge named the step owed until that turned out to say nothing a reader
+ * could use: the panel offers the control anyway, and the one step left is
+ * implied by the kind. So the badge carries the kind, in the same words as the
+ * filter chips - it says which chip would keep this card.
+ *
+ * What is worth a second badge is being one click from done, because that is
+ * the promise the ordering makes.
  */
 export function DiscoverCard({
   item,
@@ -52,15 +50,10 @@ export function DiscoverCard({
         <div className="mt-auto flex flex-wrap items-center gap-space-xs pt-space-xs">
           {/* Said plainly, because it is the whole promise of the ordering: this
               one needs a single click and the feed put it here for that reason. */}
+          <span className="rounded-full bg-surface-container-high px-space-sm py-0.5 font-mono text-label-sm text-on-surface-variant">
+            {KIND_LABEL[item.kind]}
+          </span>
           {item.confident && <Badge tone="secondary">One click</Badge>}
-          {item.needs.map((need) => (
-            <span
-              key={need}
-              className="rounded-full bg-surface-container-high px-space-sm py-0.5 font-mono text-label-sm text-on-surface-variant"
-            >
-              {NEED_LABEL[need] ?? need}
-            </span>
-          ))}
         </div>
       </div>
     </article>
