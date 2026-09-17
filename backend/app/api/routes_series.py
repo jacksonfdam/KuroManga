@@ -688,6 +688,72 @@ async def cancel_queue(series_id: int, session: Session) -> dict[str, Any]:
     return {"ok": True, "dropped": dropped}
 
 
+@router.post("/{series_id}/track-local")
+async def track_local(series_id: int, session: Session) -> dict[str, Any]:
+    """Give a series nothing else will take a chapter for somewhere to keep one.
+
+    Every remote provider here is writable, so this is reachable only while a
+    series has no list entry at all — the window after it is created and before
+    its first sync lands one. It is still the difference between a reader
+    recording what they have read and a control that refuses to move.
+
+    A series a real list already holds is refused rather than given a second
+    row: two entries that can both take a chapter is two numbers for one series
+    with nothing to say which of them is right.
+    """
+    title = (
+        await session.execute(
+            text("select canonical_title from series where id = :id"), {"id": series_id}
+        )
+    ).scalar_one_or_none()
+    if title is None:
+        raise HTTPException(status_code=404, detail="series not found")
+
+    held = await session.execute(
+        text(
+            """
+            select provider from list_entry
+             where series_id = :id
+               and provider <> :local
+               and provider = any(cast(:writable as text[]))
+             limit 1
+            """
+        ),
+        {"id": series_id, "local": str(Provider.LOCAL), "writable": writable_providers()},
+    )
+    existing = held.scalar_one_or_none()
+    if existing is not None:
+        raise HTTPException(
+            status_code=409,
+            detail=f"{existing} already holds this series and can be written to",
+        )
+
+    # The series id is the media id: it is unique, which the provider/media
+    # unique index requires, and it is the only identifier a list with no
+    # service behind it has.
+    await session.execute(
+        text(
+            """
+            insert into list_entry (series_id, provider, provider_media_id, status,
+                                    user_progress_chapter, title_english, synonyms, raw)
+            values (:id, :local, :media_id, :status, 0, :title, '[]'::jsonb, '{}'::jsonb)
+            on conflict (provider, provider_media_id) do nothing
+            """
+        ),
+        {
+            "id": series_id,
+            "local": str(Provider.LOCAL),
+            "media_id": str(series_id),
+            # Tracking a series by hand is something a reader does because they
+            # are reading it. Nothing else here knows better.
+            "status": str(ListStatus.READING),
+            "title": title,
+        },
+    )
+    await session.commit()
+    return {"tracked": True, "series_id": series_id}
+
+
 @router.post("/{series_id}/progress")
 async def set_progress(series_id: int, body: ProgressIn, session: Session) -> dict[str, Any]:
     """The forward-only guard is enforced here too, not only in the handler.

@@ -1013,3 +1013,105 @@ async def test_an_empty_feed_still_reports_one_page(client):
     body = (await client.get("/api/discover")).json()
 
     assert (body["total"], body["pages"], body["page"]) == (0, 1, 1)
+
+
+async def _an_unheld_series(title: str, slug: str) -> int:
+    """A series no list holds. The window between a series being created and
+    its first entry landing is the only way this occurs in practice."""
+    async with get_sessionmaker()() as db:
+        series_id = (
+            await db.execute(
+                text(
+                    """
+                    insert into series (canonical_title, slug, needs_review, meta, created_at)
+                    values (:t, :s, false, '{}'::jsonb, now())
+                    returning id
+                    """
+                ),
+                {"t": title, "s": slug},
+            )
+        ).scalar_one()
+        await db.commit()
+    return series_id
+
+
+async def test_tracking_locally_gives_an_unheld_series_somewhere_to_write(client):
+    series_id = await _an_unheld_series("Read Nowhere Else", "read-nowhere-else")
+
+    response = await client.post(f"/api/series/{series_id}/track-local")
+
+    assert response.status_code == 200
+    assert response.json()["tracked"] is True
+
+    # The whole point: the series reports writable, so the control comes alive.
+    body = (await client.get(f"/api/series/{series_id}")).json()
+    assert body["series"]["writable"] is True
+    assert "local" in body["series"]["providers"]
+
+
+async def test_a_local_entry_is_what_a_chapter_write_lands_on(client):
+    """Before the local row there is nothing for `progress_write` to update, and
+    the job fails permanently with "no connected list entry"."""
+    series_id = await _an_unheld_series("Locally Read", "locally-read")
+    await client.post(f"/api/series/{series_id}/track-local")
+
+    response = await client.post(f"/api/series/{series_id}/progress", json={"chapter": 240})
+
+    assert response.status_code == 200
+    async with get_sessionmaker()() as db:
+        queued = (
+            await db.execute(
+                text(
+                    "select payload->>'chapter' from job"
+                    " where type = 'progress_write' and series_id = :i"
+                ),
+                {"i": series_id},
+            )
+        ).scalar_one()
+    assert queued == "240"
+
+
+async def test_tracking_locally_twice_is_not_an_error(client):
+    """The button is one click on a screen that reloads; a double press must
+    not read as a failure."""
+    series_id = await _an_unheld_series("Clicked Twice", "clicked-twice")
+
+    first = await client.post(f"/api/series/{series_id}/track-local")
+    second = await client.post(f"/api/series/{series_id}/track-local")
+
+    assert (first.status_code, second.status_code) == (200, 200)
+    async with get_sessionmaker()() as db:
+        rows = (
+            await db.execute(
+                text("select count(*) from list_entry where series_id = :i and provider = 'local'"),
+                {"i": series_id},
+            )
+        ).scalar_one()
+    assert rows == 1
+
+
+async def test_a_series_a_real_list_already_holds_is_refused(client):
+    """A local track is a fallback, not a second opinion. Two rows that can both
+    take a chapter is two numbers for one series with nothing to say which wins.
+    """
+    series_id = await _an_unheld_series("On AniList Already", "on-anilist-already")
+    async with get_sessionmaker()() as db:
+        await db.execute(
+            text(
+                """
+                insert into list_entry (series_id, provider, provider_media_id, status,
+                                        user_progress_chapter, synonyms, raw)
+                values (:i, 'anilist', '4242', 'reading', 3, '[]'::jsonb, '{}'::jsonb)
+                """
+            ),
+            {"i": series_id},
+        )
+        await db.commit()
+
+    response = await client.post(f"/api/series/{series_id}/track-local")
+
+    assert response.status_code == 409
+
+
+async def test_tracking_an_unknown_series_locally_is_a_404(client):
+    assert (await client.post("/api/series/987654/track-local")).status_code == 404
