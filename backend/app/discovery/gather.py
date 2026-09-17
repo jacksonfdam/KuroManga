@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.discovery.feed import DiscoverItem, Need, sort_key
 
 SUGGESTIONS_SQL = """
-select id, title, cover_url, rank_score, meta, series_id
+select id, title, cover_url, rank_score, meta, series_id, created_at
   from suggestion
  where state = 'new'
 """
@@ -28,7 +28,7 @@ select id, title, cover_url, rank_score, meta, series_id
 # is the user having said stop asking, which is an answer and not a decision
 # still waiting.
 REVIEW_SQL = """
-select s.id, s.canonical_title, s.meta,
+select s.id, s.canonical_title, s.meta, s.created_at,
        count(c.id) as candidate_count
   from series s
   left join series_candidate c on c.series_id = s.id
@@ -54,7 +54,11 @@ async def _suggestions(session: AsyncSession) -> list[DiscoverItem]:
     for row in rows:
         meta = row.meta or {}
         sources = meta.get("sources") or []
-        best = meta.get("best_source") or {}
+        # `best`, not `best_source`. The latter is the name routes_discovery
+        # gives it in its own payload, and reading that off the stored row made
+        # every suggestion unconfident, so nothing ever ranked first and the
+        # badge saying a row is one click from done never appeared.
+        best = meta.get("best") or {}
         items.append(
             DiscoverItem(
                 kind="suggestion",
@@ -63,13 +67,17 @@ async def _suggestions(session: AsyncSession) -> list[DiscoverItem]:
                 title=row.title,
                 cover_url=row.cover_url,
                 why=_why_suggested(meta),
-                # Not in the library yet, so it owes a status as well as a
-                # source - which is the flow the screen offers.
-                needs=[Need.STATUS, Need.SOURCE],
+                # A status, and only a status. `approve` decides the source
+                # itself: automatically when the match is confident, and
+                # through the review path otherwise. Listing the rest of the
+                # journey here put a step on the card that the panel had no
+                # control for, so clicking it offered nothing.
+                needs=[Need.STATUS],
                 candidates=sources,
                 confident=bool(best) and confident(row.title, best),
                 rank_score=float(row.rank_score or 0),
                 candidate_count=len(sources),
+                added_at=row.created_at,
             )
         )
     return items
@@ -88,6 +96,7 @@ async def _review(session: AsyncSession) -> list[DiscoverItem]:
             # Already in the library with a status; only the source is missing.
             needs=[Need.SOURCE],
             candidate_count=row.candidate_count,
+            added_at=row.created_at,
         )
         for row in rows
     ]
@@ -104,7 +113,9 @@ async def _unmatched(session: AsyncSession) -> list[DiscoverItem]:
             title=anime.title_english or anime.title_romaji or "Untitled",
             cover_url=anime.cover_url,
             why="An anime on your list with no manga found",
-            needs=[Need.MATCH, Need.STATUS, Need.SOURCE],
+            # The match alone. What it owes after that depends on what the
+            # search finds, and the screen asks for each step when it is real.
+            needs=[Need.MATCH],
             # Finishing an anime is the strongest signal its manga is wanted,
             # and it is the only tiebreak this kind carries.
             finished=str(anime.status) == "completed",

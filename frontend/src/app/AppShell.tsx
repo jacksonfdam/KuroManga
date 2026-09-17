@@ -54,7 +54,9 @@ export function AppShell() {
     // three queues it replaced: one page asks the question, so one number
     // answers it, and the nav cannot disagree with the screen it points at.
     // A single row is requested because only the count is read here.
-    api.discover(1, 0).then((feed) => setActionable(feed.actionable)).catch(() => undefined)
+    api.discover({ q: '', kinds: [], sort: 'rank', page: 1, per: 1 })
+      .then((feed) => setActionable(feed.actionable))
+      .catch(() => undefined)
     api.integrations().then(setIntegrations).catch(() => undefined)
   }
 

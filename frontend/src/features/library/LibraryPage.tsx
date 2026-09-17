@@ -1,4 +1,4 @@
-import { ConfirmDialog, EmptyState, ErrorState, Icon, NoticeBar, SegmentedControl, Skeleton } from '../../ui'
+import { Chip, ConfirmDialog, EmptyState, ErrorState, Icon, NoticeBar, Pager, SearchField, SegmentedControl, SelectField, Skeleton } from '../../ui'
 import { STATUS_LABEL } from '../../lib/format'
 import type { ListStatus } from '../../lib/format'
 import { api } from '../../lib/api'
@@ -8,7 +8,7 @@ import { BatchActionBar } from './BatchActionBar'
 import { SeriesGrid } from './SeriesGrid'
 import { SeriesTable } from './SeriesTable'
 import { StatusTabs } from './StatusTabs'
-import { useLibrary } from './useLibrary'
+import { DEFAULT_PER, PER_CHOICES, useLibrary, type LibrarySort } from './useLibrary'
 import { useSelection } from './useSelection'
 
 // Markup reference:
@@ -34,9 +34,19 @@ import { useSelection } from './useSelection'
 //    any length can be computed from it.
 //
 // An invented figure that fills a gap in a mockup is worse than the gap.
+const SORT_OPTIONS: { value: LibrarySort; label: string }[] = [
+  { value: 'title', label: 'Title A–Z' },
+  { value: '-title', label: 'Title Z–A' },
+  { value: '-updated', label: 'Recently updated' },
+  { value: '-progress', label: 'Furthest along' },
+]
+
 export function LibraryPage() {
-  const { series, all, loaded, error, status, setStatus, view, setView, query, setQuery, increment, reload, continueReading, pending, notice } =
-    useLibrary()
+  const {
+    series, matching, all, loaded, error, status, setStatus, view, setView, query, setQuery,
+    format, setFormat, formats, sort, setSort, page, setPage, pages, per, setPer,
+    increment, reload, continueReading, pending, notice,
+  } = useLibrary()
   const selection = useSelection()
   const [applying, setApplying] = useState(false)
   const [batchNotice, setBatchNotice] = useState<string | null>(null)
@@ -171,18 +181,41 @@ export function LibraryPage() {
             onChange={setView}
           />
         </div>
-        <div className="rounded-xl bg-surface-container/60 p-3.5 backdrop-blur-md">
-          <div className="relative w-full sm:w-72">
-            <span className="pointer-events-none absolute left-3 top-2.5 text-outline">
-              <Icon name="search" className="h-4 w-4" />
-            </span>
-            <input
-              name="library-filter"
-              aria-label="Filter by title"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Filter by title..."
-              className="w-full rounded-lg bg-surface-container-low py-2 pl-9 pr-4 text-body-sm text-on-surface placeholder:text-outline focus:bg-surface-container focus:outline-none"
+        <div className="flex flex-wrap items-center gap-space-md rounded-xl bg-surface-container/60 p-3.5 backdrop-blur-md">
+          <SearchField
+            name="library-filter"
+            label="Filter by title"
+            value={query}
+            onChange={setQuery}
+            placeholder="Filter by title..."
+          />
+          {/* Built from what the library holds rather than from a fixed list,
+              most of which would filter to nothing. Clicking the active chip
+              clears it: there is no "All" chip because none selected is all. */}
+          <div className="flex flex-wrap items-center gap-space-xs">
+            {formats.map((entry) => (
+              <Chip
+                key={entry.key}
+                active={format === entry.key}
+                count={entry.count}
+                onClick={() => setFormat(format === entry.key ? '' : entry.key)}
+              >
+                {entry.label}
+              </Chip>
+            ))}
+          </div>
+          <div className="ml-auto flex flex-wrap items-center gap-space-md">
+            <SelectField
+              label="Sort"
+              value={sort}
+              options={SORT_OPTIONS}
+              onChange={(next: LibrarySort) => setSort(next)}
+            />
+            <SelectField
+              label="Per page"
+              value={String(per)}
+              options={PER_CHOICES.map((size) => ({ value: String(size), label: String(size) }))}
+              onChange={(next) => setPer(Number(next) || DEFAULT_PER)}
             />
           </div>
         </div>
@@ -196,8 +229,12 @@ export function LibraryPage() {
             <h2 className="text-headline-md font-extrabold tracking-tight text-on-surface">
               {status === 'all' ? 'All series' : status === 'reading' ? 'Active reading' : `${STATUS_LABEL[status]} series`}
             </h2>
+            {/* Three numbers because a page is now a slice of a filter: what
+                is on screen, what the filters kept, and what the library
+                holds. Two of them would leave the reader unable to tell a
+                narrow filter from a short page. */}
             <span className="font-mono text-label-md text-outline">
-              Showing {series.length} of {all.length} series
+              Showing {series.length} of {matching} matching · {all.length} in the library
             </span>
           </div>
           {view === 'grid' && (
@@ -227,6 +264,7 @@ export function LibraryPage() {
             onToggleSelect={selection.toggle}
           />
         )}
+        {matching > 0 && <Pager page={page} pages={pages} total={matching} per={per} onPage={setPage} />}
       </section>
 
       {confirmingRemove && (

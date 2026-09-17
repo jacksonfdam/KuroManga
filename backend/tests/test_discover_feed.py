@@ -5,7 +5,18 @@ wrong and the handful that are one click from done are buried, and the screen is
 useless on its first day.
 """
 
-from app.discovery.feed import DiscoverItem, Need, rank_of, sort_key
+from datetime import UTC, datetime
+
+from app.discovery.feed import (
+    DiscoverItem,
+    Kind,
+    Need,
+    Sort,
+    matching,
+    ordered,
+    rank_of,
+    sort_key,
+)
 
 
 def item(**kw) -> DiscoverItem:
@@ -54,3 +65,67 @@ def test_a_finished_anime_outranks_an_unfinished_one_among_searches():
         item(id=1, needs=[Need.MATCH], finished=True),
     ]
     assert [row.id for row in sorted(rows, key=sort_key)] == [1, 2]
+
+
+def at(day: int) -> datetime:
+    return datetime(2026, 1, day, tzinfo=UTC)
+
+
+def test_a_search_matches_part_of_the_title_whatever_the_case():
+    rows = [item(id=1, title="Vinland Saga"), item(id=2, title="Berserk")]
+    assert [row.id for row in matching(rows, q="SAGA")] == [1]
+
+
+def test_no_search_keeps_everything():
+    rows = [item(id=1, title="Vinland Saga"), item(id=2, title="Berserk")]
+    assert len(matching(rows, q=None)) == 2
+
+
+def test_a_kind_filter_keeps_only_that_kind():
+    rows = [item(id=1, kind="suggestion"), item(id=2, kind="review"), item(id=3, kind="unmatched")]
+    assert [row.id for row in matching(rows, kinds=[Kind.REVIEW])] == [2]
+
+
+def test_two_kinds_keep_both():
+    rows = [item(id=1, kind="suggestion"), item(id=2, kind="review"), item(id=3, kind="unmatched")]
+    kept = matching(rows, kinds=[Kind.SUGGESTION, Kind.UNMATCHED])
+    assert [row.id for row in kept] == [1, 3]
+
+
+def test_an_empty_kind_filter_keeps_everything():
+    """No chip selected is every chip selected, not nothing."""
+    rows = [item(id=1, kind="suggestion"), item(id=2, kind="review")]
+    assert len(matching(rows, kinds=[])) == 2
+
+
+def test_title_sort_is_alphabetical_whatever_the_rank():
+    rows = [item(id=1, title="Berserk", confident=True), item(id=2, title="Akira")]
+    assert [row.id for row in ordered(rows, Sort.TITLE)] == [2, 1]
+
+
+def test_title_sort_reversed_is_the_other_way_round():
+    rows = [item(id=1, title="Berserk"), item(id=2, title="Akira")]
+    assert [row.id for row in ordered(rows, Sort.TITLE_DESC)] == [1, 2]
+
+
+def test_added_sort_is_oldest_first():
+    rows = [item(id=1, added_at=at(9)), item(id=2, added_at=at(2))]
+    assert [row.id for row in ordered(rows, Sort.ADDED)] == [2, 1]
+
+
+def test_added_sort_reversed_is_newest_first():
+    rows = [item(id=1, added_at=at(9)), item(id=2, added_at=at(2))]
+    assert [row.id for row in ordered(rows, Sort.ADDED_DESC)] == [1, 2]
+
+
+def test_an_item_with_no_date_sorts_last_whichever_way_the_dates_run():
+    """An unmatched anime has no date to sort by, and inventing one would put
+    a thousand rows in a position that means nothing."""
+    rows = [item(id=1, added_at=None), item(id=2, added_at=at(2)), item(id=3, added_at=at(9))]
+    assert [row.id for row in ordered(rows, Sort.ADDED)] == [2, 3, 1]
+    assert [row.id for row in ordered(rows, Sort.ADDED_DESC)] == [3, 2, 1]
+
+
+def test_rank_is_the_default_order():
+    rows = [item(id=2, title="Akira"), item(id=1, title="Berserk", confident=True)]
+    assert [row.id for row in ordered(rows, Sort.RANK)] == [1, 2]
