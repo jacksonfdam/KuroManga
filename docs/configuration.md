@@ -197,13 +197,51 @@ it at your machine's address, and sign in with your Komga account.
 Progress syncs both ways: your reader tells Komga, Komga tells KuroManga, and KuroManga tells
 your lists.
 
-## Running it somewhere else
+## The stack has no authentication of its own
 
-The default setup assumes a machine on your own network with no authentication in front of it.
+Read this before you forward a port, and before you decide the default is fine.
 
-To reach it from outside, put it behind a reverse proxy with TLS and authentication, or use a
-private network such as Tailscale. If you do, set `PUBLIC_BASE_URL` to the address you actually
-use and update the redirect URLs you registered with each list service to match.
+KuroManga ships no sign-in. There is no password, no API key and no session — not on the interface
+and not on the API behind it. `docker compose up` publishes `:8080` on **every** interface of the
+host, and Caddy proxies `/api/*` straight through. Anyone who can reach that port has the same
+control over the pipeline that you do, without being asked for anything.
+
+What that is worth to someone who finds it:
+
+| | |
+|---|---|
+| `POST /api/series/{id}/status`, `/progress` | Writes to your **real** MyAnimeList, AniList and MangaBaka accounts |
+| `DELETE /api/series` | Removes series from the library |
+| `POST /api/series/{id}/download` | Queues downloads |
+| `DELETE /api/auth/{provider}` | Disconnects a list and discards its stored token |
+| `PUT /api/settings` | Rewrites the schedules, concurrency and service addresses |
+| `GET /api/settings` | Returns every stored value, including `mangafire_waf_pass` |
+
+The list writes are what make this more than a homelab annoyance: this is the one component holding
+write credentials for three external accounts, and it will spend them for whoever asks.
+
+**What it is not.** A random website cannot drive most of this from your browser. The JSON bodies
+force a CORS preflight and no CORS middleware is configured, so those requests never leave the page
+that tried them. The realistic case is someone already on your network, not a page you happened to
+open.
+
+Komga on `:25600` is the exception in the stack — it has its own login and enforces it.
+
+### What to do about it
+
+Pick the one that matches where you run it:
+
+- **A machine only you use.** The default is defensible. Know that "on my network" is the whole of
+  the protection, and that it includes anything else on that network.
+- **A shared network.** Publish the interface on loopback only — change the `web` service's port to
+  `"127.0.0.1:8080:80"` — and reach it through SSH forwarding or a private network such as
+  Tailscale.
+- **Reachable from outside.** Put it behind a reverse proxy that terminates TLS **and demands a
+  credential**, and set `PUBLIC_BASE_URL` to the address you actually use, updating the redirect
+  URLs registered with each list service to match. TLS alone changes nothing here: the API does not
+  care who is asking, only that they asked over HTTPS.
+
+Do not forward `:8080` from a router. There is nothing behind it.
 
 ## Where things live
 
