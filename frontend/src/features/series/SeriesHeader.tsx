@@ -1,5 +1,6 @@
 import { Badge, Icon, StatusPill } from '../../ui'
 import type { Series, SeriesMetadata } from '../../lib/api'
+import { externalBase } from '../../lib/externalUrl'
 import { formatSeriesFormat } from '../../lib/format'
 
 const PUBLICATION_LABEL: Record<string, string> = {
@@ -28,6 +29,8 @@ export function SeriesHeader({
   /** Where Komga is served to a browser. Empty means no link is offered. */
   komgaBaseUrl: string
 }) {
+  // See ChapterTable: the check belongs where the href is built.
+  const komgaHref = externalBase(komgaBaseUrl)
   const format = formatSeriesFormat(series.format)
   const years = runYears(metadata.start_year, metadata.end_year)
   const credits = metadata.credits.slice(0, 3)
@@ -60,9 +63,9 @@ export function SeriesHeader({
         {/* The reader is Komga's, not this application's. Offered only once a
             scan has matched the series there and someone has said what address
             Komga answers on. */}
-        {komgaBaseUrl && series.komga_series_id && (
+        {komgaHref && series.komga_series_id && (
           <a
-            href={`${komgaBaseUrl}/series/${series.komga_series_id}`}
+            href={`${komgaHref}/series/${series.komga_series_id}`}
             target="_blank"
             rel="noreferrer"
             className="inline-flex items-center gap-1.5 rounded-full bg-primary/[0.12] px-space-sm py-0.5 font-mono text-label-sm text-primary transition-colors hover:bg-primary/20"

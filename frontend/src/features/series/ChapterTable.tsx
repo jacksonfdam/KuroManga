@@ -2,6 +2,7 @@ import { useState } from 'react'
 
 import { Button, Icon } from '../../ui'
 import type { SeriesChapter } from '../../lib/api'
+import { externalBase } from '../../lib/externalUrl'
 import { formatChapter } from '../../lib/format'
 
 /**
@@ -71,6 +72,9 @@ export function ChapterTable({
   /** Where Komga is served to a browser. Empty means no reader links at all. */
   komgaBaseUrl: string
 }) {
+  // Checked here rather than trusted from the prop: this is where the href is
+  // built, so this is where a scheme the browser would execute has to stop.
+  const komgaHref = externalBase(komgaBaseUrl)
   const [showAll, setShowAll] = useState(false)
 
   if (chapters.length === 0) {
@@ -129,9 +133,9 @@ export function ChapterTable({
                 <ChapterStateBadge state={chapter.state} />
               </td>
               <td className="w-0 whitespace-nowrap px-space-md py-space-sm text-right">
-                {komgaBaseUrl && chapter.komga_book_id ? (
+                {komgaHref && chapter.komga_book_id ? (
                   <a
-                    href={`${komgaBaseUrl}/book/${chapter.komga_book_id}/read?page=1&incognito=false`}
+                    href={`${komgaHref}/book/${chapter.komga_book_id}/read?page=1&incognito=false`}
                     target="_blank"
                     rel="noreferrer"
                     className="inline-flex items-center gap-1.5 rounded-lg px-space-sm py-1 font-mono text-label-sm text-primary transition-colors hover:bg-primary/[0.12]"
