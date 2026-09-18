@@ -131,10 +131,25 @@ async def _fetch_one(
             attempt += 1
             continue
 
-        # A 4xx lands here on the first try and raises without retrying: a
-        # 404 is the source saying no, and a 403 means the referer or the
-        # rate limit is wrong, which retrying only makes worse (decision 5).
-        # A 5xx that reached here has already exhausted its retries above.
+        # 404 and 410 retry too, which decision 5 (#93) said they should not.
+        # That decision read a 404 as the source saying no, and for a 403 it
+        # still does. It does not hold for a CDN node: a MangaDex at-home host
+        # answered 404 to about one request in twenty for files it was serving,
+        # and served the same URL on the next request (#240). Re-listing cannot
+        # route around that - at-home hands back the same host, and the same
+        # filename - so a page that is really missing has to be told apart from
+        # a node dropping a request, and the only thing that tells them apart
+        # is asking again.
+        if response.status_code in (404, 410) and attempt < _MAX_ATTEMPTS:
+            await asyncio.sleep(_RETRY_BACKOFF_SECONDS * attempt)
+            attempt += 1
+            continue
+
+        # Every other 4xx lands here on the first try and raises without
+        # retrying: a 403 means the referer or the rate limit is wrong, which
+        # retrying only makes worse. A 5xx, 404 or 410 that reached here has
+        # already exhausted its retries above, so a page that is genuinely gone
+        # still reaches fetch_chapter and still gets its one re-list.
         response.raise_for_status()
 
         data = _verify_image(page, response)
