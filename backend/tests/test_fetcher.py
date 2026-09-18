@@ -148,8 +148,58 @@ async def test_a_503_that_never_recovers_fails_the_fetch_without_hanging():
         stub.close()
 
 
-async def test_a_404_does_not_retry():
-    """Decision 5 (#93): a 404 is the source saying no, not a failure to ask."""
+async def test_a_403_does_not_retry():
+    """Decision 5 (#93): a 403 is the source saying no - the referer or the rate
+    limit is wrong, and asking again only makes it worse."""
+    attempts = {"count": 0}
+
+    def router(path, headers):
+        attempts["count"] += 1
+        return 403, "text/plain", b"forbidden"
+
+    stub = Stub(router)
+    try:
+        client = _client(stub, key="forbidden")
+        pages = [PageRef(url="/page-1.jpg")]
+
+        with pytest.raises(httpx.HTTPStatusError):
+            await fetch_pages(client, pages)
+
+        assert attempts["count"] == 1
+    finally:
+        stub.close()
+
+
+async def test_a_404_that_clears_on_the_next_request_does_not_fail_the_page():
+    """Measured at about one request in twenty against a MangaDex node (#240):
+    it answers 404 for a file it is serving, and serves the same URL on the next
+    request. The page list is not stale - re-listing returns the identical
+    filename - so the only thing that helps is asking for the page again.
+    """
+    attempts = {"count": 0}
+
+    def router(path, headers):
+        attempts["count"] += 1
+        if attempts["count"] == 1:
+            return 404, "text/plain", b"not found"
+        return 200, "image/jpeg", JPEG
+
+    stub = Stub(router)
+    try:
+        client = _client(stub, key="flaky-404")
+        pages = [PageRef(url="/page-1.jpg")]
+
+        result = await fetch_pages(client, pages)
+
+        assert result == [JPEG]
+        assert attempts["count"] == 2
+    finally:
+        stub.close()
+
+
+async def test_a_404_that_never_clears_still_fails_the_fetch():
+    """A page that is really gone has to reach the caller as it did before, so
+    that fetch_chapter still gets its one chance to re-list."""
     attempts = {"count": 0}
 
     def router(path, headers):
@@ -158,13 +208,13 @@ async def test_a_404_does_not_retry():
 
     stub = Stub(router)
     try:
-        client = _client(stub, key="not-found")
+        client = _client(stub, key="persistent-404")
         pages = [PageRef(url="/page-1.jpg")]
 
         with pytest.raises(httpx.HTTPStatusError):
             await fetch_pages(client, pages)
 
-        assert attempts["count"] == 1
+        assert attempts["count"] == 3
     finally:
         stub.close()
 
