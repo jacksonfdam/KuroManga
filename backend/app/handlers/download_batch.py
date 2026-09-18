@@ -13,13 +13,14 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
+import httpx
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import settings_store
 from app.config import get_settings
 from app.downloader.cbz import write_cbz
-from app.downloader.fetcher import fetch_chapter
+from app.downloader.fetcher import PageFetchError, fetch_chapter
 from app.downloader.limits import source_semaphore
 from app.downloader.paths import chapter_path
 from app.enums import JobType
@@ -113,6 +114,8 @@ async def handle(ctx: JobContext) -> None:
     total = len(wanted)
     placed = 0
     unavailable: list[Decimal] = []
+    failed: list[Decimal] = []
+    first_failure: Exception | None = None
 
     async with semaphore:
         for index, number in enumerate(sorted(wanted), start=1):
@@ -166,6 +169,28 @@ async def handle(ctx: JobContext) -> None:
                 await ctx.log(f"chapter {number} unavailable: {exc}", level="warning")
                 await ctx.session.commit()
                 continue
+            except (httpx.HTTPStatusError, PageFetchError) as exc:
+                # The same decision, for a chapter that cannot be fetched rather
+                # than one the source refuses. That case used to leave the loop
+                # and fail the job, so every chapter behind the broken one went
+                # unattempted on every attempt: series 54 lost sixteen chapters
+                # for twelve hours to one page that kept 404ing (#242).
+                #
+                # Back to `known`, not `skipped`. `skipped` is the source saying
+                # no; this is worth asking for again, and `known` is the state a
+                # later batch picks up. Narrow on purpose - a bug in our own code
+                # still fails the job rather than being recorded as a broken
+                # chapter and forgotten.
+                await ctx.session.execute(
+                    text("update chapter set state = 'known' where id = :id"),
+                    {"id": row["id"]},
+                )
+                failed.append(number)
+                if first_failure is None:
+                    first_failure = exc
+                await ctx.log(f"chapter {number} could not be fetched: {exc}", level="warning")
+                await ctx.session.commit()
+                continue
 
             info = await build_comicinfo(ctx.session, row)
             destination = chapter_path(library_root, slug, number, row["title"])
@@ -190,9 +215,18 @@ async def handle(ctx: JobContext) -> None:
     if unavailable and len(unavailable) == total:
         raise PermanentError(f"all {total} chapters in this batch are unavailable at the source")
 
+    # A batch that placed nothing has to reach the queue as a failure so the
+    # retry ladder still applies to it. One that saved even a single chapter is
+    # done: the chapters it could not fetch are back to `known`, and the next
+    # batch picks them up rather than this job repeating the ones that worked.
+    if placed == 0 and first_failure is not None:
+        raise first_failure
+
     summary = f"saved {placed} chapters"
     if unavailable:
         summary += f", {len(unavailable)} unavailable"
+    if failed:
+        summary += f", {len(failed)} could not be fetched"
     await ctx.log(summary, pct=100)
 
     await ctx.enqueue(
