@@ -9,6 +9,7 @@ import zipfile
 from collections.abc import Callable
 from decimal import Decimal
 
+import httpx
 import pytest
 from sqlalchemy import text
 
@@ -263,6 +264,82 @@ async def test_one_unavailable_chapter_skips_only_that_chapter():
         assert states[chapter_ids[1]] == "skipped"
         assert states[chapter_ids[2]] == "downloaded"
         assert "chapter 2" in (await _log(job_id))
+    finally:
+        stub.close()
+
+
+async def test_a_chapter_whose_pages_will_not_fetch_does_not_stop_the_rest():
+    """A chapter that is refused already skips only itself (#95). A chapter whose
+    pages fail to fetch did not: the error left the loop and the chapters after
+    it were never attempted. It cost series 54 sixteen chapters for twelve hours
+    on one page that kept 404ing (#242).
+
+    It goes back to `known`, not `skipped`: the source did not say no, so this is
+    worth asking for again, and `known` is what a later batch picks up.
+    """
+    broken = "/broken.jpg"
+
+    def router(path):
+        if path == broken:
+            return 404, "text/plain", b"not found"
+        return 200, "image/jpeg", JPEG
+
+    stub = Stub(router)
+    try:
+        urls = [f"{stub.base_url}/manga/1/chapter/{n}" for n in (1, 2, 3)]
+        pages = {url: [PageRef(url="/p1.jpg")] for url in urls}
+        pages[urls[1]] = [PageRef(url=broken)]
+        source = FakeSource(stub.key, pages=pages)
+        install_registry({stub.key: RegisteredSource(source=source, base_url=stub.base_url)})
+
+        async with get_sessionmaker()() as session:
+            series_id = await _series(session, stub.key)
+            await _catalogue(session, stub.key, stub.base_url)
+            chapter_ids = [
+                await _chapter(session, series_id, str(n), url)
+                for n, url in zip((1, 2, 3), urls, strict=True)
+            ]
+            ctx = await _context(session, chapter_ids)
+
+            # Must not raise: the third chapter is behind the broken one.
+            await download_batch.handle(ctx)
+            await session.commit()
+            job_id = ctx.job.id
+
+        states = await _states(chapter_ids)
+        assert states[chapter_ids[0]] == "downloaded"
+        assert states[chapter_ids[1]] == "known"
+        assert states[chapter_ids[2]] == "downloaded"
+        assert "chapter 2" in (await _log(job_id))
+    finally:
+        stub.close()
+
+
+async def test_a_batch_where_nothing_fetches_still_fails():
+    """A batch that placed nothing has to reach the queue as a failure, so the
+    retry ladder still applies to it. Only a batch that saved something counts
+    as done."""
+    stub = Stub(lambda path: (404, "text/plain", b"not found"))
+    try:
+        urls = [f"{stub.base_url}/manga/1/chapter/{n}" for n in (1, 2)]
+        source = FakeSource(stub.key, pages={url: [PageRef(url="/p1.jpg")] for url in urls})
+        install_registry({stub.key: RegisteredSource(source=source, base_url=stub.base_url)})
+
+        async with get_sessionmaker()() as session:
+            series_id = await _series(session, stub.key)
+            await _catalogue(session, stub.key, stub.base_url)
+            chapter_ids = [
+                await _chapter(session, series_id, str(n), url)
+                for n, url in zip((1, 2), urls, strict=True)
+            ]
+            ctx = await _context(session, chapter_ids)
+
+            with pytest.raises(httpx.HTTPStatusError):
+                await download_batch.handle(ctx)
+            await session.commit()
+
+        states = await _states(chapter_ids)
+        assert set(states.values()) == {"known"}
     finally:
         stub.close()
 
