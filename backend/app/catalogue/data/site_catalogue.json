@@ -24,7 +24,7 @@
     "nsfw": false,
     "overrides": {},
     "rate_limit": null,
-    "version": "8",
+    "version": "0",
     "hand_ported": true
   },
   {
@@ -1114,25 +1114,16 @@
     "key": "en.evascans",
     "name": "Eva Scans",
     "template": "mangathemesia",
-    "base_url": "https://evascans.org",
+    "base_url": "https://evascans.net",
     "lang": "en",
     "nsfw": false,
     "overrides": {
       "mangaUrlDirectory": "/series",
-      "datePattern": "yyyy/MM/dd",
-      "pageSelector": "div#readerArea img",
-      "seriesDetailsSelector": ".series-premium-header",
-      "seriesTitleSelector": ".series-title-main",
-      "seriesThumbnailSelector": ".series-poster-premium img, .poster-box img",
-      "seriesGenreSelector": ".series-genres-wrap .gen-tag",
-      "seriesTypeSelector": ".stat-v-box:has(.stat-v-label:containsOwn(Type)) .stat-v-value",
-      "seriesStatusSelector": ".stat-v-box:has(.stat-v-label:containsOwn(Status)) .stat-v-value",
-      "seriesAltNameSelector": ".series-title-alt",
-      "seriesDescriptionSelector": ".synopsis-full",
-      "_reason": "override fun searchMangaSelector present"
+      "seriesAltNameSelector": ".desktop-titles",
+      "_reason": "override fun chapterFromElement present"
     },
     "rate_limit": null,
-    "version": "3",
+    "version": "4",
     "hand_ported": false
   },
   {
@@ -1765,7 +1756,7 @@
   {
     "key": "en.mangadistrict",
     "name": "Manga District",
-    "template": "madaralegacy",
+    "template": "madara",
     "base_url": "https://mangadistrict.com",
     "lang": "en",
     "nsfw": true,
@@ -4706,7 +4697,7 @@
     "key": "id.komikindo",
     "name": "Komikindo",
     "template": "mangathemesia",
-    "base_url": "https://komikindo.fit",
+    "base_url": "https://komikindo.cam",
     "lang": "id",
     "nsfw": true,
     "overrides": {
@@ -4717,7 +4708,7 @@
       "permits": 3,
       "period_seconds": 1.0
     },
-    "version": "7",
+    "version": "8",
     "hand_ported": false
   },
   {
@@ -5265,12 +5256,10 @@
     "base_url": "https://asacomi.jp",
     "lang": "ja",
     "nsfw": false,
-    "overrides": {
-      "_reason": "override fun latestUpdatesRequest present"
-    },
+    "overrides": {},
     "rate_limit": null,
     "version": "0",
-    "hand_ported": false
+    "hand_ported": true
   },
   {
     "key": "ja.bibibicomic",
@@ -5279,12 +5268,10 @@
     "base_url": "https://bibibi-comic.com",
     "lang": "ja",
     "nsfw": false,
-    "overrides": {
-      "_reason": "override fun latestUpdatesRequest present"
-    },
+    "overrides": {},
     "rate_limit": null,
     "version": "0",
-    "hand_ported": false
+    "hand_ported": true
   },
   {
     "key": "ja.bigcomics",
@@ -5295,7 +5282,7 @@
     "nsfw": true,
     "overrides": {},
     "rate_limit": null,
-    "version": "1",
+    "version": "0",
     "hand_ported": true
   },
   {
@@ -5305,26 +5292,22 @@
     "base_url": "https://studio.booklista.co.jp",
     "lang": "ja",
     "nsfw": false,
-    "overrides": {
-      "_reason": "override fun latestUpdatesRequest present"
-    },
+    "overrides": {},
     "rate_limit": null,
     "version": "0",
-    "hand_ported": false
+    "hand_ported": true
   },
   {
-    "key": "ja.comicmedu",
-    "name": "G-Comi",
+    "key": "ja.championcross",
+    "name": "Champion Cross",
     "template": "comiciviewer",
-    "base_url": "https://g-comi.jp",
+    "base_url": "https://championcross.jp",
     "lang": "ja",
-    "nsfw": true,
-    "overrides": {
-      "_reason": "override fun latestUpdatesRequest present"
-    },
+    "nsfw": false,
+    "overrides": {},
     "rate_limit": null,
-    "version": "1",
-    "hand_ported": false
+    "version": "0",
+    "hand_ported": true
   },
   {
     "key": "ja.comicpash",
@@ -5335,7 +5318,7 @@
     "nsfw": false,
     "overrides": {},
     "rate_limit": null,
-    "version": "1",
+    "version": "0",
     "hand_ported": true
   },
   {
@@ -5363,12 +5346,36 @@
     "hand_ported": true
   },
   {
+    "key": "ja.comicryu",
+    "name": "Comic Ryu",
+    "template": "comiciviewer",
+    "base_url": "https://comic-ryu.jp",
+    "lang": "ja",
+    "nsfw": true,
+    "overrides": {},
+    "rate_limit": null,
+    "version": "2",
+    "hand_ported": true
+  },
+  {
     "key": "ja.comirela",
     "name": "Comirela",
     "template": "comiciviewer",
     "base_url": "https://comirela.com",
     "lang": "ja",
     "nsfw": false,
+    "overrides": {},
+    "rate_limit": null,
+    "version": "0",
+    "hand_ported": true
+  },
+  {
+    "key": "ja.gcomi",
+    "name": "G-Comi",
+    "template": "comiciviewer",
+    "base_url": "https://g-comi.jp",
+    "lang": "ja",
+    "nsfw": true,
     "overrides": {},
     "rate_limit": null,
     "version": "0",
@@ -5393,12 +5400,10 @@
     "base_url": "https://hayacomic.jp",
     "lang": "ja",
     "nsfw": false,
-    "overrides": {
-      "_reason": "override fun latestUpdatesRequest present"
-    },
+    "overrides": {},
     "rate_limit": null,
     "version": "0",
-    "hand_ported": false
+    "hand_ported": true
   },
   {
     "key": "ja.herosweb",
@@ -5419,13 +5424,10 @@
     "base_url": "https://comic.j-nbooks.jp",
     "lang": "ja",
     "nsfw": false,
-    "overrides": {
-      "supportsLatest": false,
-      "_reason": "override fun popularMangaRequest present"
-    },
+    "overrides": {},
     "rate_limit": null,
     "version": "0",
-    "hand_ported": false
+    "hand_ported": true
   },
   {
     "key": "ja.kimicomi",
@@ -5436,7 +5438,7 @@
     "nsfw": false,
     "overrides": {},
     "rate_limit": null,
-    "version": "1",
+    "version": "0",
     "hand_ported": true
   },
   {
@@ -5460,13 +5462,10 @@
     "base_url": "https://kansai.mag-garden.co.jp",
     "lang": "ja",
     "nsfw": false,
-    "overrides": {
-      "supportsLatest": false,
-      "_reason": "override fun popularMangaRequest present"
-    },
+    "overrides": {},
     "rate_limit": null,
-    "version": "1",
-    "hand_ported": false
+    "version": "0",
+    "hand_ported": true
   },
   {
     "key": "ja.mangabang",
@@ -5475,13 +5474,10 @@
     "base_url": "https://comics.manga-bang.com",
     "lang": "ja",
     "nsfw": false,
-    "overrides": {
-      "rankingFromNextJs": false,
-      "_reason": "override fun latestUpdatesRequest present"
-    },
+    "overrides": {},
     "rate_limit": null,
-    "version": "1",
-    "hand_ported": false
+    "version": "0",
+    "hand_ported": true
   },
   {
     "key": "ja.mangabu",
@@ -5496,30 +5492,16 @@
     "hand_ported": true
   },
   {
-    "key": "ja.mangacross",
-    "name": "Champion Cross",
-    "template": "comiciviewer",
-    "base_url": "https://championcross.jp",
-    "lang": "ja",
-    "nsfw": false,
-    "overrides": {},
-    "rate_limit": null,
-    "version": "5",
-    "hand_ported": true
-  },
-  {
     "key": "ja.mangalt",
     "name": "Mangalt",
     "template": "comiciviewer",
     "base_url": "https://mangalt.jp",
     "lang": "ja",
     "nsfw": false,
-    "overrides": {
-      "_reason": "override fun latestUpdatesRequest present"
-    },
+    "overrides": {},
     "rate_limit": null,
     "version": "0",
-    "hand_ported": false
+    "hand_ported": true
   },
   {
     "key": "ja.mangaspa",
@@ -5528,12 +5510,10 @@
     "base_url": "https://mangaspa.nikkan-spa.jp",
     "lang": "ja",
     "nsfw": true,
-    "overrides": {
-      "_reason": "override fun latestUpdatesRequest present"
-    },
+    "overrides": {},
     "rate_limit": null,
     "version": "0",
-    "hand_ported": false
+    "hand_ported": true
   },
   {
     "key": "ja.mangazegra",
@@ -5542,12 +5522,10 @@
     "base_url": "https://manga-zegra.com",
     "lang": "ja",
     "nsfw": false,
-    "overrides": {
-      "_reason": "override fun latestUpdatesRequest present"
-    },
+    "overrides": {},
     "rate_limit": null,
     "version": "0",
-    "hand_ported": false
+    "hand_ported": true
   },
   {
     "key": "ja.namicomic",
@@ -5568,12 +5546,10 @@
     "base_url": "https://piacomic.jp",
     "lang": "ja",
     "nsfw": true,
-    "overrides": {
-      "_reason": "override fun latestUpdatesRequest present"
-    },
+    "overrides": {},
     "rate_limit": null,
     "version": "0",
-    "hand_ported": false
+    "hand_ported": true
   },
   {
     "key": "ja.rawbaka",
@@ -5597,12 +5573,10 @@
     "base_url": "https://rimacomiplus.jp",
     "lang": "ja",
     "nsfw": false,
-    "overrides": {
-      "_reason": "override fun latestUpdatesRequest present"
-    },
+    "overrides": {},
     "rate_limit": null,
     "version": "0",
-    "hand_ported": false
+    "hand_ported": true
   },
   {
     "key": "ja.takecomic",
@@ -5611,12 +5585,10 @@
     "base_url": "https://takecomic.jp",
     "lang": "ja",
     "nsfw": false,
-    "overrides": {
-      "_reason": "override fun getFilterOptions present"
-    },
+    "overrides": {},
     "rate_limit": null,
-    "version": "1",
-    "hand_ported": false
+    "version": "0",
+    "hand_ported": true
   },
   {
     "key": "ja.younganimal",
@@ -5626,7 +5598,7 @@
     "lang": "ja",
     "nsfw": true,
     "overrides": {
-      "_reason": "override fun getFilterOptions present"
+      "_reason": "override val extraFilterOptions is not a literal"
     },
     "rate_limit": null,
     "version": "0",
